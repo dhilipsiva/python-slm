@@ -246,7 +246,7 @@ P1B directly and P3 onward. Suggested commit:
 
 ## Phase 1B — Verify the RTX/CUDA Environment
 
-- [ ] P1B complete
+- [x] P1B complete
 
 Dependencies: P1A.
 

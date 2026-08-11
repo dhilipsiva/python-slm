@@ -69,10 +69,11 @@ validated or explicitly marked as a qualification gate below.
 | Deduplication | Define similarity over sets of lexical-token 5-grams after a versioned dedup-only normalization. Use 256-component seeded MinHash/LSH for candidate retrieval and exact shingle Jaccard for the `>0.85` decision. LSH recall must be measured; never claim exhaustive removal without evidence. |
 | Throughput | The arithmetic floor is 69,444.44 valid predicted targets/s. Entry to the full run requires at least 75K synchronized steady-state targets/s for 30–60 minutes, preferably 80K, plus a whole-run projection below 28,800 seconds including every SLA-clock overhead. Projection alone never passes the SLA. |
 
-Verified facts currently cover model arithmetic, the target GPU's compute capability, and
-the CUDA compiler floor. Backend selection, memory-efficient backward, transfer strategy,
-authorized corpus access/yield, loss stability, VRAM, sustained throughput, and eight-hour
-completion remain unqualified gates.
+Verified facts cover model arithmetic, the target GPU's compute capability, the CUDA
+compiler floor, and the Phase 1 Windows/MSVC/CUDA environment boundary recorded below.
+Backend selection, model/kernel numerical parity, memory-efficient backward, transfer
+strategy, authorized corpus access/yield, loss stability, model/trainer VRAM, sustained
+throughput, and eight-hour completion remain unqualified gates.
 
 ## System Architecture
 
@@ -321,10 +322,31 @@ separately records review of that commit.
   production gate.
 - `cargo run --locked -- plan --gqa-135m`: confirmed 135,285,504 parameters.
 
-Earlier unsealed observations found that the locked CUDA feature graph compile-checked and
-that the host exposed an RTX 5090 and CUDA toolkit. They are research context only: the
-authoritative P0 capture did not qualify a device launch, native MSVC/CUDA link, backend,
-VRAM use, or throughput.
+### Phase 1 Environment Qualification
+
+Owner review of implementation commit
+`d0b7307611897cde203490634b33abdb8e74c9e9` marks P1B complete. The approved P1B
+acceptance binds the P1A regression run selected at qualification time. These are the
+selected receipt identities:
+
+| Phase | Selected run | Pointer SHA-256 | Acceptance SHA-256 | Evidence SHA-256 | Seal SHA-256 | Environment SHA-256 |
+|---|---|---|---|---|---|---|
+| P1A | `20260811T174150772Z-17e8222a9d394ce08c11f61f` | `056978d93a11ff1ca92456de9a588c79d5ae5fd2db3f5d3753a9b85b12680753` | `8c47159f9b06224e4092a8a97568fc29bd8d3d28ac09a17387941fb34852e685` | `2d8f42c047ab1376c26f6313b8877d15b1554a56efea314380beae8add409b08` | `9fb3ee856159dd7ef2e35691479cc27f0020424767201c08a6278026fd27f83b` | `a3a9cf14e01f2c2f9687a5569ab67e126c8bd5664378578e47261a80db1dfa4e` |
+| P1B | `20260811T174734119Z-7e7135b7cb794eb791c0e607` | `3996de1da05b842688526684f870f7af4c353ad16f408e11957c9fc57bca7cd4` | `87254f78309854d9562fc0c1d3ee8e4759049fdf6429e49488e45b97982b5334` | `de3c9fcbb67b0338f1415045cbc82e671630db47f064092f01131dd55758d810` | `ce7ad7ff4f9bedc97e8f5443c42b7520eb7c7a34852a7e941388273c7a2dbcd6` | `68232385423942b525f142c54ffc5b32473925896f05a05f9e8a6bb508e2da1d` |
+
+P1B qualified CUDA Toolkit 13.1.0 (`nvcc` 13.1.80), driver 610.88,
+Visual Studio 2022 17.14.23 with MSVC 19.44.35222.0, Windows SDK 10.0.26100.0,
+and one `NVIDIA GeForce RTX 5090` at compute capability 12.0. Inspection found native
+`sm_120` SASS and `compute_120` PTX; both the mixed image and PTX-only fallback launched,
+synchronized, and returned the fixed sentinel through the required CUDA, cuBLAS, and
+cuBLASLt boundary. This qualifies environment compatibility only. It does not select a
+backend or establish model/kernel correctness, parity, training VRAM, throughput, or the
+eight-hour objective.
+
+Earlier P0 observations that the CUDA graph compile-checked and the host exposed an RTX
+5090 remain historical reference context. P0 itself did not qualify a device launch or
+native MSVC/CUDA link; the selected P1B receipt above supplies that later environment
+evidence without changing P0's scope.
 
 Primary-source checks: [NVIDIA GPU compute capabilities](https://developer.nvidia.com/cuda/gpus),
 [CUDA 12.8 SM120 release notes](https://docs.nvidia.com/cuda/archive/12.8.0/cuda-toolkit-release-notes/index.html#new-features),
