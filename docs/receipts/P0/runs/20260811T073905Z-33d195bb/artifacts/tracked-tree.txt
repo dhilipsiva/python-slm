@@ -1,0 +1,45 @@
+100644 blob 25eee5f9144cce837626bf74394463ae6ce0e7d0	.gitignore
+100644 blob 166ced62d889907ace8640433a27a990f353b073	AGENTS.md
+100644 blob 6e395f8db1c620cef02211e2789bcc5bafe64777	Cargo.lock
+100644 blob ec61ae8dffa7f3aaa6d5ba21d26ddf6781a37165	Cargo.toml
+100644 blob fb32d3e09859232d7edc02fffbfa17294ae0f272	README.md
+100644 blob 34cf5b39ad98fd505afea5a1055881fa8dfcc43c	RESEARCH.md
+100644 blob b8df978cfc50596bef5c1f2ddb0a8b8268eb3344	TODO.md
+100644 blob c2b065b815d74cb0966b25b03d75397e7454e0c9	VALIDATION.md
+100644 blob 7d22da6e390e21176ede996f966381712b8ecda0	build.rs
+100644 blob 6c3facc64f6077a5247c2b88d6af09a032e11a6c	curate.example.json
+100644 blob aaa8417010301fe3f48336565af5d5a36cc0c830	docs/ARCHITECTURE.md
+100644 blob 1a18a13ce9a7403372c7c2d8c19cd753fb40e833	docs/research/# Pure-Rust LLM Pre-Training Pipeli.txt
+100644 blob ee4a6e3d64c1493a27643146c43e85a1e84daa57	docs/research/Conclusion A pure-Rust pipeline is.txt
+100644 blob 2687c105dfad78742f69134528f12e839cf8405b	docs/research/In Antigravity the workflow is Plan.txt
+100644 blob f3445505477d38d6e776b5af74addc3554e6efc7	docs/research/Rust LLM Pipeline Agentic Prompts.md
+100644 blob 8890be65b1d145e1a2deeb5a89c267b255e558f8	docs/research/Rust LLM Pre-Training Pipeline.md
+100644 blob 10301cbe4a246258076ea964261feda5da68b66c	docs/research/The ordered prompt chain below driv.txt
+100644 blob fd8f24a5eafbce782388a126b930fdd8a05d5099	docs/research/This is tight but feasible. 2B toke.txt
+100644 blob 0a6ec5976de8183d2fb24dcf757ea43151e3616e	docs/research/Untitled.txt
+100644 blob ce3d7c7767427579788a9b1a224f3b500ca5904c	"docs/research/We\342\200\231ll interpret \342\200\234Antigenic code too.txt"
+100644 blob 946d9a4c86615f57040dcfaf05f6d376ad5c841c	"docs/research/We\342\200\231ll produce a detailed specificat.txt"
+100644 blob a84db468090a61adfb345f82f6ca0817071b68a9	docs/research/deep-research-report(2).md
+100644 blob 75e3b4d50d002de04fa61fa9c9fc2688cf62c845	docs/research/deep-research-report.md
+100644 blob dcf4c22005ac95fb28bd4833cfe041c60961b741	kernels/cuda_probe.cu
+100644 blob 3624e24a476343ea18bce741c266513b092a12de	kernels/msvc_probe.cpp
+100644 blob 72c50a584f778df2b39f169161f5b68c82618643	model-135m.example.json
+100644 blob efe59eb0c7239bf06ed4a5a708c6c3c7498d56e2	model-smoke.example.json
+100644 blob 6c235339aae174f4009c97417ab4c1111f071859	remote-manifest.example.json
+100644 blob 1580019dea112b27ff8e9eea6561d784687cbb32	rustfmt.toml
+100644 blob dbf345223b87b0bdb16ccfa001f0131816aadaf8	src/config.rs
+100644 blob 3a5011020acd5a102914e9be49d3ffffd3ca4e34	src/cuda_probe.rs
+100644 blob be88571a53ba5cc891f595ef58549e83e3663c25	src/data/corpus.rs
+100644 blob 42a33644f16ebdd33565bee82eef4dbb4170beea	src/data/dedup.rs
+100644 blob 13823ca7e573faf3b261861656bfbb75d0ef7a14	src/data/filter.rs
+100644 blob 8d677ceb4056504c01d9f1a6128c2ce22a155d4b	src/data/mod.rs
+100644 blob 354f256f287eace79f8db1bc34635de2dbf21d77	src/data/parquet_source.rs
+100644 blob f999c0eaa01c91ac9d4715488d7164e11c83e5be	src/data/remote.rs
+100644 blob 7bb59b3e3f61c28d12c91d9837c3aba56bb36be3	src/data/tokenizer.rs
+100644 blob 118e5c2d803480f410280088da5a3960b378e8d3	src/data/tokens.rs
+100644 blob be1e34d1fe7615e8556ac21f45467980f7d8cf66	src/lib.rs
+100644 blob 4bfd9b15e745c097b6437ab17107618141b91f8f	src/main.rs
+100644 blob ab4e35d92fd1b4472672eabaa1207fee06ad5127	src/model.rs
+100644 blob eecc3fc28872a177afb9e0acd22f244aaa7945f4	src/train.rs
+100644 blob 0e6a79105589c6064f8f09bacf9b12a6788f0f8e	train-smoke.example.json
+100644 blob 1eb65050491d5829bff469fa04d50b77e1a379a4	train.example.json

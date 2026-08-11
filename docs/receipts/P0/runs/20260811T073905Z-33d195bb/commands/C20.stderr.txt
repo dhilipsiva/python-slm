@@ -1,0 +1,5 @@
+warn: could not canonicalize path ${USERPROFILE}
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.72s
+     Running unittests src\lib.rs (${TEMP}\cargo-target\debug\deps\rust_llm_pretrain-8a6a007106365975.exe)
+     Running unittests src\main.rs (${TEMP}\cargo-target\debug\deps\rust_llm_pretrain-69d796e74a7f83d5.exe)
+   Doc-tests rust_llm_pretrain

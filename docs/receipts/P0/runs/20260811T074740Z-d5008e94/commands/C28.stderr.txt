@@ -1,0 +1,2 @@
+warning: unable to access '${USERPROFILE}/.config/git/ignore': Permission denied
+warning: unable to access '${USERPROFILE}/.config/git/ignore': Permission denied

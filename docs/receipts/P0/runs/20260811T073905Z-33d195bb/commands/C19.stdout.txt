@@ -1,0 +1,26 @@
+config::tests::requested_shape_has_exact_count: test
+config::tests::schedule_hits_peak_then_decays: test
+config::tests::tied_and_corrected_counts_are_explicit: test
+data::corpus::tests::corpus_round_trip_and_overwrite_refusal: test
+data::corpus::tests::corpus_without_completion_footer_is_rejected: test
+data::dedup::tests::exact_duplicates_are_removed: test
+data::dedup::tests::unrelated_documents_survive: test
+data::filter::tests::accepts_valid_python_and_rejects_syntax: test
+data::filter::tests::generator_words_outside_header_do_not_trigger_banner_filter: test
+data::filter::tests::rejects_generated_marker_case_insensitively: test
+data::parquet_source::tests::preserves_invalid_utf8_for_per_document_rejection: test
+data::parquet_source::tests::reads_projected_content_and_ids_in_batches: test
+data::parquet_source::tests::rejects_a_clone_budget_above_the_hard_limit: test
+data::tokenizer::tests::quality_proxy_penalizes_repeated_lines: test
+data::tokenizer::tests::trains_serializes_and_reloads_byte_level_bpe: test
+data::tokens::tests::maps_little_endian_shards_across_boundaries: test
+model::tests::causal_mask_prevents_future_tokens_from_changing_prefix_logits: test
+model::tests::forward_shape_supports_tied_and_untied_heads: test
+model::tests::kv_expansion_repeats_each_head_contiguously: test
+model::tests::reference_graph_backpropagates_through_attention_and_tied_head: test
+train::tests::default_reference_plan_fails_28_gib_preflight: test
+train::tests::flex_autodiff_executes_one_accumulated_optimizer_step: test
+
+22 tests, 0 benchmarks
+0 tests, 0 benchmarks
+0 tests, 0 benchmarks

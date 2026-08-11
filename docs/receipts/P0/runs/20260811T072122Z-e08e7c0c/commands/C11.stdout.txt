@@ -1,0 +1,15 @@
+Zero-Python Rust code-corpus and Llama pre-training reference
+
+Usage: rust-llm-pretrain.exe <COMMAND>
+
+Commands:
+  plan             Print exact parameter, memory, FLOP, and wall-clock arithmetic
+  curate           Download direct, content-bearing Parquet shards and curate Python
+  train-tokenizer  Train the 32k byte-level BPE on a bounded scrubbed-corpus subset
+  tokenize         Convert a curated corpus to immutable little-endian u16 token shards
+  train            Run the differentiable reference trainer. The production gate is closed by default
+  help             Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version

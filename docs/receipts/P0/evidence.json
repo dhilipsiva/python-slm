@@ -1,0 +1,237 @@
+{
+  "schema": "python-slm-phase-evidence-v1",
+  "phase": "P0",
+  "status": "AWAITING_REVIEW",
+  "generated_at_utc": "2026-08-11T07:50:16.9147338Z",
+  "authority": {
+    "machine_evidence": "pass",
+    "phase_acceptance": "pending_owner_approval",
+    "agent_may_approve": false,
+    "required_approvals": [
+      "technical",
+      "data_governance"
+    ]
+  },
+  "source": {
+    "commit": "4354a4ec5cefdb2c7b462562991a33686969778e",
+    "tree": "eb400714687589e6a7e6a4395b5d43bb6333501a",
+    "branch": "main",
+    "cargo_lock_sha256": "c0a5e1afe02e252a22cca8bf07ab37fb2a25844210d2d5ce2e1e6082e497a28c",
+    "initial_worktree_observation": {
+      "captured_at_utc": "2026-08-11T06:53:09.5751955Z",
+      "status": "clean",
+      "source": "interactive_pre_write_observation",
+      "eligible_for_automated_pass": false
+    },
+    "head_unchanged_in_sealed_run": true
+  },
+  "contract": {
+    "path": "docs/rebuild-contract.md",
+    "version": "rebuild-contract-v1",
+    "status": "AWAITING_REVIEW",
+    "sha256_raw_file_bytes": "fc2c60b52fdd7c524e0da06bb03972a4d523c21ad5536cba536185435bd44ad4",
+    "decision_ledger_sha256": "8349d8a3e06d96d6921889de5534715e7b2f7439caf7e06558a97652a8890c8d",
+    "decision_ledger_hash_scope": "UTF-8/LF bytes from the Frozen Decision Ledger heading through the byte before the Deferred Qualification Facts heading"
+  },
+  "capture": {
+    "script_path": "docs/receipts/P0/capture.ps1",
+    "script_sha256": "0a016e1e6e5060c5805272c34740c5e1e0a4eb8dcc99ca2f61676ec7d3efa0ff",
+    "run_id": "20260811T074740Z-d5008e94",
+    "run_root": "docs/receipts/P0/runs/20260811T074740Z-d5008e94",
+    "started_at_utc": "2026-08-11T07:47:40.0660120Z",
+    "finished_at_utc": "2026-08-11T07:49:27.7355989Z",
+    "wall_duration_ms": 107670,
+    "command_count": 30,
+    "command_pass_count": 30,
+    "command_fail_count": 0,
+    "command_manifest": {
+      "path": "docs/receipts/P0/runs/20260811T074740Z-d5008e94/command-results.json",
+      "sha256": "91dfb19d40ef1de90eb1a17aa674350b6eadb7de46c4df65e7b0c19a08e2fb71",
+      "contents": "argv, cwd, duration, exit code, status, stdout/stderr path, byte count, SHA-256, hash basis, and redaction counts"
+    },
+    "seal": {
+      "path": "docs/receipts/P0/runs/20260811T074740Z-d5008e94/SHA256SUMS",
+      "sha256": "184dc926bb9e5e2963a61182398580f7dedbf5aa5992f062dacfc6db6f1430f5",
+      "entries": 68,
+      "post_write_verified": true
+    },
+    "contract_and_script_start_end_hashes_match": true,
+    "preexisting_run_files_verified_unchanged": true,
+    "temporary_cargo_target_created_new": true,
+    "temporary_cargo_target_cleaned": true,
+    "cargo_offline": true,
+    "concurrency_precondition": "No concurrent writer mutates the repository during sealing."
+  },
+  "environment": {
+    "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+    "rustc_host": "x86_64-pc-windows-msvc",
+    "cargo": "cargo 1.96.0 (30a34c682 2026-05-25)",
+    "powershell": "5.1.26100.8972",
+    "clr": "4.0.30319.42000",
+    "process_is_64_bit": true
+  },
+  "artifacts": [
+    {
+      "path": "docs/receipts/P0/runs/20260811T074740Z-d5008e94/artifacts/tracked-tree.txt",
+      "sha256": "ae9a8a50e2d1e2396cb0998e311216981bc225d5e7a2dc6a9ce24ba7218a8e5c",
+      "bytes": 3561
+    },
+    {
+      "path": "docs/receipts/P0/runs/20260811T074740Z-d5008e94/artifacts/tracked-files.txt",
+      "sha256": "ac0213e7ed17682bc53b616718efd534b4f3602f4e28d5229d5874d03c17fa3c",
+      "bytes": 1176
+    },
+    {
+      "path": "docs/receipts/P0/runs/20260811T074740Z-d5008e94/artifacts/test-list.txt",
+      "sha256": "03588a412d4368660c8c9c9f132ecb1ddb426a9126b49e68f7cd36121d3c32af",
+      "bytes": 1598
+    },
+    {
+      "path": "docs/receipts/P0/runs/20260811T074740Z-d5008e94/artifacts/plan-124m.json",
+      "sha256": "a6eedeaba44ead978602b1f8f346f16025aaba0726d4bc35eaaf24e5d6ef6e1e",
+      "bytes": 1568
+    },
+    {
+      "path": "docs/receipts/P0/runs/20260811T074740Z-d5008e94/artifacts/plan-135m.json",
+      "sha256": "9e61499ecae95c9377b8bf74e67189bfaa07099f3df755b86dc0b1542f1b594e",
+      "bytes": 1566
+    },
+    {
+      "path": "docs/receipts/P0/runs/20260811T074740Z-d5008e94/artifacts/rebuild-contract.md",
+      "sha256": "fc2c60b52fdd7c524e0da06bb03972a4d523c21ad5536cba536185435bd44ad4",
+      "bytes": 40486
+    },
+    {
+      "path": "docs/receipts/P0/runs/20260811T074740Z-d5008e94/artifacts/capture.ps1",
+      "sha256": "0a016e1e6e5060c5805272c34740c5e1e0a4eb8dcc99ca2f61676ec7d3efa0ff",
+      "bytes": 32860
+    }
+  ],
+  "reference_observations": {
+    "classification": "behavioral_oracle_only_not_rebuild_qualification",
+    "root_example_json_files_parsed": 6,
+    "existing_cli_help_surfaces_checked": [
+      "root",
+      "plan",
+      "curate",
+      "train-tokenizer",
+      "tokenize",
+      "train"
+    ],
+    "cpu_tests": {
+      "listed": 22,
+      "passed": 22,
+      "failed": 0
+    },
+    "gqa_124m_ref_parameters": 124668672,
+    "gqa_135m_parameters": 135285504,
+    "exact_minimum_valid_predicted_targets_per_second_for_eight_hours": 69444.44444444444,
+    "reference_optimizer_steps": 30518,
+    "production_gate": "closed"
+  },
+  "decision_coverage": {
+    "ledger_entry_count": 37,
+    "entries": [
+      "SCOPE-001",
+      "SLA-001",
+      "CLI-001",
+      "COMPAT-001",
+      "CONFIG-001",
+      "ERROR-001",
+      "SOURCE-001",
+      "SOURCE-002",
+      "SOURCE-003",
+      "GOV-001",
+      "GOV-002",
+      "GOV-003",
+      "TOKSAMPLE-001",
+      "SPLIT-001",
+      "DECONTAM-001",
+      "DEDUP-001",
+      "DEDUP-002",
+      "DEDUP-003",
+      "TOKEN-001",
+      "TOKEN-002",
+      "ARTIFACT-001",
+      "ACCOUNT-001",
+      "MODEL-001",
+      "MODEL-002",
+      "PRECISION-001",
+      "ROPE-001",
+      "MASK-001",
+      "INIT-001",
+      "PARAM-001",
+      "OPT-001",
+      "BATCH-001",
+      "TAIL-001",
+      "SCHED-001",
+      "SPAN-001",
+      "EVAL-001",
+      "CKPT-001",
+      "PROV-001"
+    ],
+    "todo_mapping_complete": true
+  },
+  "diff_scope": {
+    "allowed_paths": [
+      "docs/rebuild-contract.md",
+      "docs/receipts/P0.md",
+      "docs/receipts/P0/**"
+    ],
+    "forbidden_paths_changed": false,
+    "rust_source_changed": false,
+    "cargo_files_changed": false,
+    "architecture_changed": false,
+    "todo_changed": false,
+    "staged_changes": false,
+    "diff_check_passed": true,
+    "cached_diff_check_passed": true
+  },
+  "deferred_facts": [
+    "CPU/MSVC and CUDA/SM120 target-environment qualification",
+    "backend selection and numerical tolerances",
+    "authorized source access, exact source yield, and materialized artifact hashes",
+    "sensitive-rules-v1 detector implementation and yield",
+    "dedup suite bytes/hash, measured recall/precision, and candidate amplification",
+    "imported EvalPlus artifact hashes",
+    "tokenizer exact-vocabulary, determinism, round-trip, and overflow qualification",
+    "exact stored-ID count and unused tail",
+    "microbatch and accumulation shape",
+    "pageable versus pinned transfer strategy",
+    "loss stability and evaluation/checkpoint overhead",
+    "VRAM, sustained throughput, and eight-hour feasibility"
+  ],
+  "known_corrections_and_caveats": [
+    "The contract pins the real MBPP+ v0.2.0 release asset because the v0.3.1 notes' v0.2.1 label has no corresponding release asset.",
+    "Git and Rust tools emitted sandbox path-access/canonicalization warnings; all affected commands exited 0 and transcripts are sealed.",
+    "Two earlier unsealed capture runs are preserved as superseded evidence and are not cited for acceptance.",
+    "Two temporary Cargo target directories from superseded capture attempts remain outside the repository; the authoritative v4 run cleaned its own target."
+  ],
+  "superseded_runs": [
+    "20260811T072122Z-e08e7c0c",
+    "20260811T073905Z-33d195bb"
+  ],
+  "approvals": {
+    "technical": {
+      "status": "PENDING",
+      "owner": null,
+      "approved_at_utc": null,
+      "signature_or_review_reference": null
+    },
+    "data_governance": {
+      "status": "PENDING",
+      "owner": null,
+      "approved_at_utc": null,
+      "signature_or_review_reference": null
+    }
+  },
+  "stop_conditions": {
+    "ambiguous_phase_0_product_decision": false,
+    "failed_required_command": false,
+    "head_changed": false,
+    "forbidden_diff": false,
+    "incomplete_or_unsealed_authoritative_evidence": false,
+    "sensitive_content_detected": false,
+    "missing_human_approval": true
+  }
+}

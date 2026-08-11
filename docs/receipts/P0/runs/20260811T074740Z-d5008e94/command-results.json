@@ -1,0 +1,2746 @@
+{
+    "schema":  "python-slm-p0-capture-v4",
+    "run_id":  "20260811T074740Z-d5008e94",
+    "overall_status":  "pass",
+    "failed_command":  null,
+    "failure_stage":  null,
+    "failure_message":  null,
+    "secondary_failures":  [
+
+                           ],
+    "started_at_utc":  "2026-08-11T07:47:40.0660120Z",
+    "finished_at_utc":  "2026-08-11T07:49:27.7355989Z",
+    "environment":  {
+                        "powershell_version":  "5.1.26100.8972",
+                        "clr_version":  "4.0.30319.42000",
+                        "process_is_64_bit":  true,
+                        "execution_policy_process":  "Bypass"
+                    },
+    "cargo_offline":  true,
+    "temporary_target":  {
+                             "path":  "${TEMP}",
+                             "cargo_target_dir_was_new":  true,
+                             "cleaned":  true
+                         },
+    "allowed_write_roots":  [
+                                "${REPO}/docs/receipts/P0/runs/20260811T074740Z-d5008e94 ${TEMP} (created, then removed) ${CARGO_HOME} or ${USERPROFILE}/.cargo (existing offline cache; read/write effects not confined) ${RUSTUP_HOME} or ${USERPROFILE}/.rustup (existing toolchain; read/write effects not confined)"
+                            ],
+    "initial_observation":  {
+                                "source":  "interactive pre-write capture; not a scripted command result",
+                                "eligible_for_automated_pass":  false,
+                                "command":  [
+                                                "git",
+                                                "status",
+                                                "--porcelain=v2",
+                                                "--branch",
+                                                "--untracked-files=all"
+                                            ],
+                                "captured_at_utc":  "2026-08-11T06:53:09.5751955Z",
+                                "head_commit":  "4354a4ec5cefdb2c7b462562991a33686969778e",
+                                "head_tree":  "eb400714687589e6a7e6a4395b5d43bb6333501a",
+                                "branch":  "main",
+                                "worktree_clean":  true
+                            },
+    "preexisting_receipt_evidence":  {
+                                         "files":  131,
+                                         "inventory_sha256":  "c369d1c3fcc15844ac695275a096bf03af003c4e10c5150d689ad223775bf0c1",
+                                         "unchanged":  true,
+                                         "eligible_for_this_run":  false,
+                                         "disposition":  "preserved superseded evidence; not cited by this run"
+                                     },
+    "input_identity":  {
+                           "contract_start_sha256":  "fc2c60b52fdd7c524e0da06bb03972a4d523c21ad5536cba536185435bd44ad4",
+                           "contract_end_sha256":  "fc2c60b52fdd7c524e0da06bb03972a4d523c21ad5536cba536185435bd44ad4",
+                           "capture_script_start_sha256":  "0a016e1e6e5060c5805272c34740c5e1e0a4eb8dcc99ca2f61676ec7d3efa0ff",
+                           "capture_script_end_sha256":  "0a016e1e6e5060c5805272c34740c5e1e0a4eb8dcc99ca2f61676ec7d3efa0ff",
+                           "hashes_match":  true
+                       },
+    "rebuild_contract":  {
+                             "path":  "docs/rebuild-contract.md",
+                             "sha256":  "fc2c60b52fdd7c524e0da06bb03972a4d523c21ad5536cba536185435bd44ad4",
+                             "hash_basis":  "raw_file_bytes",
+                             "status":  "awaiting_review"
+                         },
+    "commands":  [
+                     {
+                         "id":  "C01",
+                         "source":  "executed",
+                         "argv":  [
+                                      "git",
+                                      "rev-parse",
+                                      "--is-inside-work-tree"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  45,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C01.stdout.txt",
+                                        "sha256":  "a17fcf0a2f50e2d495e4f90ce263410edc183add6c62699a2facbccf60410f74",
+                                        "bytes":  5,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C01.stderr.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    }
+                     },
+                     {
+                         "id":  "C02",
+                         "source":  "executed",
+                         "argv":  [
+                                      "git",
+                                      "rev-parse",
+                                      "--verify",
+                                      "HEAD"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  32,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C02.stdout.txt",
+                                        "sha256":  "e166f4394bc5199967f4358756dbe8db536c8d826149d8c935edf1e1c1732933",
+                                        "bytes":  41,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C02.stderr.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    }
+                     },
+                     {
+                         "id":  "C03",
+                         "source":  "executed",
+                         "argv":  [
+                                      "git",
+                                      "rev-parse",
+                                      "HEAD^{tree}"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  133,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C03.stdout.txt",
+                                        "sha256":  "c4975708e221f79e01217026e949310d1ac565165dff305f4e174aabe2464e09",
+                                        "bytes":  41,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C03.stderr.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    }
+                     },
+                     {
+                         "id":  "C04",
+                         "source":  "executed",
+                         "argv":  [
+                                      "git",
+                                      "branch",
+                                      "--show-current"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  60,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C04.stdout.txt",
+                                        "sha256":  "6403203dd5a0867eb14d104ee8a73730bd72dd9ad92e78d996a6dba0a5dcfc01",
+                                        "bytes":  5,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C04.stderr.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    }
+                     },
+                     {
+                         "id":  "C05",
+                         "source":  "executed",
+                         "argv":  [
+                                      "git",
+                                      "status",
+                                      "--porcelain=v2",
+                                      "--branch",
+                                      "--untracked-files=all"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  89,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C05.stdout.txt",
+                                        "sha256":  "82fb59a3b7482e15710e0d926f6afbc468fdbd101bb254b998c9906c711d2ee1",
+                                        "bytes":  10468,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C05.stderr.txt",
+                                        "sha256":  "9f50588b6e363788782f00ce55bc494b06ffb7aa7491829514c0b9284b983526",
+                                        "bytes":  162,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  2
+                                                           }
+                                                       ]
+                                    }
+                     },
+                     {
+                         "id":  "C06",
+                         "source":  "executed",
+                         "argv":  [
+                                      "rustc",
+                                      "-Vv"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  70,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C06.stdout.txt",
+                                        "sha256":  "2efe229f7908c2c19f459ca734101a5b35cb482476b8bee1357f94a18c766078",
+                                        "bytes":  194,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C06.stderr.txt",
+                                        "sha256":  "3c3aab9a5384530b820008cc3db8d84f814a305879a604989d7aae3861a30851",
+                                        "bytes":  49,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  1
+                                                           }
+                                                       ]
+                                    }
+                     },
+                     {
+                         "id":  "C07",
+                         "source":  "executed",
+                         "argv":  [
+                                      "cargo",
+                                      "-V"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  54,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C07.stdout.txt",
+                                        "sha256":  "b6ef6807dd96d18b833474ad68e7a23a29e562a29c67afa71a59fb9a73df0068",
+                                        "bytes":  36,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C07.stderr.txt",
+                                        "sha256":  "3c3aab9a5384530b820008cc3db8d84f814a305879a604989d7aae3861a30851",
+                                        "bytes":  49,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  1
+                                                           }
+                                                       ]
+                                    }
+                     },
+                     {
+                         "id":  "C08",
+                         "source":  "executed",
+                         "argv":  [
+                                      "git",
+                                      "ls-tree",
+                                      "-r",
+                                      "--full-tree",
+                                      "HEAD"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  95,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C08.stdout.txt",
+                                        "sha256":  "ae9a8a50e2d1e2396cb0998e311216981bc225d5e7a2dc6a9ce24ba7218a8e5c",
+                                        "bytes":  3561,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C08.stderr.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    }
+                     },
+                     {
+                         "id":  "C09",
+                         "source":  "executed",
+                         "argv":  [
+                                      "git",
+                                      "ls-files"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  40,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C09.stdout.txt",
+                                        "sha256":  "ac0213e7ed17682bc53b616718efd534b4f3602f4e28d5229d5874d03c17fa3c",
+                                        "bytes":  1176,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C09.stderr.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    }
+                     },
+                     {
+                         "id":  "C10",
+                         "source":  "executed_in_capture_process",
+                         "argv":  [
+                                      "in-process",
+                                      "parse-sorted-root-example-json",
+                                      "strict-utf8"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  67,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C10.stdout.txt",
+                                        "sha256":  "6246759694220a5f110fa9e16af9ead2f2b333c3a6dff5ffefa0de96457aae52",
+                                        "bytes":  142,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C10.stderr.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    }
+                     },
+                     {
+                         "id":  "C11",
+                         "source":  "executed",
+                         "argv":  [
+                                      "cargo",
+                                      "run",
+                                      "--quiet",
+                                      "--locked",
+                                      "--offline",
+                                      "--",
+                                      "--help"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  49570,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C11.stdout.txt",
+                                        "sha256":  "a8ed717aee8f187cbae0e886fabbd7625c98822b4f6392e45c7712b446cf90f2",
+                                        "bytes":  700,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C11.stderr.txt",
+                                        "sha256":  "3c3aab9a5384530b820008cc3db8d84f814a305879a604989d7aae3861a30851",
+                                        "bytes":  49,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  1
+                                                           }
+                                                       ]
+                                    }
+                     },
+                     {
+                         "id":  "C12",
+                         "source":  "executed",
+                         "argv":  [
+                                      "cargo",
+                                      "run",
+                                      "--quiet",
+                                      "--locked",
+                                      "--offline",
+                                      "--",
+                                      "plan",
+                                      "--help"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  812,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C12.stdout.txt",
+                                        "sha256":  "b37eefb8e7059a234d046a293f556dcb282a3523dac61e893075299cd819a356",
+                                        "bytes":  336,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C12.stderr.txt",
+                                        "sha256":  "3c3aab9a5384530b820008cc3db8d84f814a305879a604989d7aae3861a30851",
+                                        "bytes":  49,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  1
+                                                           }
+                                                       ]
+                                    }
+                     },
+                     {
+                         "id":  "C13",
+                         "source":  "executed",
+                         "argv":  [
+                                      "cargo",
+                                      "run",
+                                      "--quiet",
+                                      "--locked",
+                                      "--offline",
+                                      "--",
+                                      "curate",
+                                      "--help"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  761,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C13.stdout.txt",
+                                        "sha256":  "530229d0cb4cd3e2d9199c3250e2124faeeb0372af0328e5c2a7663c9011e816",
+                                        "bytes":  345,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C13.stderr.txt",
+                                        "sha256":  "3c3aab9a5384530b820008cc3db8d84f814a305879a604989d7aae3861a30851",
+                                        "bytes":  49,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  1
+                                                           }
+                                                       ]
+                                    }
+                     },
+                     {
+                         "id":  "C14",
+                         "source":  "executed",
+                         "argv":  [
+                                      "cargo",
+                                      "run",
+                                      "--quiet",
+                                      "--locked",
+                                      "--offline",
+                                      "--",
+                                      "train-tokenizer",
+                                      "--help"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  679,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C14.stdout.txt",
+                                        "sha256":  "6574c5d6b2c658099588fffcd965f54afe723692689c16dc1b0e5f6608eaefef",
+                                        "bytes":  325,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C14.stderr.txt",
+                                        "sha256":  "3c3aab9a5384530b820008cc3db8d84f814a305879a604989d7aae3861a30851",
+                                        "bytes":  49,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  1
+                                                           }
+                                                       ]
+                                    }
+                     },
+                     {
+                         "id":  "C15",
+                         "source":  "executed",
+                         "argv":  [
+                                      "cargo",
+                                      "run",
+                                      "--quiet",
+                                      "--locked",
+                                      "--offline",
+                                      "--",
+                                      "tokenize",
+                                      "--help"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  704,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C15.stdout.txt",
+                                        "sha256":  "83368308d9853563d6bd03e89f68267d45518be4c83629d2538397d96d4b266c",
+                                        "bytes":  376,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C15.stderr.txt",
+                                        "sha256":  "3c3aab9a5384530b820008cc3db8d84f814a305879a604989d7aae3861a30851",
+                                        "bytes":  49,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  1
+                                                           }
+                                                       ]
+                                    }
+                     },
+                     {
+                         "id":  "C16",
+                         "source":  "executed",
+                         "argv":  [
+                                      "cargo",
+                                      "run",
+                                      "--quiet",
+                                      "--locked",
+                                      "--offline",
+                                      "--",
+                                      "train",
+                                      "--help"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  691,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C16.stdout.txt",
+                                        "sha256":  "96c6f338a7300062701243577b1ba566618efddcc6e5c1ec1d7247e3ee9b13a5",
+                                        "bytes":  622,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C16.stderr.txt",
+                                        "sha256":  "3c3aab9a5384530b820008cc3db8d84f814a305879a604989d7aae3861a30851",
+                                        "bytes":  49,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  1
+                                                           }
+                                                       ]
+                                    }
+                     },
+                     {
+                         "id":  "C17",
+                         "source":  "executed",
+                         "argv":  [
+                                      "cargo",
+                                      "fmt",
+                                      "--all",
+                                      "--",
+                                      "--check"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  111,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C17.stdout.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C17.stderr.txt",
+                                        "sha256":  "3c3aab9a5384530b820008cc3db8d84f814a305879a604989d7aae3861a30851",
+                                        "bytes":  49,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  1
+                                                           }
+                                                       ]
+                                    }
+                     },
+                     {
+                         "id":  "C18",
+                         "source":  "executed",
+                         "argv":  [
+                                      "cargo",
+                                      "clippy",
+                                      "--locked",
+                                      "--offline",
+                                      "--all-targets",
+                                      "--features",
+                                      "cpu-reference",
+                                      "--",
+                                      "-D",
+                                      "warnings"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  22865,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C18.stdout.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C18.stderr.txt",
+                                        "sha256":  "fcc53ba2976dc7b4d6ad0451893a498087b8abeed13ee5c03636ef6de9149f79",
+                                        "bytes":  8989,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  1
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  1
+                                                           }
+                                                       ]
+                                    }
+                     },
+                     {
+                         "id":  "C19",
+                         "source":  "executed",
+                         "argv":  [
+                                      "cargo",
+                                      "test",
+                                      "--locked",
+                                      "--offline",
+                                      "--features",
+                                      "cpu-reference",
+                                      "--",
+                                      "--list"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  24310,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C19.stdout.txt",
+                                        "sha256":  "03588a412d4368660c8c9c9f132ecb1ddb426a9126b49e68f7cd36121d3c32af",
+                                        "bytes":  1598,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C19.stderr.txt",
+                                        "sha256":  "18f893a7bc493997ec6f826220a437643e85272c469200c5312480137e50351d",
+                                        "bytes":  854,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  1
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  2
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  1
+                                                           }
+                                                       ]
+                                    }
+                     },
+                     {
+                         "id":  "C20",
+                         "source":  "executed",
+                         "argv":  [
+                                      "cargo",
+                                      "test",
+                                      "--locked",
+                                      "--offline",
+                                      "--features",
+                                      "cpu-reference",
+                                      "--",
+                                      "--test-threads=1"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  1216,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C20.stdout.txt",
+                                        "sha256":  "a630855eb6b73c8f21899a4873a349ebc37ef4cfa7c0027a774942e951e9c483",
+                                        "bytes":  2003,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C20.stderr.txt",
+                                        "sha256":  "5904db0252b2604444234ee6e78d7a34f6cab75ff50c73739830f1d262f6f1cd",
+                                        "bytes":  368,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  2
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  1
+                                                           }
+                                                       ]
+                                    }
+                     },
+                     {
+                         "id":  "C21",
+                         "source":  "executed",
+                         "argv":  [
+                                      "cargo",
+                                      "run",
+                                      "--quiet",
+                                      "--locked",
+                                      "--offline",
+                                      "--",
+                                      "plan"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  799,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C21.stdout.txt",
+                                        "sha256":  "a6eedeaba44ead978602b1f8f346f16025aaba0726d4bc35eaaf24e5d6ef6e1e",
+                                        "bytes":  1568,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C21.stderr.txt",
+                                        "sha256":  "3c3aab9a5384530b820008cc3db8d84f814a305879a604989d7aae3861a30851",
+                                        "bytes":  49,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  1
+                                                           }
+                                                       ]
+                                    }
+                     },
+                     {
+                         "id":  "C22",
+                         "source":  "executed",
+                         "argv":  [
+                                      "cargo",
+                                      "run",
+                                      "--quiet",
+                                      "--locked",
+                                      "--offline",
+                                      "--",
+                                      "plan",
+                                      "--gqa-135m"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  709,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C22.stdout.txt",
+                                        "sha256":  "9e61499ecae95c9377b8bf74e67189bfaa07099f3df755b86dc0b1542f1b594e",
+                                        "bytes":  1566,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C22.stderr.txt",
+                                        "sha256":  "3c3aab9a5384530b820008cc3db8d84f814a305879a604989d7aae3861a30851",
+                                        "bytes":  49,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  1
+                                                           }
+                                                       ]
+                                    }
+                     },
+                     {
+                         "id":  "C23",
+                         "source":  "executed",
+                         "argv":  [
+                                      "git",
+                                      "rev-parse",
+                                      "--verify",
+                                      "HEAD"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  33,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C23.stdout.txt",
+                                        "sha256":  "e166f4394bc5199967f4358756dbe8db536c8d826149d8c935edf1e1c1732933",
+                                        "bytes":  41,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C23.stderr.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    }
+                     },
+                     {
+                         "id":  "C24",
+                         "source":  "executed",
+                         "argv":  [
+                                      "git",
+                                      "diff",
+                                      "--exit-code",
+                                      "--",
+                                      "src",
+                                      "Cargo.toml",
+                                      "Cargo.lock",
+                                      "build.rs"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  30,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C24.stdout.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C24.stderr.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    }
+                     },
+                     {
+                         "id":  "C25",
+                         "source":  "executed",
+                         "argv":  [
+                                      "git",
+                                      "diff",
+                                      "--cached",
+                                      "--exit-code",
+                                      "--",
+                                      "src",
+                                      "Cargo.toml",
+                                      "Cargo.lock",
+                                      "build.rs"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  32,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C25.stdout.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C25.stderr.txt",
+                                        "sha256":  "87d4dd41a15fe75ed5d9544eed218f7859e7932add22b2949d1c28476b77bd5a",
+                                        "bytes":  81,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  1
+                                                           }
+                                                       ]
+                                    }
+                     },
+                     {
+                         "id":  "C26",
+                         "source":  "executed",
+                         "argv":  [
+                                      "git",
+                                      "diff",
+                                      "--check"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  51,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C26.stdout.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C26.stderr.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    }
+                     },
+                     {
+                         "id":  "C29",
+                         "source":  "executed",
+                         "argv":  [
+                                      "git",
+                                      "diff",
+                                      "--cached",
+                                      "--check"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  34,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C29.stdout.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C29.stderr.txt",
+                                        "sha256":  "87d4dd41a15fe75ed5d9544eed218f7859e7932add22b2949d1c28476b77bd5a",
+                                        "bytes":  81,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  1
+                                                           }
+                                                       ]
+                                    }
+                     },
+                     {
+                         "id":  "C27",
+                         "source":  "executed",
+                         "argv":  [
+                                      "git",
+                                      "status",
+                                      "--porcelain=v2",
+                                      "--branch",
+                                      "--untracked-files=all"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  33,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C27.stdout.txt",
+                                        "sha256":  "63b015bb49b9dd0aabb5eccf3b33b5e0a27642c20272aa21934f770ec20c6c8f",
+                                        "bytes":  13872,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C27.stderr.txt",
+                                        "sha256":  "9f50588b6e363788782f00ce55bc494b06ffb7aa7491829514c0b9284b983526",
+                                        "bytes":  162,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  2
+                                                           }
+                                                       ]
+                                    }
+                     },
+                     {
+                         "id":  "C28",
+                         "source":  "executed",
+                         "argv":  [
+                                      "git",
+                                      "status",
+                                      "--short",
+                                      "--untracked-files=all"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  44,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C28.stdout.txt",
+                                        "sha256":  "c56488326089469322cc1d600c09e35385cef1eebdfc4f4acad32491c22f50b2",
+                                        "bytes":  14088,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C28.stderr.txt",
+                                        "sha256":  "9f50588b6e363788782f00ce55bc494b06ffb7aa7491829514c0b9284b983526",
+                                        "bytes":  162,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  2
+                                                           }
+                                                       ]
+                                    }
+                     },
+                     {
+                         "id":  "C30",
+                         "source":  "executed",
+                         "argv":  [
+                                      "git",
+                                      "rev-parse",
+                                      "--verify",
+                                      "HEAD"
+                                  ],
+                         "cwd":  ".",
+                         "exit_code":  0,
+                         "duration_ms":  33,
+                         "status":  "pass",
+                         "stdout":  {
+                                        "path":  "commands/C30.stdout.txt",
+                                        "sha256":  "e166f4394bc5199967f4358756dbe8db536c8d826149d8c935edf1e1c1732933",
+                                        "bytes":  41,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C30.stderr.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0,
+                                        "hash_basis":  "normalized_utf8_lf",
+                                        "redactions":  [
+                                                           {
+                                                               "token":  "${REPO}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${CARGO_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${RUSTUP_HOME}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TEMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${OS_TMP}",
+                                                               "replacement_count":  0
+                                                           },
+                                                           {
+                                                               "token":  "${USERPROFILE}",
+                                                               "replacement_count":  0
+                                                           }
+                                                       ]
+                                    }
+                     }
+                 ],
+    "artifacts":  [
+                      {
+                          "path":  "artifacts/tracked-tree.txt",
+                          "sha256":  "ae9a8a50e2d1e2396cb0998e311216981bc225d5e7a2dc6a9ce24ba7218a8e5c",
+                          "bytes":  3561,
+                          "hash_basis":  "normalized_utf8_lf",
+                          "derived_from_command":  "C08"
+                      },
+                      {
+                          "path":  "artifacts/tracked-files.txt",
+                          "sha256":  "ac0213e7ed17682bc53b616718efd534b4f3602f4e28d5229d5874d03c17fa3c",
+                          "bytes":  1176,
+                          "hash_basis":  "normalized_utf8_lf",
+                          "derived_from_command":  "C09"
+                      },
+                      {
+                          "path":  "artifacts/test-list.txt",
+                          "sha256":  "03588a412d4368660c8c9c9f132ecb1ddb426a9126b49e68f7cd36121d3c32af",
+                          "bytes":  1598,
+                          "hash_basis":  "normalized_utf8_lf",
+                          "derived_from_command":  "C19"
+                      },
+                      {
+                          "path":  "artifacts/plan-124m.json",
+                          "sha256":  "a6eedeaba44ead978602b1f8f346f16025aaba0726d4bc35eaaf24e5d6ef6e1e",
+                          "bytes":  1568,
+                          "hash_basis":  "normalized_utf8_lf",
+                          "derived_from_command":  "C21"
+                      },
+                      {
+                          "path":  "artifacts/plan-135m.json",
+                          "sha256":  "9e61499ecae95c9377b8bf74e67189bfaa07099f3df755b86dc0b1542f1b594e",
+                          "bytes":  1566,
+                          "hash_basis":  "normalized_utf8_lf",
+                          "derived_from_command":  "C22"
+                      },
+                      {
+                          "path":  "artifacts/rebuild-contract.md",
+                          "sha256":  "fc2c60b52fdd7c524e0da06bb03972a4d523c21ad5536cba536185435bd44ad4",
+                          "bytes":  40486,
+                          "hash_basis":  "raw_file_bytes",
+                          "derived_from_command":  null,
+                          "source_identity":  "contract_start"
+                      },
+                      {
+                          "path":  "artifacts/capture.ps1",
+                          "sha256":  "0a016e1e6e5060c5805272c34740c5e1e0a4eb8dcc99ca2f61676ec7d3efa0ff",
+                          "bytes":  32860,
+                          "hash_basis":  "raw_file_bytes",
+                          "derived_from_command":  null,
+                          "source_identity":  "capture_script_start"
+                      }
+                  ],
+    "concurrency_precondition":  "no concurrent writer may mutate the repository during sealing"
+}

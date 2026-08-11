@@ -1,0 +1,9 @@
+Print exact parameter, memory, FLOP, and wall-clock arithmetic
+
+Usage: rust-llm-pretrain.exe plan [OPTIONS]
+
+Options:
+      --model-config <MODEL_CONFIG>  
+      --train-config <TRAIN_CONFIG>  
+      --gqa-135m                     Use d_ff=2432, retaining GQA, for 135,285,504 parameters
+  -h, --help                         Print help

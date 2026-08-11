@@ -1,0 +1,13 @@
+Run the differentiable reference trainer. The production gate is closed by default
+
+Usage: rust-llm-pretrain.exe train [OPTIONS] --tokens <TOKENS>
+
+Options:
+      --tokens <TOKENS>              
+      --model-config <MODEL_CONFIG>  
+      --train-config <TRAIN_CONFIG>  
+      --device <DEVICE>              [default: 0]
+      --verify-hashes                
+      --checkpoint <CHECKPOINT>      Final model checkpoint base; Burn writes `<base>.mpk` atomically
+      --allow-reference-attention    Permit the O(L^2) correctness path. This does not certify the 8-hour target
+  -h, --help                         Print help

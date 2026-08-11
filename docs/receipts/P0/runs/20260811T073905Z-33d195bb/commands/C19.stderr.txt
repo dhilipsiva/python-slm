@@ -1,0 +1,20 @@
+warn: could not canonicalize path ${USERPROFILE}
+   Compiling fastrand v2.5.0
+   Compiling futures-lite v2.6.1
+   Compiling tempfile v3.27.0
+   Compiling cubecl-common v0.10.0
+   Compiling burn-std v0.21.0
+   Compiling burn-backend v0.21.0
+   Compiling burn-tensor v0.21.0
+   Compiling burn-ir v0.21.0
+   Compiling burn-autodiff v0.21.0
+   Compiling burn-core v0.21.0
+   Compiling burn-nn v0.21.0
+   Compiling burn-optim v0.21.0
+   Compiling burn-flex v0.21.0
+   Compiling burn v0.21.0
+   Compiling rust-llm-pretrain v0.1.0 (${REPO})
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 22.34s
+     Running unittests src\lib.rs (${TEMP}\cargo-target\debug\deps\rust_llm_pretrain-8a6a007106365975.exe)
+     Running unittests src\main.rs (${TEMP}\cargo-target\debug\deps\rust_llm_pretrain-69d796e74a7f83d5.exe)
+   Doc-tests rust_llm_pretrain

@@ -1,0 +1,45 @@
+.gitignore
+AGENTS.md
+Cargo.lock
+Cargo.toml
+README.md
+RESEARCH.md
+TODO.md
+VALIDATION.md
+build.rs
+curate.example.json
+docs/ARCHITECTURE.md
+docs/research/# Pure-Rust LLM Pre-Training Pipeli.txt
+docs/research/Conclusion A pure-Rust pipeline is.txt
+docs/research/In Antigravity the workflow is Plan.txt
+docs/research/Rust LLM Pipeline Agentic Prompts.md
+docs/research/Rust LLM Pre-Training Pipeline.md
+docs/research/The ordered prompt chain below driv.txt
+docs/research/This is tight but feasible. 2B toke.txt
+docs/research/Untitled.txt
+"docs/research/We\342\200\231ll interpret \342\200\234Antigenic code too.txt"
+"docs/research/We\342\200\231ll produce a detailed specificat.txt"
+docs/research/deep-research-report(2).md
+docs/research/deep-research-report.md
+kernels/cuda_probe.cu
+kernels/msvc_probe.cpp
+model-135m.example.json
+model-smoke.example.json
+remote-manifest.example.json
+rustfmt.toml
+src/config.rs
+src/cuda_probe.rs
+src/data/corpus.rs
+src/data/dedup.rs
+src/data/filter.rs
+src/data/mod.rs
+src/data/parquet_source.rs
+src/data/remote.rs
+src/data/tokenizer.rs
+src/data/tokens.rs
+src/lib.rs
+src/main.rs
+src/model.rs
+src/train.rs
+train-smoke.example.json
+train.example.json

@@ -1,0 +1,50 @@
+{
+  "model": {
+    "vocab_size": 32000,
+    "d_model": 768,
+    "d_ff": 2048,
+    "n_layers": 12,
+    "n_heads": 12,
+    "n_kv_heads": 4,
+    "context_length": 2048,
+    "rms_epsilon": 0.00001,
+    "rope_theta": 10000.0,
+    "tie_embeddings": false
+  },
+  "training": {
+    "target_tokens": 2000000000,
+    "micro_batch_size": 16,
+    "gradient_accumulation": 2,
+    "peak_learning_rate": 0.0025,
+    "minimum_learning_rate": 0.0,
+    "warmup_steps": 1000,
+    "beta_1": 0.9,
+    "beta_2": 0.95,
+    "adam_epsilon": 1e-8,
+    "weight_decay": 0.1,
+    "log_every_micro_steps": 10,
+    "target_tokens_per_second": 75000.0,
+    "vram_budget_gib": 28.0,
+    "allow_reference_attention": false
+  },
+  "parameters": 124668672,
+  "training_flops_per_token_lower": 713742336,
+  "training_flops_per_token_upper": 826933248,
+  "exact_minimum_tokens_per_second_for_eight_hours": 69444.44444444444,
+  "configured_target_tokens_per_second": 75000.0,
+  "compute_required_tflops_lower_at_target": 53.5306752,
+  "compute_required_tflops_upper_at_target": 62.0199936,
+  "optimizer_steps": 30518,
+  "memory": {
+    "parameter_count": 124668672,
+    "persistent_state_gib": 1.8577079772949219,
+    "hidden_mib": 48.0,
+    "q_mib": 48.0,
+    "each_kv_mib": 16.0,
+    "each_ffn_mib": 128.0,
+    "attention_matrix_per_layer_gib": 1.5,
+    "logits_gib": 1.953125,
+    "reference_attention_matrices_gib": 36.0
+  },
+  "acceptance_gate": "closed until an SM120 fused attention backward, chunked/fused cross-entropy, mixed-precision optimizer, and an end-to-end >=75k token/s benchmark exist"
+}

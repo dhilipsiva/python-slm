@@ -1,0 +1,10 @@
+Convert a curated corpus to immutable little-endian u16 token shards
+
+Usage: rust-llm-pretrain.exe tokenize [OPTIONS] --corpus <CORPUS> --tokenizer <TOKENIZER> --output-dir <OUTPUT_DIR>
+
+Options:
+      --corpus <CORPUS>          
+      --tokenizer <TOKENIZER>    
+      --output-dir <OUTPUT_DIR>  
+      --config <CONFIG>          
+  -h, --help                     Print help

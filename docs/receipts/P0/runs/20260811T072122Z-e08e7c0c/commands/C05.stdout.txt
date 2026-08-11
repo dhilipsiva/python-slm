@@ -1,0 +1,14 @@
+# branch.oid 4354a4ec5cefdb2c7b462562991a33686969778e
+# branch.head main
+# branch.upstream origin/main
+# branch.ab +0 -0
+? docs/rebuild-contract.md
+? docs/receipts/P0/capture.ps1
+? docs/receipts/P0/runs/20260811T072122Z-e08e7c0c/commands/C01.stderr.txt
+? docs/receipts/P0/runs/20260811T072122Z-e08e7c0c/commands/C01.stdout.txt
+? docs/receipts/P0/runs/20260811T072122Z-e08e7c0c/commands/C02.stderr.txt
+? docs/receipts/P0/runs/20260811T072122Z-e08e7c0c/commands/C02.stdout.txt
+? docs/receipts/P0/runs/20260811T072122Z-e08e7c0c/commands/C03.stderr.txt
+? docs/receipts/P0/runs/20260811T072122Z-e08e7c0c/commands/C03.stdout.txt
+? docs/receipts/P0/runs/20260811T072122Z-e08e7c0c/commands/C04.stderr.txt
+? docs/receipts/P0/runs/20260811T072122Z-e08e7c0c/commands/C04.stdout.txt

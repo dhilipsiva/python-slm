@@ -1,0 +1,10 @@
+Train the 32k byte-level BPE on a bounded scrubbed-corpus subset
+
+Usage: rust-llm-pretrain.exe train-tokenizer [OPTIONS] --corpus <CORPUS> --subset <SUBSET> --output <OUTPUT>
+
+Options:
+      --corpus <CORPUS>  
+      --subset <SUBSET>  
+      --output <OUTPUT>  
+      --config <CONFIG>  
+  -h, --help             Print help

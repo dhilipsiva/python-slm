@@ -1,0 +1,10 @@
+Download direct, content-bearing Parquet shards and curate Python
+
+Usage: rust-llm-pretrain.exe curate [OPTIONS] --manifest <MANIFEST> --work-dir <WORK_DIR> --output <OUTPUT>
+
+Options:
+      --manifest <MANIFEST>  
+      --work-dir <WORK_DIR>  
+      --output <OUTPUT>      
+      --config <CONFIG>      
+  -h, --help                 Print help
