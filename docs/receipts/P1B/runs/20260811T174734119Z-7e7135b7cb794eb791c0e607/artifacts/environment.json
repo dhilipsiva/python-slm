@@ -1,0 +1,453 @@
+{
+    "schema":  "python-slm-cuda-environment-manifest-v1",
+    "phase_id":  "P1B",
+    "run_id":  "20260811T174734119Z-7e7135b7cb794eb791c0e607",
+    "mode":  "Cuda",
+    "status":  "PASS",
+    "p0":  {
+               "receipt_commit":  "86fb1e4cc68efeb651e5362c4aca85c2827d8e4d",
+               "receipt_sha256":  "f08c6a41658ff287e238d6a96c4f2c874975964202c3eeced2bc0bc21f308904",
+               "contract_sha256":  "fc2c60b52fdd7c524e0da06bb03972a4d523c21ad5536cba536185435bd44ad4",
+               "decision_ledger_sha256":  "8349d8a3e06d96d6921889de5534715e7b2f7439caf7e06558a97652a8890c8d"
+           },
+    "p1a":  {
+                "status":  "PASS",
+                "pointer_path":  "docs/receipts/P1A/evidence.json",
+                "pointer_sha256":  "056978d93a11ff1ca92456de9a588c79d5ae5fd2db3f5d3753a9b85b12680753",
+                "acceptance_path":  "docs/receipts/P1A/acceptances/00000007.json",
+                "acceptance_sha256":  "8c47159f9b06224e4092a8a97568fc29bd8d3d28ac09a17387941fb34852e685",
+                "acceptance_sequence":  7,
+                "run_path":  "docs/receipts/P1A/runs/20260811T174150772Z-17e8222a9d394ce08c11f61f",
+                "run_evidence_sha256":  "2d8f42c047ab1376c26f6313b8877d15b1554a56efea314380beae8add409b08",
+                "seal_path":  "docs/receipts/P1A/runs/20260811T174150772Z-17e8222a9d394ce08c11f61f/SHA256SUMS",
+                "seal_sha256":  "9fb3ee856159dd7ef2e35691479cc27f0020424767201c08a6278026fd27f83b",
+                "environment_path":  "docs/receipts/P1A/runs/20260811T174150772Z-17e8222a9d394ce08c11f61f/artifacts/environment.json",
+                "environment_sha256":  "a3a9cf14e01f2c2f9687a5569ab67e126c8bd5664378578e47261a80db1dfa4e",
+                "source_identity_sha256":  "d3df9796dbcef5040ba8278127615cf6efc91e0a9408a8bf5d6831a221f7807d",
+                "verifier_sha256":  "d3ca5176f8ee5e63bc1e104c37045ddafb4a2cd71dec7f209e78175632032fd9",
+                "schema_bundle_sha256":  "43f7b6de3629034f0c90fb874c2bcbb124da2032f95757a92e4ec48d9e742a4a",
+                "review_closure_commit":  "9359c989fa63d4a300abc509e735b7e81a24a2ea"
+            },
+    "source":  {
+                   "head":  "9359c989fa63d4a300abc509e735b7e81a24a2ea",
+                   "dirty":  true,
+                   "input_manifest_sha256":  "6e6678c3dccc77db6c2e87e0215b27340eb7f30383ac523226b36defb3786447",
+                   "cargo_lock_sha256":  "c0a5e1afe02e252a22cca8bf07ab37fb2a25844210d2d5ce2e1e6082e497a28c",
+                   "verifier_sha256":  "d3ca5176f8ee5e63bc1e104c37045ddafb4a2cd71dec7f209e78175632032fd9",
+                   "schema_bundle_sha256":  "43f7b6de3629034f0c90fb874c2bcbb124da2032f95757a92e4ec48d9e742a4a"
+               },
+    "host":  {
+                 "os_version":  "Microsoft Windows NT 10.0.26200.0",
+                 "os_architecture":  "AMD64",
+                 "process_architecture":  "AMD64",
+                 "powershell_edition":  "Desktop",
+                 "powershell_version":  "5.1.26100.8972"
+             },
+    "rust":  {
+                 "rustc_version":  "1.96.0",
+                 "commit_hash":  "ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96",
+                 "commit_date":  "2026-05-25",
+                 "host":  "x86_64-pc-windows-msvc",
+                 "llvm_version":  "22.1.2",
+                 "rustc":  {
+                               "name":  "rustc",
+                               "version":  "1.96.0",
+                               "path":  "${CARGO_HOME}/bin/rustc.exe",
+                               "sha256":  "86478e53f769379d7f0ebfa7c9aa97cb76ca92233f79aa2cc0dbee2efaac73c7"
+                           },
+                 "cargo_version":  "1.96.0",
+                 "cargo":  {
+                               "name":  "cargo",
+                               "version":  "1.96.0",
+                               "path":  "${CARGO_HOME}/bin/cargo.exe",
+                               "sha256":  "86478e53f769379d7f0ebfa7c9aa97cb76ca92233f79aa2cc0dbee2efaac73c7"
+                           },
+                 "rustup":  null
+             },
+    "visual_studio":  {
+                          "discovery_method":  "vswhere",
+                          "query":  [
+                                        "-version",
+                                        "[17.0,18.0)",
+                                        "-products",
+                                        "*",
+                                        "-requires",
+                                        "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+                                        "-format",
+                                        "json",
+                                        "-utf8"
+                                    ],
+                          "instance_id":  "6e4189bd",
+                          "product_id":  "Microsoft.VisualStudio.Product.Community",
+                          "product_version":  "17.14.23",
+                          "installation_version":  "17.14.36811.4",
+                          "complete":  true,
+                          "launchable":  true,
+                          "reboot_required":  false,
+                          "developer_environment_arguments":  [
+                                                                  "-arch=amd64",
+                                                                  "-host_arch=amd64",
+                                                                  "-startdir=none"
+                                                              ],
+                          "tools":  [
+                                        {
+                                            "name":  "cl",
+                                            "version":  "19.44.35222.0",
+                                            "path":  "${VC_TOOLS}/bin/HostX64/x64/cl.exe",
+                                            "sha256":  "4304307e1f0d0528ac13c513183e5cbfa20a7f8de6f0c8e5bc4293661e6d23a4"
+                                        },
+                                        {
+                                            "name":  "link",
+                                            "version":  "14.44.35222.0",
+                                            "path":  "${VC_TOOLS}/bin/HostX64/x64/link.exe",
+                                            "sha256":  "ba9bdf6fd3df9c7c3ae007fa3999302c2aa161fccb22831da28cfecb0e0c586b"
+                                        },
+                                        {
+                                            "name":  "lib",
+                                            "version":  "14.44.35222.0",
+                                            "path":  "${VC_TOOLS}/bin/HostX64/x64/lib.exe",
+                                            "sha256":  "6f53ab59c51490dae0ee7ecd32e9cd546a029999e59bcae89db3591d186c9681"
+                                        },
+                                        {
+                                            "name":  "dumpbin",
+                                            "version":  "14.44.35222.0",
+                                            "path":  "${VC_TOOLS}/bin/HostX64/x64/dumpbin.exe",
+                                            "sha256":  "f50e98dd528739d8f9cc4330a448b1962871260262abb87a168f407c45841cb7"
+                                        }
+                                    ]
+                      },
+    "windows_sdk":  {
+                        "version":  "10.0.26100.0",
+                        "ucrt_version":  "10.0.26100.0",
+                        "root":  "${WINDOWS_KITS}",
+                        "validated_paths":  [
+                                                "${WINDOWS_KITS}/Include/10.0.26100.0/um/Windows.h",
+                                                "${WINDOWS_KITS}/Include/10.0.26100.0/ucrt/stdlib.h",
+                                                "${WINDOWS_KITS}/Lib/10.0.26100.0/um/x64/kernel32.lib",
+                                                "${WINDOWS_KITS}/Lib/10.0.26100.0/ucrt/x64/ucrt.lib",
+                                                "${WINDOWS_KITS}/bin/10.0.26100.0/x64/rc.exe",
+                                                "${WINDOWS_KITS}/bin/10.0.26100.0/x64/mt.exe"
+                                            ],
+                        "tools":  [
+                                      {
+                                          "name":  "rc",
+                                          "version":  "10.0.26100.7175 (WinBuild.160101.0800)",
+                                          "path":  "${WINDOWS_KITS}/bin/10.0.26100.0/x64/rc.exe",
+                                          "sha256":  "650e6ea5be1447c6e4e68da6d8ce882fd294d3fdc9f697a62b1752f5a79c0090"
+                                      },
+                                      {
+                                          "name":  "mt",
+                                          "version":  "10.0.26100.7175 (WinBuild.160101.0800)",
+                                          "path":  "${WINDOWS_KITS}/bin/10.0.26100.0/x64/mt.exe",
+                                          "sha256":  "5370fbc9234c7d8ab88688f5a98c218b686f37096a4c88dac8498823a6154069"
+                                      }
+                                  ]
+                    },
+    "cuda_toolkit":  {
+                         "version":  "13.1.0",
+                         "root":  "${CUDA_TOOLKIT}",
+                         "tools":  [
+                                       {
+                                           "name":  "nvcc",
+                                           "version":  "13.1.80",
+                                           "path":  "${CUDA_TOOLKIT}/bin/nvcc.exe",
+                                           "sha256":  "8155fd86313c1dd009ade5f341b93d631280b857c3d0a4b8f2556a40483e7880"
+                                       },
+                                       {
+                                           "name":  "ptxas",
+                                           "version":  "13.1.0",
+                                           "path":  "${CUDA_TOOLKIT}/bin/ptxas.exe",
+                                           "sha256":  "da3ef533117f915c7fc0ae597f921d30e5557cf44bcd43c1af04465987254865"
+                                       },
+                                       {
+                                           "name":  "fatbinary",
+                                           "version":  "13.1.0",
+                                           "path":  "${CUDA_TOOLKIT}/bin/fatbinary.exe",
+                                           "sha256":  "1a102001a6f70a3a72a2661f44408b8aa2a8b816e7d6b03aa05fe0f4eb523039"
+                                       },
+                                       {
+                                           "name":  "nvlink",
+                                           "version":  "13.1.0",
+                                           "path":  "${CUDA_TOOLKIT}/bin/nvlink.exe",
+                                           "sha256":  "b29a36a5c9902fb94c3e2f21edce6dd82f894a3907f5117634a6bd6cdaff6cf1"
+                                       },
+                                       {
+                                           "name":  "cuobjdump",
+                                           "version":  "13.1.0",
+                                           "path":  "${CUDA_TOOLKIT}/bin/cuobjdump.exe",
+                                           "sha256":  "3d72dca97ac75e042f09fa8876fad9c0044ba350ec45a014ac2ceb683dbca092"
+                                       }
+                                   ],
+                         "headers":  [
+                                         {
+                                             "name":  "cuda.h",
+                                             "path":  "${CUDA_TOOLKIT}/include/cuda.h",
+                                             "sha256":  "756c5d0b68c4bf33d279419d5db479d63263abe80c1e476f8899f4b077215bf5",
+                                             "bytes":  1177046
+                                         },
+                                         {
+                                             "name":  "cuda_runtime.h",
+                                             "path":  "${CUDA_TOOLKIT}/include/cuda_runtime.h",
+                                             "sha256":  "ed98dea68015c4b238d92de09d171fbfee12e20fed8dc618614a6baabfd56e7f",
+                                             "bytes":  103112
+                                         },
+                                         {
+                                             "name":  "cublas_v2.h",
+                                             "path":  "${CUDA_TOOLKIT}/include/cublas_v2.h",
+                                             "sha256":  "4d8f0ed63669f8820e1b6d89b68bf398161679576cf13042dcf2b193a9377e07",
+                                             "bytes":  15874
+                                         },
+                                         {
+                                             "name":  "cublasLt.h",
+                                             "path":  "${CUDA_TOOLKIT}/include/cublasLt.h",
+                                             "sha256":  "6d5331ce42987ba19fa19a51b41551caf26fec6cc66b63535a6d817259e95108",
+                                             "bytes":  117373
+                                         }
+                                     ],
+                         "libraries":  [
+                                           {
+                                               "name":  "cuda.lib",
+                                               "path":  "${CUDA_TOOLKIT}/lib/x64/cuda.lib",
+                                               "sha256":  "a55203daeb1b04d348200e002d2f2dc77d9b31edcff7dad76cffa4497ee14265",
+                                               "bytes":  805036
+                                           },
+                                           {
+                                               "name":  "cudart.lib",
+                                               "path":  "${CUDA_TOOLKIT}/lib/x64/cudart.lib",
+                                               "sha256":  "aa6c52324ff06c3c24cf38742d5a76d80f3a34d4f2df617ab4eedf74703d0f11",
+                                               "bytes":  1983738
+                                           },
+                                           {
+                                               "name":  "cublas.lib",
+                                               "path":  "${CUDA_TOOLKIT}/lib/x64/cublas.lib",
+                                               "sha256":  "e6a7e1cb87932e28bc000c0d364b354759c6c29c92b6db38140cca816f5acbff",
+                                               "bytes":  159250
+                                           },
+                                           {
+                                               "name":  "cublasLt.lib",
+                                               "path":  "${CUDA_TOOLKIT}/lib/x64/cublasLt.lib",
+                                               "sha256":  "340e05291126b2a83a8d792d54a5cab495ca1a02a6324b1636007693a245bda2",
+                                               "bytes":  1041000
+                                           }
+                                       ],
+                         "runtime_dlls":  [
+                                              {
+                                                  "name":  "cudart64_13.dll",
+                                                  "path":  "${CUDA_TOOLKIT}/bin/x64/cudart64_13.dll",
+                                                  "sha256":  "352ba4ebe61e9a3b171f357a3daf5dd15b6af4a9857673ff893bd6fd2964c075",
+                                                  "bytes":  540784
+                                              },
+                                              {
+                                                  "name":  "cublas64_13.dll",
+                                                  "path":  "${CUDA_TOOLKIT}/bin/x64/cublas64_13.dll",
+                                                  "sha256":  "101ae2b98be62704ec96e90a3c49373b76122fc6b502497a7b6fae9ab0f01564",
+                                                  "bytes":  51569776
+                                              },
+                                              {
+                                                  "name":  "cublasLt64_13.dll",
+                                                  "path":  "${CUDA_TOOLKIT}/bin/x64/cublasLt64_13.dll",
+                                                  "sha256":  "517b6a69ac9faa7354cffcbd92179aec0cc18a8f6237d36b28d9adfe8c912d8d",
+                                                  "bytes":  480693360
+                                              }
+                                          ]
+                     },
+    "runtime_linkage":  {
+                            "mode":  "hybrid",
+                            "active_provider":  "display_driver",
+                            "staged_runtime_dlls":  [
+                                                        {
+                                                            "component":  "cublas",
+                                                            "sha256":  "101ae2b98be62704ec96e90a3c49373b76122fc6b502497a7b6fae9ab0f01564"
+                                                        },
+                                                        {
+                                                            "component":  "cublaslt",
+                                                            "sha256":  "517b6a69ac9faa7354cffcbd92179aec0cc18a8f6237d36b28d9adfe8c912d8d"
+                                                        }
+                                                    ]
+                        },
+    "optional_components":  {
+                                "cudnn":  {
+                                              "present":  false,
+                                              "version":  null,
+                                              "path":  null,
+                                              "sha256":  null
+                                          },
+                                "nvrtc":  {
+                                              "present":  true,
+                                              "version":  null,
+                                              "path":  "${CUDA_TOOLKIT}/include/nvrtc.h",
+                                              "sha256":  "4c39b5324ef21ef5d02217d9704bdc543da4836930e1d634b06dc816856fe07b"
+                                          },
+                                "nvjitlink":  {
+                                                  "present":  true,
+                                                  "version":  null,
+                                                  "path":  "${CUDA_TOOLKIT}/include/nvJitLink.h",
+                                                  "sha256":  "0744a528879726617b0ec9aec32b229bafaa6c92d2ac6c1966376c1a6e9c7c34"
+                                              },
+                                "compute_sanitizer":  {
+                                                          "present":  true,
+                                                          "version":  null,
+                                                          "path":  "${CUDA_TOOLKIT}/compute-sanitizer/compute-sanitizer.exe",
+                                                          "sha256":  "6e65002d363ec77e305e8d379aedef20828b7ce2b0074268933ae9c4e8327ea6"
+                                                      },
+                                "curand":  {
+                                               "present":  true,
+                                               "version":  null,
+                                               "path":  "${CUDA_TOOLKIT}/include/curand.h",
+                                               "sha256":  "7ab7c56acbd1dc54b68986ac0089e5db21621d3a653fc8bb7794612d29ce6a89"
+                                           }
+                            },
+    "driver":  {
+                   "driver_version":  "610.88",
+                   "cuda_umd_version":  "32.0.16.1088",
+                   "nvidia_smi":  {
+                                      "name":  "nvidia-smi",
+                                      "version":  "610.88",
+                                      "path":  "${WINDOWS}/System32/nvidia-smi.exe",
+                                      "sha256":  "bcff816616b9e2df104e601ae9b0ac116003a66e27e937bc09f79f29afe342d0"
+                                  },
+                   "library":  {
+                                   "name":  "nvcuda",
+                                   "version":  "32.0.16.1088",
+                                   "path":  "${WINDOWS}/System32/nvcuda.dll",
+                                   "sha256":  "3fe38dc3b7eb45f4c364d87df01dbf1c224c5ffd96b542cea8c0dca215330b84"
+                               }
+               },
+    "gpu":  {
+                "index":  0,
+                "name":  "NVIDIA GeForce RTX 5090",
+                "memory_total_bytes":  34190458880,
+                "compute_capability_major":  12,
+                "compute_capability_minor":  0
+            },
+    "architecture_targets":  {
+                                 "sass":  [
+                                              "sm_120"
+                                          ],
+                                 "ptx":  [
+                                             "compute_120"
+                                         ],
+                                 "advertised_architectures":  [
+                                                                  "compute_100",
+                                                                  "compute_103",
+                                                                  "compute_110",
+                                                                  "compute_120",
+                                                                  "compute_121",
+                                                                  "compute_75",
+                                                                  "compute_80",
+                                                                  "compute_86",
+                                                                  "compute_87",
+                                                                  "compute_88",
+                                                                  "compute_89",
+                                                                  "compute_90"
+                                                              ],
+                                 "advertised_code":  [
+                                                         "sm_100",
+                                                         "sm_103",
+                                                         "sm_110",
+                                                         "sm_120",
+                                                         "sm_121",
+                                                         "sm_75",
+                                                         "sm_80",
+                                                         "sm_86",
+                                                         "sm_87",
+                                                         "sm_88",
+                                                         "sm_89",
+                                                         "sm_90"
+                                                     ],
+                                 "mixed":  {
+                                               "compile_command_id":  "C16",
+                                               "executable_sha256":  "ad4163a282dd5401c51c28395185df8567e98da59ce91fb430706271b1e51e62",
+                                               "run_command_id":  "C30",
+                                               "pe_headers_command_id":  "C22",
+                                               "pe_dependents_command_id":  "C23",
+                                               "elf_command_id":  "C18",
+                                               "ptx_list_command_id":  "C19",
+                                               "sass_dump_command_id":  "C20",
+                                               "ptx_dump_command_id":  "C21",
+                                               "embedded_sass":  [
+                                                                     "sm_120"
+                                                                 ],
+                                               "embedded_ptx":  [
+                                                                    "compute_120"
+                                                                ],
+                                               "pe_imports":  [
+                                                                  "api-ms-win-crt-heap-l1-1-0.dll",
+                                                                  "api-ms-win-crt-locale-l1-1-0.dll",
+                                                                  "api-ms-win-crt-math-l1-1-0.dll",
+                                                                  "api-ms-win-crt-runtime-l1-1-0.dll",
+                                                                  "api-ms-win-crt-stdio-l1-1-0.dll",
+                                                                  "api-ms-win-crt-string-l1-1-0.dll",
+                                                                  "cublas64_13.dll",
+                                                                  "cublaslt64_13.dll",
+                                                                  "kernel32.dll",
+                                                                  "vcruntime140.dll"
+                                                              ],
+                                               "result":  "PASS"
+                                           },
+                                 "ptx_only":  {
+                                                  "compile_command_id":  "C17",
+                                                  "executable_sha256":  "f56e36c24749c373aa6f086e1cb47a4933579f0ddc8dc31b1e81716e2e7d1818",
+                                                  "run_command_id":  "C31",
+                                                  "pe_headers_command_id":  "C28",
+                                                  "pe_dependents_command_id":  "C29",
+                                                  "elf_command_id":  "C24",
+                                                  "ptx_list_command_id":  "C25",
+                                                  "sass_dump_command_id":  "C26",
+                                                  "ptx_dump_command_id":  "C27",
+                                                  "embedded_sass":  [
+
+                                                                    ],
+                                                  "embedded_ptx":  [
+                                                                       "compute_120"
+                                                                   ],
+                                                  "pe_imports":  [
+                                                                     "api-ms-win-crt-heap-l1-1-0.dll",
+                                                                     "api-ms-win-crt-locale-l1-1-0.dll",
+                                                                     "api-ms-win-crt-math-l1-1-0.dll",
+                                                                     "api-ms-win-crt-runtime-l1-1-0.dll",
+                                                                     "api-ms-win-crt-stdio-l1-1-0.dll",
+                                                                     "api-ms-win-crt-string-l1-1-0.dll",
+                                                                     "cublas64_13.dll",
+                                                                     "cublaslt64_13.dll",
+                                                                     "kernel32.dll",
+                                                                     "vcruntime140.dll"
+                                                                 ],
+                                                  "result":  "PASS"
+                                              }
+                             },
+    "device_probe":  {
+                         "source_sha256":  "72998a2c0400ef4c4d2ace814c6639c65826ff5cfa3fbf079a8785a076bb68e8",
+                         "runtime_version":  13030,
+                         "driver_version":  13030,
+                         "cublas_version":  130200,
+                         "cublaslt_version":  130200,
+                         "mixed_result":  "PASS",
+                         "ptx_only_result":  "PASS",
+                         "sentinel":  42,
+                         "target_match_count":  1
+                     },
+    "isolation":  {
+                      "temporary_root_absent_before":  true,
+                      "temporary_root_outside_repository":  true,
+                      "python_canaries":  [
+                                              "python",
+                                              "python3",
+                                              "pythonw",
+                                              "py",
+                                              "pyw",
+                                              "pip",
+                                              "pip3"
+                                          ],
+                      "canary_hits":  [
+
+                                      ],
+                      "python_invoked":  false
+                  },
+    "cleanup":  {
+                    "temporary_root_removed":  true,
+                    "repository_target_unchanged":  true,
+                    "parent_environment_unchanged":  true,
+                    "inputs_unchanged":  true
+                }
+}

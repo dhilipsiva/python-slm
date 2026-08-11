@@ -1,0 +1,1 @@
+VS2022 x64 developer environment captured; raw environment intentionally omitted.

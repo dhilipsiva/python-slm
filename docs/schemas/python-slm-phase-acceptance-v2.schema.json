@@ -1,0 +1,88 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://python-slm.local/schemas/python-slm-phase-acceptance-v2.schema.json",
+  "title": "python-slm automatic P1B acceptance v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "phase_id",
+    "sequence",
+    "status",
+    "acceptance_kind",
+    "required_approvals",
+    "run_path",
+    "run_evidence_sha256",
+    "seal_path",
+    "seal_sha256",
+    "environment_path",
+    "environment_sha256",
+    "source_identity_sha256",
+    "previous_acceptance_sha256",
+    "created_at"
+  ],
+  "properties": {
+    "schema": { "const": "python-slm-phase-acceptance-v2" },
+    "phase_id": { "const": "P1B" },
+    "sequence": { "type": "integer", "minimum": 1, "maximum": 99999999 },
+    "status": { "const": "PASS" },
+    "acceptance_kind": { "const": "automatic_machine_qualification" },
+    "required_approvals": { "const": [] },
+    "run_path": { "$ref": "#/definitions/runPath" },
+    "run_evidence_sha256": { "$ref": "#/definitions/sha256" },
+    "seal_path": { "$ref": "#/definitions/sealPath" },
+    "seal_sha256": { "$ref": "#/definitions/sha256" },
+    "environment_path": { "$ref": "#/definitions/environmentPath" },
+    "environment_sha256": { "$ref": "#/definitions/sha256" },
+    "source_identity_sha256": { "$ref": "#/definitions/sha256" },
+    "previous_acceptance_sha256": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/definitions/sha256" }
+      ]
+    },
+    "created_at": { "$ref": "#/definitions/utcDateTime" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "sequence": { "const": 1 } },
+        "required": ["sequence"]
+      },
+      "then": {
+        "properties": { "previous_acceptance_sha256": { "type": "null" } }
+      }
+    },
+    {
+      "if": {
+        "properties": { "sequence": { "minimum": 2 } },
+        "required": ["sequence"]
+      },
+      "then": {
+        "properties": {
+          "previous_acceptance_sha256": { "$ref": "#/definitions/sha256" }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "utcDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "runPath": {
+      "type": "string",
+      "pattern": "^runs/[0-9]{8}T[0-9]{9}Z-[0-9a-f]{24}$"
+    },
+    "sealPath": {
+      "type": "string",
+      "pattern": "^runs/[0-9]{8}T[0-9]{9}Z-[0-9a-f]{24}/SHA256SUMS$"
+    },
+    "environmentPath": {
+      "type": "string",
+      "pattern": "^runs/[0-9]{8}T[0-9]{9}Z-[0-9a-f]{24}/artifacts/environment\\.json$"
+    }
+  }
+}

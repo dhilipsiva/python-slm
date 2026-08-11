@@ -1,0 +1,744 @@
+{
+    "schema":  "python-slm-phase-evidence-v2",
+    "phase_id":  "P1B",
+    "run_id":  "20260811T164344204Z-480c33e91a4343e5bb0b97ea",
+    "mode":  "Cuda",
+    "status":  "FAIL",
+    "started_at":  "2026-08-11T16:43:44.1265931Z",
+    "finished_at":  "2026-08-11T16:44:02.1949969Z",
+    "duration_ms":  18068,
+    "invocation":  {
+                       "argv":  [
+                                    "powershell",
+                                    "-NoProfile",
+                                    "-ExecutionPolicy",
+                                    "Bypass",
+                                    "-File",
+                                    "scripts/verify-env.ps1",
+                                    "-Mode",
+                                    "Cuda",
+                                    "-OutputRoot",
+                                    "docs/receipts/P1B"
+                                ],
+                       "cwd":  "${REPO}"
+                   },
+    "source_identity_sha256":  "13212ae1f2445ea5bbe66d1ab8a7326686da00a687bf7103e172223bd08af48a",
+    "p0_dependency":  {
+                          "status":  "PASS",
+                          "receipt_commit":  "86fb1e4cc68efeb651e5362c4aca85c2827d8e4d",
+                          "receipt_sha256":  "f08c6a41658ff287e238d6a96c4f2c874975964202c3eeced2bc0bc21f308904",
+                          "contract_sha256":  "fc2c60b52fdd7c524e0da06bb03972a4d523c21ad5536cba536185435bd44ad4",
+                          "decision_ledger_sha256":  "8349d8a3e06d96d6921889de5534715e7b2f7439caf7e06558a97652a8890c8d"
+                      },
+    "p1a_dependency":  {
+                           "status":  "PASS",
+                           "pointer_path":  "docs/receipts/P1A/evidence.json",
+                           "pointer_sha256":  "fdfb196613a8dd12f1121e79856ba0e6ff82c88f1605ec37b52da0817c61db4a",
+                           "acceptance_path":  "docs/receipts/P1A/acceptances/00000003.json",
+                           "acceptance_sha256":  "3b479c18d409a783a46eb9dcc35547be0ce6064663667dc8d4597ce1c80d28e4",
+                           "acceptance_sequence":  3,
+                           "run_path":  "docs/receipts/P1A/runs/20260811T163811395Z-a6cc37d1df6c438283a21d0b",
+                           "run_evidence_sha256":  "c84999d8f83eb609ebb47165cc2474d7f59d41687e174071d7b712108ed75859",
+                           "seal_path":  "docs/receipts/P1A/runs/20260811T163811395Z-a6cc37d1df6c438283a21d0b/SHA256SUMS",
+                           "seal_sha256":  "76599d3c6330573fc0f30c3bc1f00489898d0cb27869378f39cedc050f16638c",
+                           "environment_path":  "docs/receipts/P1A/runs/20260811T163811395Z-a6cc37d1df6c438283a21d0b/artifacts/environment.json",
+                           "environment_sha256":  "868f26ea402157143624fc5c1304f896e99e131f6356c11e41f73c9336c05269",
+                           "source_identity_sha256":  "1c301463401627f8cce9e25249e9929335e9c1e198ca3587ec8e14787fad0668",
+                           "verifier_sha256":  "156b4f591d9c614ae7e3be8531ec1ba560ca738077cff015ac21c3c16641b860",
+                           "schema_bundle_sha256":  "fe6d75a8fcbe9e0063361efb129476e9c313cf4787e1cfd0f339ca0f43df6cdc",
+                           "review_closure_commit":  "9359c989fa63d4a300abc509e735b7e81a24a2ea"
+                       },
+    "environment":  null,
+    "commands":  [
+                     {
+                         "id":  "C01",
+                         "argv":  [
+                                      "git.exe",
+                                      "diff",
+                                      "--exit-code",
+                                      "b1ebb455cdae94bbb9fc54f246cdf2758eedf1d1",
+                                      "--",
+                                      "docs/rebuild-contract.md",
+                                      "docs/receipts/P0/capture.ps1",
+                                      "docs/receipts/P0/evidence.json",
+                                      "docs/receipts/P0/runs"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+
+                                                     ],
+                         "configuration_sha256":  "658dc0d7c1cfc24bbc0c38735fdcafc9ba9b39e92df003bdd1fee102290bb553",
+                         "exit_code":  0,
+                         "duration_ms":  38,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C01.stdout.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C01.stderr.txt",
+                                        "sha256":  "87d4dd41a15fe75ed5d9544eed218f7859e7932add22b2949d1c28476b77bd5a",
+                                        "bytes":  81
+                                    }
+                     },
+                     {
+                         "id":  "C02",
+                         "argv":  [
+                                      "git.exe",
+                                      "status",
+                                      "--porcelain=v1",
+                                      "--untracked-files=all",
+                                      "--",
+                                      "docs/rebuild-contract.md",
+                                      "docs/receipts/P0/capture.ps1",
+                                      "docs/receipts/P0/evidence.json",
+                                      "docs/receipts/P0/runs"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+
+                                                     ],
+                         "configuration_sha256":  "6f882f1dbd78b5054f8a2da2c98b80acc6034d5d5456dca235bfd459ccfce163",
+                         "exit_code":  0,
+                         "duration_ms":  41,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C02.stdout.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C02.stderr.txt",
+                                        "sha256":  "9f50588b6e363788782f00ce55bc494b06ffb7aa7491829514c0b9284b983526",
+                                        "bytes":  162
+                                    }
+                     },
+                     {
+                         "id":  "C03",
+                         "argv":  [
+                                      "git.exe",
+                                      "merge-base",
+                                      "--is-ancestor",
+                                      "86fb1e4cc68efeb651e5362c4aca85c2827d8e4d",
+                                      "HEAD"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+
+                                                     ],
+                         "configuration_sha256":  "5e8ff8c594a4defeb054f756423919fd7d8c1b82184015bd5d34acda9b31393b",
+                         "exit_code":  0,
+                         "duration_ms":  34,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C03.stdout.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C03.stderr.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0
+                                    }
+                     },
+                     {
+                         "id":  "C04",
+                         "argv":  [
+                                      "git.exe",
+                                      "diff",
+                                      "--exit-code",
+                                      "86fb1e4cc68efeb651e5362c4aca85c2827d8e4d",
+                                      "--",
+                                      "docs/receipts/P0.md"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+
+                                                     ],
+                         "configuration_sha256":  "d877a2db2cb2b2ae87a0e3ebf3c362223fc9d287ef106631b6808e62091b3bd3",
+                         "exit_code":  0,
+                         "duration_ms":  33,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C04.stdout.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C04.stderr.txt",
+                                        "sha256":  "87d4dd41a15fe75ed5d9544eed218f7859e7932add22b2949d1c28476b77bd5a",
+                                        "bytes":  81
+                                    }
+                     },
+                     {
+                         "id":  "C05",
+                         "argv":  [
+                                      "git.exe",
+                                      "rev-parse",
+                                      "HEAD"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+
+                                                     ],
+                         "configuration_sha256":  "98947ad740fd51ea1de84245df5a0ec35641aca582524fe6733eab157f997b98",
+                         "exit_code":  0,
+                         "duration_ms":  31,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C05.stdout.txt",
+                                        "sha256":  "3ca39791d1545ec9077a15bbbae7ec3714dc705d74e032aa581a921a9c491fd3",
+                                        "bytes":  41
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C05.stderr.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0
+                                    }
+                     },
+                     {
+                         "id":  "C06",
+                         "argv":  [
+                                      "git.exe",
+                                      "status",
+                                      "--porcelain=v1",
+                                      "--untracked-files=all",
+                                      "--",
+                                      ".",
+                                      ":(exclude)docs/receipts/P1A",
+                                      ":(exclude)docs/receipts/P1B"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+
+                                                     ],
+                         "configuration_sha256":  "e8c184756e825f747eaa1d16952cdf3fe7f8b2b0edaafd325860edc6a45d7442",
+                         "exit_code":  0,
+                         "duration_ms":  43,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C06.stdout.txt",
+                                        "sha256":  "3f2c7827c988c39b1e677beb701fbcacc3080e65b19451a24152510d858c9de1",
+                                        "bytes":  108
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C06.stderr.txt",
+                                        "sha256":  "38060844ded27646fcc85e79e8ad59bea20b3c769ec843bf25d9c8f9bedc8e39",
+                                        "bytes":  108
+                                    }
+                     },
+                     {
+                         "id":  "C07",
+                         "argv":  [
+                                      "rustc.exe",
+                                      "-Vv"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+
+                                                     ],
+                         "configuration_sha256":  "746b697089c7726bcf549dfa607da036bae6f7365dc5e7b2dbf4594da0128ab1",
+                         "exit_code":  0,
+                         "duration_ms":  37,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C07.stdout.txt",
+                                        "sha256":  "2efe229f7908c2c19f459ca734101a5b35cb482476b8bee1357f94a18c766078",
+                                        "bytes":  194
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C07.stderr.txt",
+                                        "sha256":  "3c3aab9a5384530b820008cc3db8d84f814a305879a604989d7aae3861a30851",
+                                        "bytes":  49
+                                    }
+                     },
+                     {
+                         "id":  "C08",
+                         "argv":  [
+                                      "cargo.exe",
+                                      "-Vv"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+
+                                                     ],
+                         "configuration_sha256":  "644d270c035cf43c1a7e7a78f0183da6c2534f3c0cc547b812f6d4b0af1c68c1",
+                         "exit_code":  0,
+                         "duration_ms":  34,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C08.stdout.txt",
+                                        "sha256":  "aa4b48e772be811ab6fe5b57107ce5f1c02055c965756273cc9c9a95b3f1c98b",
+                                        "bytes":  321
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C08.stderr.txt",
+                                        "sha256":  "3c3aab9a5384530b820008cc3db8d84f814a305879a604989d7aae3861a30851",
+                                        "bytes":  49
+                                    }
+                     },
+                     {
+                         "id":  "C09",
+                         "argv":  [
+                                      "vswhere.exe",
+                                      "-version",
+                                      "[17.0,18.0)",
+                                      "-products",
+                                      "*",
+                                      "-requires",
+                                      "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+                                      "-format",
+                                      "json",
+                                      "-utf8"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+
+                                                     ],
+                         "configuration_sha256":  "0435938121a0e40558ef5dedc45ff29c356264642217b74187fc932967d84673",
+                         "exit_code":  0,
+                         "duration_ms":  35,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C09.stdout.txt",
+                                        "sha256":  "02a86f50152067d9cccc7cc7cfcae59a5544f823e209675e6df261f00a48d751",
+                                        "bytes":  76
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C09.stderr.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0
+                                    }
+                     },
+                     {
+                         "id":  "C10",
+                         "argv":  [
+                                      "cmd.exe",
+                                      "/d",
+                                      "/c",
+                                      "${TEMP}\\capture-vs-env.cmd",
+                                      "${VS_INSTALL}\\Common7\\Tools\\VsDevCmd.bat"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+
+                                                     ],
+                         "configuration_sha256":  "57d05b092ca0498e6508269b84102d5c69111e65bbc37d78ed6b054ce302b142",
+                         "exit_code":  0,
+                         "duration_ms":  829,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C10.stdout.txt",
+                                        "sha256":  "53c7a4d577ada9423c7d8d471740f2df5675075c72897f3f299cc88fb8585344",
+                                        "bytes":  82
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C10.stderr.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0
+                                    }
+                     },
+                     {
+                         "id":  "C11",
+                         "argv":  [
+                                      "cl.exe",
+                                      "/nologo",
+                                      "/TC",
+                                      "/W4",
+                                      "/WX",
+                                      "/MD",
+                                      "${TEMP}\\p1b_python_canary.c",
+                                      "/Fo${TEMP}\\p1b_python_canary.obj",
+                                      "/Fe${TEMP}\\p1b_python_canary.exe",
+                                      "/link",
+                                      "kernel32.lib"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+                                                         "_CL_",
+                                                         "_LINK_",
+                                                         "CL",
+                                                         "ComSpec",
+                                                         "CUDA_CACHE_PATH",
+                                                         "CUDA_PATH",
+                                                         "CUDA_PATH_V13_1",
+                                                         "HOME",
+                                                         "INCLUDE",
+                                                         "LIB",
+                                                         "LIBPATH",
+                                                         "LINK",
+                                                         "P1B_CANARY_DIR",
+                                                         "Path",
+                                                         "PATHEXT",
+                                                         "RUST_LOG",
+                                                         "RUSTC_WORKSPACE_WRAPPER",
+                                                         "RUSTC_WRAPPER",
+                                                         "SCCACHE_DIR",
+                                                         "SystemRoot",
+                                                         "TEMP",
+                                                         "TMP",
+                                                         "UCRTVersion",
+                                                         "UniversalCRTSdkDir",
+                                                         "USERPROFILE",
+                                                         "VCINSTALLDIR",
+                                                         "VCToolsInstallDir",
+                                                         "VCToolsVersion",
+                                                         "VSCMD_ARG_app_plat",
+                                                         "VSCMD_ARG_HOST_ARCH",
+                                                         "VSCMD_ARG_no_logo",
+                                                         "VSCMD_ARG_STARTDIR",
+                                                         "VSCMD_ARG_TGT_ARCH",
+                                                         "VSCMD_VER",
+                                                         "VSINSTALLDIR",
+                                                         "windir",
+                                                         "WindowsSdkBinPath",
+                                                         "WindowsSdkDir",
+                                                         "WindowsSdkVerBinPath",
+                                                         "WindowsSDKVersion"
+                                                     ],
+                         "configuration_sha256":  "a39d43f9c064bfce4bb9146f5a66e454df53255e6e38640f88a07347f221ed01",
+                         "exit_code":  0,
+                         "duration_ms":  165,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C11.stdout.txt",
+                                        "sha256":  "9dee76dd5794f6382d237e26afcd497e64e90acf5fb69b6e044231e3140b73be",
+                                        "bytes":  20
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C11.stderr.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0
+                                    }
+                     },
+                     {
+                         "id":  "C12",
+                         "argv":  [
+                                      "nvcc.exe",
+                                      "--version"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+                                                         "_CL_",
+                                                         "_LINK_",
+                                                         "CL",
+                                                         "ComSpec",
+                                                         "CUDA_CACHE_PATH",
+                                                         "CUDA_PATH",
+                                                         "CUDA_PATH_V13_1",
+                                                         "HOME",
+                                                         "INCLUDE",
+                                                         "LIB",
+                                                         "LIBPATH",
+                                                         "LINK",
+                                                         "P1B_CANARY_DIR",
+                                                         "Path",
+                                                         "PATHEXT",
+                                                         "RUST_LOG",
+                                                         "RUSTC_WORKSPACE_WRAPPER",
+                                                         "RUSTC_WRAPPER",
+                                                         "SCCACHE_DIR",
+                                                         "SystemRoot",
+                                                         "TEMP",
+                                                         "TMP",
+                                                         "UCRTVersion",
+                                                         "UniversalCRTSdkDir",
+                                                         "USERPROFILE",
+                                                         "VCINSTALLDIR",
+                                                         "VCToolsInstallDir",
+                                                         "VCToolsVersion",
+                                                         "VSCMD_ARG_app_plat",
+                                                         "VSCMD_ARG_HOST_ARCH",
+                                                         "VSCMD_ARG_no_logo",
+                                                         "VSCMD_ARG_STARTDIR",
+                                                         "VSCMD_ARG_TGT_ARCH",
+                                                         "VSCMD_VER",
+                                                         "VSINSTALLDIR",
+                                                         "windir",
+                                                         "WindowsSdkBinPath",
+                                                         "WindowsSdkDir",
+                                                         "WindowsSdkVerBinPath",
+                                                         "WindowsSDKVersion"
+                                                     ],
+                         "configuration_sha256":  "854824c2fe1a4383b708ca1129dc87dfe28f5f8d874a8a45f1eac6eed64c6fa3",
+                         "exit_code":  0,
+                         "duration_ms":  17,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C12.stdout.txt",
+                                        "sha256":  "c6904fcca624b13b02e67967a29268fe7da6204627dabe353793cd2add4b793b",
+                                        "bytes":  226
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C12.stderr.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0
+                                    }
+                     },
+                     {
+                         "id":  "C13",
+                         "argv":  [
+                                      "nvcc.exe",
+                                      "--list-gpu-arch"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+                                                         "_CL_",
+                                                         "_LINK_",
+                                                         "CL",
+                                                         "ComSpec",
+                                                         "CUDA_CACHE_PATH",
+                                                         "CUDA_PATH",
+                                                         "CUDA_PATH_V13_1",
+                                                         "HOME",
+                                                         "INCLUDE",
+                                                         "LIB",
+                                                         "LIBPATH",
+                                                         "LINK",
+                                                         "P1B_CANARY_DIR",
+                                                         "Path",
+                                                         "PATHEXT",
+                                                         "RUST_LOG",
+                                                         "RUSTC_WORKSPACE_WRAPPER",
+                                                         "RUSTC_WRAPPER",
+                                                         "SCCACHE_DIR",
+                                                         "SystemRoot",
+                                                         "TEMP",
+                                                         "TMP",
+                                                         "UCRTVersion",
+                                                         "UniversalCRTSdkDir",
+                                                         "USERPROFILE",
+                                                         "VCINSTALLDIR",
+                                                         "VCToolsInstallDir",
+                                                         "VCToolsVersion",
+                                                         "VSCMD_ARG_app_plat",
+                                                         "VSCMD_ARG_HOST_ARCH",
+                                                         "VSCMD_ARG_no_logo",
+                                                         "VSCMD_ARG_STARTDIR",
+                                                         "VSCMD_ARG_TGT_ARCH",
+                                                         "VSCMD_VER",
+                                                         "VSINSTALLDIR",
+                                                         "windir",
+                                                         "WindowsSdkBinPath",
+                                                         "WindowsSdkDir",
+                                                         "WindowsSdkVerBinPath",
+                                                         "WindowsSDKVersion"
+                                                     ],
+                         "configuration_sha256":  "57e9ee4ebef551c2f11f08c2fd9446d8f0135b846efe072c0b06ad9b1693dd7c",
+                         "exit_code":  0,
+                         "duration_ms":  15,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C13.stdout.txt",
+                                        "sha256":  "31a581c3e67e10d1e92a86c2b1ff7fda3a8b29f856f646ff1019eb3e3a1946a4",
+                                        "bytes":  137
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C13.stderr.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0
+                                    }
+                     },
+                     {
+                         "id":  "C14",
+                         "argv":  [
+                                      "nvcc.exe",
+                                      "--list-gpu-code"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+                                                         "_CL_",
+                                                         "_LINK_",
+                                                         "CL",
+                                                         "ComSpec",
+                                                         "CUDA_CACHE_PATH",
+                                                         "CUDA_PATH",
+                                                         "CUDA_PATH_V13_1",
+                                                         "HOME",
+                                                         "INCLUDE",
+                                                         "LIB",
+                                                         "LIBPATH",
+                                                         "LINK",
+                                                         "P1B_CANARY_DIR",
+                                                         "Path",
+                                                         "PATHEXT",
+                                                         "RUST_LOG",
+                                                         "RUSTC_WORKSPACE_WRAPPER",
+                                                         "RUSTC_WRAPPER",
+                                                         "SCCACHE_DIR",
+                                                         "SystemRoot",
+                                                         "TEMP",
+                                                         "TMP",
+                                                         "UCRTVersion",
+                                                         "UniversalCRTSdkDir",
+                                                         "USERPROFILE",
+                                                         "VCINSTALLDIR",
+                                                         "VCToolsInstallDir",
+                                                         "VCToolsVersion",
+                                                         "VSCMD_ARG_app_plat",
+                                                         "VSCMD_ARG_HOST_ARCH",
+                                                         "VSCMD_ARG_no_logo",
+                                                         "VSCMD_ARG_STARTDIR",
+                                                         "VSCMD_ARG_TGT_ARCH",
+                                                         "VSCMD_VER",
+                                                         "VSINSTALLDIR",
+                                                         "windir",
+                                                         "WindowsSdkBinPath",
+                                                         "WindowsSdkDir",
+                                                         "WindowsSdkVerBinPath",
+                                                         "WindowsSDKVersion"
+                                                     ],
+                         "configuration_sha256":  "086d86aa1f144ea05e2f682de19cab9be8216a17316e53cd1f1868b5e86e2457",
+                         "exit_code":  0,
+                         "duration_ms":  36,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C14.stdout.txt",
+                                        "sha256":  "b2acb0ed6860db51ae893c13dab0e526d1132230411c04eafc26b7c73b7550cd",
+                                        "bytes":  77
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C14.stderr.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0
+                                    }
+                     },
+                     {
+                         "id":  "C15",
+                         "argv":  [
+                                      "nvidia-smi.exe",
+                                      "--query-gpu=index,name,driver_version,memory.total,compute_cap",
+                                      "--format=csv,noheader,nounits"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+                                                         "_CL_",
+                                                         "_LINK_",
+                                                         "CL",
+                                                         "ComSpec",
+                                                         "CUDA_CACHE_PATH",
+                                                         "CUDA_PATH",
+                                                         "CUDA_PATH_V13_1",
+                                                         "HOME",
+                                                         "INCLUDE",
+                                                         "LIB",
+                                                         "LIBPATH",
+                                                         "LINK",
+                                                         "P1B_CANARY_DIR",
+                                                         "Path",
+                                                         "PATHEXT",
+                                                         "RUST_LOG",
+                                                         "RUSTC_WORKSPACE_WRAPPER",
+                                                         "RUSTC_WRAPPER",
+                                                         "SCCACHE_DIR",
+                                                         "SystemRoot",
+                                                         "TEMP",
+                                                         "TMP",
+                                                         "UCRTVersion",
+                                                         "UniversalCRTSdkDir",
+                                                         "USERPROFILE",
+                                                         "VCINSTALLDIR",
+                                                         "VCToolsInstallDir",
+                                                         "VCToolsVersion",
+                                                         "VSCMD_ARG_app_plat",
+                                                         "VSCMD_ARG_HOST_ARCH",
+                                                         "VSCMD_ARG_no_logo",
+                                                         "VSCMD_ARG_STARTDIR",
+                                                         "VSCMD_ARG_TGT_ARCH",
+                                                         "VSCMD_VER",
+                                                         "VSINSTALLDIR",
+                                                         "windir",
+                                                         "WindowsSdkBinPath",
+                                                         "WindowsSdkDir",
+                                                         "WindowsSdkVerBinPath",
+                                                         "WindowsSDKVersion"
+                                                     ],
+                         "configuration_sha256":  "c9635259b3484383ffdc2d9326c878f1d5c60c2b52c66a6c607dd5631f1be207",
+                         "exit_code":  255,
+                         "duration_ms":  18,
+                         "status":  "FAIL",
+                         "stdout":  {
+                                        "path":  "commands/C15.stdout.txt",
+                                        "sha256":  "c42011ab95424ea06410a08fdb9576220aba18c6c9091d4fd292d8131c14b0e6",
+                                        "bytes":  41
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C15.stderr.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0
+                                    }
+                     }
+                 ],
+    "gates":  {
+                  "p0":  {
+                             "status":  "PASS",
+                             "detail":  "pinned P0 receipt, approvals, hashes, ancestry, and seal verified"
+                         },
+                  "p1a":  {
+                              "status":  "PASS",
+                              "detail":  "selected P1A pointer, acceptance chain, run seal, and review closure verified"
+                          },
+                  "cpu_regression":  {
+                                         "status":  "PASS",
+                                         "detail":  "selected P1A verifier and schema bundle identities match P1B"
+                                     },
+                  "input_stability":  {
+                                          "status":  "PASS",
+                                          "detail":  "inputs, target, repository, Cargo.lock, and parent environment remained stable"
+                                      },
+                  "toolchain":  {
+                                    "status":  "PASS",
+                                    "detail":  "P1A-qualified Rust, VS2022 x64 MSVC, and Windows SDK identities match"
+                                },
+                  "cuda_toolkit":  {
+                                       "status":  "PASS",
+                                       "detail":  "coherent CUDA toolkit, required tools, headers, libraries, and runtime DLLs verified"
+                                   },
+                  "architecture_targets":  {
+                                               "status":  "NOT_RUN",
+                                               "detail":  "not reached"
+                                           },
+                  "gpu_identity":  {
+                                       "status":  "FAIL",
+                                       "detail":  "restricted nvidia-smi inventory failed (exit 255)"
+                                   },
+                  "driver_runtime":  {
+                                         "status":  "NOT_RUN",
+                                         "detail":  "not reached"
+                                     },
+                  "device_probe":  {
+                                       "status":  "NOT_RUN",
+                                       "detail":  "not reached"
+                                   },
+                  "python_isolation":  {
+                                           "status":  "NOT_RUN",
+                                           "detail":  "not reached"
+                                       },
+                  "redaction":  {
+                                    "status":  "PASS",
+                                    "detail":  "failed-run receipts contain no prohibited machine, user, credential, or secret values"
+                                },
+                  "cleanup":  {
+                                  "status":  "PASS",
+                                  "detail":  "verifier-owned temporary root was removed"
+                              }
+              },
+    "errors":  [
+                   {
+                       "code":  "GPU_INVENTORY_FAILED",
+                       "category":  5,
+                       "message":  "restricted nvidia-smi inventory failed (exit 255)",
+                       "remediation":  "Correct the reported CUDA environment prerequisite, then rerun the exact P1B command."
+                   }
+               ],
+    "cleanup":  {
+                    "attempted":  true,
+                    "temporary_root_removed":  true
+                },
+    "seal":  {
+                 "path":  "SHA256SUMS",
+                 "entries":  38,
+                 "coverage_rule":  "all_run_files_except_seal"
+             }
+}

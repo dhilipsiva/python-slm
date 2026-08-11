@@ -1,0 +1,10 @@
+Compiler Passes:
+ ${VS_INSTALL}\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64\cl.exe:        Version 19.44.35222.0
+ ${VS_INSTALL}\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64\c1.dll:        Version 19.44.35222.0
+ ${VS_INSTALL}\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64\c1xx.dll:      Version 19.44.35222.0
+ ${VS_INSTALL}\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64\c2.dll:        Version 19.44.35222.0
+ ${VS_INSTALL}\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64\c1xx.dll:      Version 19.44.35222.0
+ ${VS_INSTALL}\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64\link.exe:      Version 14.44.35222.0
+ ${VS_INSTALL}\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64\mspdb140.dll:  Version 14.44.35222.0
+ ${VS_INSTALL}\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64\1033\clui.dll: Version 19.44.35222.0
+

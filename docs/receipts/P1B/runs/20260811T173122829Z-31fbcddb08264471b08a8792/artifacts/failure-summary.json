@@ -1,0 +1,11 @@
+{
+    "status":  "FAIL",
+    "errors":  [
+                   {
+                       "code":  "CUDA_PTX_ONLY_INSPECTION_FAILED",
+                       "category":  5,
+                       "message":  "PTX-only artifact unexpectedly contains SASS",
+                       "remediation":  "Correct the reported CUDA environment prerequisite, then rerun the exact P1B command."
+                   }
+               ]
+}

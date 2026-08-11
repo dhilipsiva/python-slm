@@ -1,0 +1,19 @@
+{
+    "schema":  "python-slm-phase-acceptance-v1",
+    "phase_id":  "P1A",
+    "sequence":  4,
+    "status":  "PASS",
+    "acceptance_kind":  "automatic_machine_qualification",
+    "required_approvals":  [
+
+                           ],
+    "run_path":  "runs/20260811T164851527Z-ae65d6ab773a404da6a6aa3c",
+    "run_evidence_sha256":  "dde69b066c93b8dce81511b84000a66c4d6e5797aa194607b49eb6f05f1b584f",
+    "seal_path":  "runs/20260811T164851527Z-ae65d6ab773a404da6a6aa3c/SHA256SUMS",
+    "seal_sha256":  "9097c48a52be0342cbef854b234e616f994b3386a70c6bca52e4592bd3826d4f",
+    "environment_path":  "runs/20260811T164851527Z-ae65d6ab773a404da6a6aa3c/artifacts/environment.json",
+    "environment_sha256":  "915e4372f46e857219ca054928608cfbc4929dba834d83cd8069184090b9db4e",
+    "source_identity_sha256":  "5104731fc78fd64167d4777f3b5c9911993f25c7a768193ccc84936641a2154f",
+    "previous_acceptance_sha256":  "3b479c18d409a783a46eb9dcc35547be0ce6064663667dc8d4597ce1c80d28e4",
+    "created_at":  "2026-08-11T16:54:14.3410192Z"
+}

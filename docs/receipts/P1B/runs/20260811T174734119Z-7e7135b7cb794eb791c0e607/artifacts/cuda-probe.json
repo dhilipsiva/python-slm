@@ -1,0 +1,111 @@
+{
+    "schema":  "python-slm-cuda-probe-evidence-v1",
+    "status":  "PASS",
+    "device_probe":  {
+                         "source_sha256":  "72998a2c0400ef4c4d2ace814c6639c65826ff5cfa3fbf079a8785a076bb68e8",
+                         "runtime_version":  13030,
+                         "driver_version":  13030,
+                         "cublas_version":  130200,
+                         "cublaslt_version":  130200,
+                         "mixed_result":  "PASS",
+                         "ptx_only_result":  "PASS",
+                         "sentinel":  42,
+                         "target_match_count":  1
+                     },
+    "architecture_targets":  {
+                                 "sass":  [
+                                              "sm_120"
+                                          ],
+                                 "ptx":  [
+                                             "compute_120"
+                                         ],
+                                 "advertised_architectures":  [
+                                                                  "compute_100",
+                                                                  "compute_103",
+                                                                  "compute_110",
+                                                                  "compute_120",
+                                                                  "compute_121",
+                                                                  "compute_75",
+                                                                  "compute_80",
+                                                                  "compute_86",
+                                                                  "compute_87",
+                                                                  "compute_88",
+                                                                  "compute_89",
+                                                                  "compute_90"
+                                                              ],
+                                 "advertised_code":  [
+                                                         "sm_100",
+                                                         "sm_103",
+                                                         "sm_110",
+                                                         "sm_120",
+                                                         "sm_121",
+                                                         "sm_75",
+                                                         "sm_80",
+                                                         "sm_86",
+                                                         "sm_87",
+                                                         "sm_88",
+                                                         "sm_89",
+                                                         "sm_90"
+                                                     ],
+                                 "mixed":  {
+                                               "compile_command_id":  "C16",
+                                               "executable_sha256":  "ad4163a282dd5401c51c28395185df8567e98da59ce91fb430706271b1e51e62",
+                                               "run_command_id":  "C30",
+                                               "pe_headers_command_id":  "C22",
+                                               "pe_dependents_command_id":  "C23",
+                                               "elf_command_id":  "C18",
+                                               "ptx_list_command_id":  "C19",
+                                               "sass_dump_command_id":  "C20",
+                                               "ptx_dump_command_id":  "C21",
+                                               "embedded_sass":  [
+                                                                     "sm_120"
+                                                                 ],
+                                               "embedded_ptx":  [
+                                                                    "compute_120"
+                                                                ],
+                                               "pe_imports":  [
+                                                                  "api-ms-win-crt-heap-l1-1-0.dll",
+                                                                  "api-ms-win-crt-locale-l1-1-0.dll",
+                                                                  "api-ms-win-crt-math-l1-1-0.dll",
+                                                                  "api-ms-win-crt-runtime-l1-1-0.dll",
+                                                                  "api-ms-win-crt-stdio-l1-1-0.dll",
+                                                                  "api-ms-win-crt-string-l1-1-0.dll",
+                                                                  "cublas64_13.dll",
+                                                                  "cublaslt64_13.dll",
+                                                                  "kernel32.dll",
+                                                                  "vcruntime140.dll"
+                                                              ],
+                                               "result":  "PASS"
+                                           },
+                                 "ptx_only":  {
+                                                  "compile_command_id":  "C17",
+                                                  "executable_sha256":  "f56e36c24749c373aa6f086e1cb47a4933579f0ddc8dc31b1e81716e2e7d1818",
+                                                  "run_command_id":  "C31",
+                                                  "pe_headers_command_id":  "C28",
+                                                  "pe_dependents_command_id":  "C29",
+                                                  "elf_command_id":  "C24",
+                                                  "ptx_list_command_id":  "C25",
+                                                  "sass_dump_command_id":  "C26",
+                                                  "ptx_dump_command_id":  "C27",
+                                                  "embedded_sass":  [
+
+                                                                    ],
+                                                  "embedded_ptx":  [
+                                                                       "compute_120"
+                                                                   ],
+                                                  "pe_imports":  [
+                                                                     "api-ms-win-crt-heap-l1-1-0.dll",
+                                                                     "api-ms-win-crt-locale-l1-1-0.dll",
+                                                                     "api-ms-win-crt-math-l1-1-0.dll",
+                                                                     "api-ms-win-crt-runtime-l1-1-0.dll",
+                                                                     "api-ms-win-crt-stdio-l1-1-0.dll",
+                                                                     "api-ms-win-crt-string-l1-1-0.dll",
+                                                                     "cublas64_13.dll",
+                                                                     "cublaslt64_13.dll",
+                                                                     "kernel32.dll",
+                                                                     "vcruntime140.dll"
+                                                                 ],
+                                                  "result":  "PASS"
+                                              }
+                             }
+}

@@ -1,0 +1,11 @@
+{
+    "status":  "FAIL",
+    "errors":  [
+                   {
+                       "code":  "CUDA_COMPILE_FAILED",
+                       "category":  5,
+                       "message":  "mixed SM120/PTX probe compilation failed (exit 2)",
+                       "remediation":  "Correct the reported CUDA environment prerequisite, then rerun the exact P1B command."
+                   }
+               ]
+}

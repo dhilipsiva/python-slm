@@ -81,6 +81,9 @@ catch {
         message = $safeMessage
         remediation = $remediation
     }
+    if ($_.Exception.Data.Contains('P1BEvidencePath')) {
+        $errorRecord['evidence_path'] = [string]$_.Exception.Data['P1BEvidencePath']
+    }
     $diagnostic = [ordered]@{
         schema = 'python-slm-script-diagnostic-v1'
         phase_id = $errorRecord.phase_id

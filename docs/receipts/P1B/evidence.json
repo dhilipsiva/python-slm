@@ -1,0 +1,7 @@
+{
+    "schema":  "python-slm-phase-evidence-pointer-v2",
+    "phase_id":  "P1B",
+    "acceptance_path":  "acceptances/00000001.json",
+    "acceptance_sha256":  "87254f78309854d9562fc0c1d3ee8e4759049fdf6429e49488e45b97982b5334",
+    "updated_at":  "2026-08-11T17:48:19.4501650Z"
+}

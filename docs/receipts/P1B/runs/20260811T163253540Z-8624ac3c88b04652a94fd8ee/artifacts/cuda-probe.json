@@ -1,0 +1,7 @@
+{
+    "schema":  "python-slm-p1b-unavailable-artifact-v1",
+    "artifact":  "cuda-probe.json",
+    "status":  "FAIL",
+    "run_id":  "20260811T163253540Z-8624ac3c88b04652a94fd8ee",
+    "note":  "artifact was unavailable before qualification failed"
+}

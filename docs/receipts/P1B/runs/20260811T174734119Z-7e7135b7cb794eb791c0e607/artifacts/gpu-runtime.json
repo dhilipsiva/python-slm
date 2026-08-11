@@ -1,0 +1,27 @@
+{
+    "schema":  "python-slm-gpu-runtime-v1",
+    "status":  "PASS",
+    "driver":  {
+                   "driver_version":  "610.88",
+                   "cuda_umd_version":  "32.0.16.1088",
+                   "nvidia_smi":  {
+                                      "name":  "nvidia-smi",
+                                      "version":  "610.88",
+                                      "path":  "${WINDOWS}/System32/nvidia-smi.exe",
+                                      "sha256":  "bcff816616b9e2df104e601ae9b0ac116003a66e27e937bc09f79f29afe342d0"
+                                  },
+                   "library":  {
+                                   "name":  "nvcuda",
+                                   "version":  "32.0.16.1088",
+                                   "path":  "${WINDOWS}/System32/nvcuda.dll",
+                                   "sha256":  "3fe38dc3b7eb45f4c364d87df01dbf1c224c5ffd96b542cea8c0dca215330b84"
+                               }
+               },
+    "gpu":  {
+                "index":  0,
+                "name":  "NVIDIA GeForce RTX 5090",
+                "memory_total_bytes":  34190458880,
+                "compute_capability_major":  12,
+                "compute_capability_minor":  0
+            }
+}

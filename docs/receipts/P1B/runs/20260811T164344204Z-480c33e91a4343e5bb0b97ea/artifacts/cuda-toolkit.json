@@ -1,0 +1,7 @@
+{
+    "schema":  "python-slm-p1b-unavailable-artifact-v1",
+    "artifact":  "cuda-toolkit.json",
+    "status":  "FAIL",
+    "run_id":  "20260811T164344204Z-480c33e91a4343e5bb0b97ea",
+    "note":  "artifact was unavailable before qualification failed"
+}

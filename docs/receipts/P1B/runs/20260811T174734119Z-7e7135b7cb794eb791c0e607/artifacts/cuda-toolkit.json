@@ -1,0 +1,158 @@
+{
+    "schema":  "python-slm-cuda-toolkit-inventory-v1",
+    "status":  "PASS",
+    "toolkit":  {
+                    "version":  "13.1.0",
+                    "root":  "${CUDA_TOOLKIT}",
+                    "tools":  [
+                                  {
+                                      "name":  "nvcc",
+                                      "version":  "13.1.80",
+                                      "path":  "${CUDA_TOOLKIT}/bin/nvcc.exe",
+                                      "sha256":  "8155fd86313c1dd009ade5f341b93d631280b857c3d0a4b8f2556a40483e7880"
+                                  },
+                                  {
+                                      "name":  "ptxas",
+                                      "version":  "13.1.0",
+                                      "path":  "${CUDA_TOOLKIT}/bin/ptxas.exe",
+                                      "sha256":  "da3ef533117f915c7fc0ae597f921d30e5557cf44bcd43c1af04465987254865"
+                                  },
+                                  {
+                                      "name":  "fatbinary",
+                                      "version":  "13.1.0",
+                                      "path":  "${CUDA_TOOLKIT}/bin/fatbinary.exe",
+                                      "sha256":  "1a102001a6f70a3a72a2661f44408b8aa2a8b816e7d6b03aa05fe0f4eb523039"
+                                  },
+                                  {
+                                      "name":  "nvlink",
+                                      "version":  "13.1.0",
+                                      "path":  "${CUDA_TOOLKIT}/bin/nvlink.exe",
+                                      "sha256":  "b29a36a5c9902fb94c3e2f21edce6dd82f894a3907f5117634a6bd6cdaff6cf1"
+                                  },
+                                  {
+                                      "name":  "cuobjdump",
+                                      "version":  "13.1.0",
+                                      "path":  "${CUDA_TOOLKIT}/bin/cuobjdump.exe",
+                                      "sha256":  "3d72dca97ac75e042f09fa8876fad9c0044ba350ec45a014ac2ceb683dbca092"
+                                  }
+                              ],
+                    "headers":  [
+                                    {
+                                        "name":  "cuda.h",
+                                        "path":  "${CUDA_TOOLKIT}/include/cuda.h",
+                                        "sha256":  "756c5d0b68c4bf33d279419d5db479d63263abe80c1e476f8899f4b077215bf5",
+                                        "bytes":  1177046
+                                    },
+                                    {
+                                        "name":  "cuda_runtime.h",
+                                        "path":  "${CUDA_TOOLKIT}/include/cuda_runtime.h",
+                                        "sha256":  "ed98dea68015c4b238d92de09d171fbfee12e20fed8dc618614a6baabfd56e7f",
+                                        "bytes":  103112
+                                    },
+                                    {
+                                        "name":  "cublas_v2.h",
+                                        "path":  "${CUDA_TOOLKIT}/include/cublas_v2.h",
+                                        "sha256":  "4d8f0ed63669f8820e1b6d89b68bf398161679576cf13042dcf2b193a9377e07",
+                                        "bytes":  15874
+                                    },
+                                    {
+                                        "name":  "cublasLt.h",
+                                        "path":  "${CUDA_TOOLKIT}/include/cublasLt.h",
+                                        "sha256":  "6d5331ce42987ba19fa19a51b41551caf26fec6cc66b63535a6d817259e95108",
+                                        "bytes":  117373
+                                    }
+                                ],
+                    "libraries":  [
+                                      {
+                                          "name":  "cuda.lib",
+                                          "path":  "${CUDA_TOOLKIT}/lib/x64/cuda.lib",
+                                          "sha256":  "a55203daeb1b04d348200e002d2f2dc77d9b31edcff7dad76cffa4497ee14265",
+                                          "bytes":  805036
+                                      },
+                                      {
+                                          "name":  "cudart.lib",
+                                          "path":  "${CUDA_TOOLKIT}/lib/x64/cudart.lib",
+                                          "sha256":  "aa6c52324ff06c3c24cf38742d5a76d80f3a34d4f2df617ab4eedf74703d0f11",
+                                          "bytes":  1983738
+                                      },
+                                      {
+                                          "name":  "cublas.lib",
+                                          "path":  "${CUDA_TOOLKIT}/lib/x64/cublas.lib",
+                                          "sha256":  "e6a7e1cb87932e28bc000c0d364b354759c6c29c92b6db38140cca816f5acbff",
+                                          "bytes":  159250
+                                      },
+                                      {
+                                          "name":  "cublasLt.lib",
+                                          "path":  "${CUDA_TOOLKIT}/lib/x64/cublasLt.lib",
+                                          "sha256":  "340e05291126b2a83a8d792d54a5cab495ca1a02a6324b1636007693a245bda2",
+                                          "bytes":  1041000
+                                      }
+                                  ],
+                    "runtime_dlls":  [
+                                         {
+                                             "name":  "cudart64_13.dll",
+                                             "path":  "${CUDA_TOOLKIT}/bin/x64/cudart64_13.dll",
+                                             "sha256":  "352ba4ebe61e9a3b171f357a3daf5dd15b6af4a9857673ff893bd6fd2964c075",
+                                             "bytes":  540784
+                                         },
+                                         {
+                                             "name":  "cublas64_13.dll",
+                                             "path":  "${CUDA_TOOLKIT}/bin/x64/cublas64_13.dll",
+                                             "sha256":  "101ae2b98be62704ec96e90a3c49373b76122fc6b502497a7b6fae9ab0f01564",
+                                             "bytes":  51569776
+                                         },
+                                         {
+                                             "name":  "cublasLt64_13.dll",
+                                             "path":  "${CUDA_TOOLKIT}/bin/x64/cublasLt64_13.dll",
+                                             "sha256":  "517b6a69ac9faa7354cffcbd92179aec0cc18a8f6237d36b28d9adfe8c912d8d",
+                                             "bytes":  480693360
+                                         }
+                                     ]
+                },
+    "runtime_linkage":  {
+                            "mode":  "hybrid",
+                            "active_provider":  "display_driver",
+                            "staged_runtime_dlls":  [
+                                                        {
+                                                            "component":  "cublas",
+                                                            "sha256":  "101ae2b98be62704ec96e90a3c49373b76122fc6b502497a7b6fae9ab0f01564"
+                                                        },
+                                                        {
+                                                            "component":  "cublaslt",
+                                                            "sha256":  "517b6a69ac9faa7354cffcbd92179aec0cc18a8f6237d36b28d9adfe8c912d8d"
+                                                        }
+                                                    ]
+                        },
+    "optional_components":  {
+                                "cudnn":  {
+                                              "present":  false,
+                                              "version":  null,
+                                              "path":  null,
+                                              "sha256":  null
+                                          },
+                                "nvrtc":  {
+                                              "present":  true,
+                                              "version":  null,
+                                              "path":  "${CUDA_TOOLKIT}/include/nvrtc.h",
+                                              "sha256":  "4c39b5324ef21ef5d02217d9704bdc543da4836930e1d634b06dc816856fe07b"
+                                          },
+                                "nvjitlink":  {
+                                                  "present":  true,
+                                                  "version":  null,
+                                                  "path":  "${CUDA_TOOLKIT}/include/nvJitLink.h",
+                                                  "sha256":  "0744a528879726617b0ec9aec32b229bafaa6c92d2ac6c1966376c1a6e9c7c34"
+                                              },
+                                "compute_sanitizer":  {
+                                                          "present":  true,
+                                                          "version":  null,
+                                                          "path":  "${CUDA_TOOLKIT}/compute-sanitizer/compute-sanitizer.exe",
+                                                          "sha256":  "6e65002d363ec77e305e8d379aedef20828b7ce2b0074268933ae9c4e8327ea6"
+                                                      },
+                                "curand":  {
+                                               "present":  true,
+                                               "version":  null,
+                                               "path":  "${CUDA_TOOLKIT}/include/curand.h",
+                                               "sha256":  "7ab7c56acbd1dc54b68986ac0089e5db21621d3a653fc8bb7794612d29ce6a89"
+                                           }
+                            }
+}

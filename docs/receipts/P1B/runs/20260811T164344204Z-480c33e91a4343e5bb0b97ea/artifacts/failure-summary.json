@@ -1,0 +1,11 @@
+{
+    "status":  "FAIL",
+    "errors":  [
+                   {
+                       "code":  "GPU_INVENTORY_FAILED",
+                       "category":  5,
+                       "message":  "restricted nvidia-smi inventory failed (exit 255)",
+                       "remediation":  "Correct the reported CUDA environment prerequisite, then rerun the exact P1B command."
+                   }
+               ]
+}

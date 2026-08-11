@@ -1,0 +1,2 @@
+ELF file    1: p1b_cuda_probe_mixed.1.sm_120.cubin
+ELF file    2: p1b_cuda_probe_mixed.2.sm_120.cubin

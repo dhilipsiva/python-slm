@@ -254,6 +254,485 @@ function Test-P1AVersionAtLeast {
     }
 }
 
+function ConvertFrom-P1BNvccVersion {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Text)
+
+    $match = [regex]::Match(
+        $Text,
+        '(?im)^Cuda compilation tools, release\s+(?<release>[0-9]+\.[0-9]+),\s+V(?<build>[0-9]+(?:\.[0-9]+){2,3})\s*$'
+    )
+    if (-not $match.Success) {
+        throw '[CUDA_VERSION_INVALID] nvcc output did not contain a canonical release/version line'
+    }
+    $parts = $match.Groups['release'].Value.Split('.')
+    $major = [int]$parts[0]
+    $minor = [int]$parts[1]
+    if ($major -lt 12 -or ($major -eq 12 -and $minor -lt 8)) {
+        throw "[CUDA_VERSION_UNSUPPORTED] CUDA $major.$minor cannot target SM120; require CUDA 12.8 or newer"
+    }
+    $compilerVersion = $match.Groups['build'].Value
+    $compilerParts = $compilerVersion.Split('.')
+    if ([int]$compilerParts[0] -ne $major -or [int]$compilerParts[1] -ne $minor) {
+        throw '[CUDA_VERSION_INVALID] nvcc release and compiler version disagree'
+    }
+    return [pscustomobject][ordered]@{
+        toolkit_release = $match.Groups['release'].Value
+        compiler_version = $compilerVersion
+        major = $major
+        minor = $minor
+        build = [int]$compilerParts[-1]
+    }
+}
+
+function Get-P1BNvccTargets {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$ArchitectureText,
+        [Parameter(Mandatory)][string]$CodeText
+    )
+
+    $architectures = @($ArchitectureText -split '\r?\n' | ForEach-Object { $_.Trim() } |
+        Where-Object { $_ -match '^compute_[0-9]+$' } | Sort-Object -Unique)
+    $code = @($CodeText -split '\r?\n' | ForEach-Object { $_.Trim() } |
+        Where-Object { $_ -match '^sm_[0-9]+$' } | Sort-Object -Unique)
+    if ($architectures -notcontains 'compute_120' -or $code -notcontains 'sm_120') {
+        throw '[CUDA_SM120_UNSUPPORTED] nvcc does not advertise both compute_120 PTX and sm_120 machine code'
+    }
+    return [pscustomobject][ordered]@{
+        architectures = $architectures
+        code = $code
+        sass = @('sm_120')
+        ptx = @('compute_120')
+    }
+}
+
+function ConvertFrom-P1BNvidiaSmi {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Text)
+
+    $lines = @($Text -split '\r?\n' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    if ($lines.Count -lt 1) {
+        throw '[GPU_INVENTORY_INVALID] nvidia-smi returned no GPU records'
+    }
+    $devices = [Collections.Generic.List[object]]::new()
+    $indices = [Collections.Generic.HashSet[int]]::new()
+    foreach ($line in $lines) {
+        $fields = @($line.Split(',') | ForEach-Object { $_.Trim() })
+        if ($fields.Count -ne 5) {
+            throw '[GPU_INVENTORY_INVALID] nvidia-smi record did not contain five fields'
+        }
+        $index = 0
+        $memory = [int64]0
+        $capability = [regex]::Match($fields[4], '^(?<major>[0-9]+)\.(?<minor>[0-9]+)$')
+        $memoryText = $fields[3] -replace '(?i)\s*MiB\s*$', ''
+        if (-not [int]::TryParse($fields[0], [ref]$index) -or $index -lt 0 -or
+            -not $indices.Add($index) -or
+            -not [int64]::TryParse($memoryText, [ref]$memory) -or $memory -le 0 -or
+            -not $capability.Success -or [string]::IsNullOrWhiteSpace($fields[1]) -or
+            [string]::IsNullOrWhiteSpace($fields[2])) {
+            throw '[GPU_INVENTORY_INVALID] nvidia-smi record contains an invalid, duplicate, or empty field'
+        }
+        $devices.Add([pscustomobject][ordered]@{
+                index = $index
+                name = $fields[1]
+                driver_version = $fields[2]
+                memory_total_mib = $memory
+                compute_capability_major = [int]$capability.Groups['major'].Value
+                compute_capability_minor = [int]$capability.Groups['minor'].Value
+            })
+    }
+    $targets = @($devices | Where-Object {
+            [string]$_.name -ceq 'NVIDIA GeForce RTX 5090' -and
+            [int]$_.compute_capability_major -eq 12 -and
+            [int]$_.compute_capability_minor -eq 0
+        })
+    if ($targets.Count -eq 0) {
+        throw '[GPU_TARGET_MISSING] no NVIDIA GeForce RTX 5090 with compute capability 12.0 is runtime-visible'
+    }
+    if ($targets.Count -gt 1) {
+        throw '[GPU_SELECTION_AMBIGUOUS] more than one NVIDIA GeForce RTX 5090 with compute capability 12.0 is runtime-visible'
+    }
+    return [pscustomobject][ordered]@{
+        devices = @($devices)
+        target_match_count = $targets.Count
+        target = $targets[0]
+    }
+}
+
+function Assert-P1BProbeResult {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Value)
+
+    Assert-P1AClosedObject -Value $Value -Fields @(
+        'schema', 'device_count', 'target_match_count', 'device_index', 'device_name', 'memory_total_bytes',
+        'compute_capability_major', 'compute_capability_minor', 'runtime_version',
+        'driver_version', 'cublas_version', 'cublaslt_version', 'sentinel'
+    ) -Name 'CUDA device probe result'
+    if ([string]$Value.schema -cne 'python-slm-cuda-device-probe-v1' -or
+        [int]$Value.device_count -lt 1 -or [int]$Value.target_match_count -ne 1 -or
+        [int]$Value.device_index -lt 0 -or
+        [string]$Value.device_name -cne 'NVIDIA GeForce RTX 5090' -or
+        [int64]$Value.memory_total_bytes -le 0 -or
+        [int]$Value.compute_capability_major -ne 12 -or
+        [int]$Value.compute_capability_minor -ne 0 -or
+        [int]$Value.runtime_version -lt 12080 -or
+        [int]$Value.driver_version -lt [int]$Value.runtime_version -or
+        [int]$Value.cublas_version -le 0 -or [int64]$Value.cublaslt_version -le 0 -or
+        [int]$Value.sentinel -ne 42) {
+        throw '[CUDA_DEVICE_PROBE_INVALID] CUDA device probe did not satisfy the RTX 5090 runtime contract'
+    }
+    return $Value
+}
+
+function Test-P1BContainedPathWithoutReparse {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Root,
+        [switch]$Leaf
+    )
+
+    $rootFull = [IO.Path]::GetFullPath($Root).TrimEnd('\', '/')
+    $pathFull = [IO.Path]::GetFullPath($Path)
+    $exists = if ($Leaf) {
+        Test-Path -LiteralPath $pathFull -PathType Leaf
+    }
+    else {
+        Test-Path -LiteralPath $pathFull
+    }
+    if (-not (Test-P1APathWithin -Path $pathFull -Root $rootFull) -or -not $exists) {
+        return $false
+    }
+    $cursor = $pathFull
+    while (Test-P1APathWithin -Path $cursor -Root $rootFull) {
+        $item = Get-Item -Force -LiteralPath $cursor
+        if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            return $false
+        }
+        if ([string]::Equals(
+                $cursor.TrimEnd('\', '/'), $rootFull,
+                [StringComparison]::OrdinalIgnoreCase
+            )) {
+            break
+        }
+        $cursor = Split-Path -Parent $cursor
+    }
+    $cursor = Split-Path -Parent $rootFull
+    while (-not [string]::IsNullOrWhiteSpace($cursor)) {
+        if (Test-Path -LiteralPath $cursor) {
+            $item = Get-Item -Force -LiteralPath $cursor
+            if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                return $false
+            }
+        }
+        $parent = Split-Path -Parent $cursor
+        if ([string]::Equals($parent, $cursor, [StringComparison]::OrdinalIgnoreCase)) {
+            break
+        }
+        $cursor = $parent
+    }
+    return $true
+}
+
+function Select-P1BCudaToolkit {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][object[]]$Candidates)
+
+    $candidateByRoot = [Collections.Generic.Dictionary[string,object]]::new(
+        [StringComparer]::OrdinalIgnoreCase
+    )
+    foreach ($candidate in @($Candidates)) {
+        Assert-P1AClosedObject -Value $candidate -Fields @('root', 'source', 'explicit') `
+            -Name 'CUDA toolkit candidate'
+        if ([string]::IsNullOrWhiteSpace([string]$candidate.root) -or
+            [string]::IsNullOrWhiteSpace([string]$candidate.source)) {
+            throw '[CUDA_TOOLKIT_CANDIDATE_INVALID] CUDA toolkit candidate is incomplete'
+        }
+        $candidateRoot = [IO.Path]::GetFullPath([string]$candidate.root).TrimEnd('\', '/')
+        if ($candidateByRoot.ContainsKey($candidateRoot)) {
+            $prior = $candidateByRoot[$candidateRoot]
+            $candidateByRoot[$candidateRoot] = [pscustomobject][ordered]@{
+                root = $candidateRoot
+                source = (@([string]$prior.source, [string]$candidate.source) |
+                    Sort-Object -Unique) -join '+'
+                explicit = [bool]$prior.explicit -or [bool]$candidate.explicit
+            }
+        }
+        else {
+            $candidateByRoot[$candidateRoot] = [pscustomobject][ordered]@{
+                root = $candidateRoot
+                source = [string]$candidate.source
+                explicit = [bool]$candidate.explicit
+            }
+        }
+    }
+    $eligible = [Collections.Generic.List[object]]::new()
+    foreach ($candidate in @($candidateByRoot.Values | Sort-Object root)) {
+        $root = [IO.Path]::GetFullPath([string]$candidate.root).TrimEnd('\', '/')
+        if (-not (Test-Path -LiteralPath $root -PathType Container) -or
+            -not (Test-P1BContainedPathWithoutReparse -Path $root -Root $root)) {
+            continue
+        }
+        $versionPath = Join-Path $root 'version.json'
+        if (-not (Test-P1BContainedPathWithoutReparse -Path $versionPath -Root $root -Leaf)) {
+            continue
+        }
+        try {
+            $versionDocument = [IO.File]::ReadAllText($versionPath, $script:Utf8NoBom) |
+                ConvertFrom-Json
+            if ([string]$versionDocument.cuda.name -cne 'CUDA SDK' -or
+                [string]$versionDocument.cuda.version -cnotmatch '^[0-9]+\.[0-9]+\.[0-9]+$') {
+                throw 'CUDA version document is not canonical'
+            }
+            $version = [version][string]$versionDocument.cuda.version
+            if ($version.Major -lt 12 -or ($version.Major -eq 12 -and $version.Minor -lt 8)) {
+                throw 'CUDA version cannot target SM120'
+            }
+        }
+        catch {
+            continue
+        }
+
+        $toolRelative = [ordered]@{
+            nvcc = 'bin\nvcc.exe'
+            ptxas = 'bin\ptxas.exe'
+            fatbinary = 'bin\fatbinary.exe'
+            nvlink = 'bin\nvlink.exe'
+            cuobjdump = 'bin\cuobjdump.exe'
+        }
+        $headerRelative = [ordered]@{
+            cuda = 'include\cuda.h'
+            cuda_runtime = 'include\cuda_runtime.h'
+            cublas = 'include\cublas_v2.h'
+            cublaslt = 'include\cublasLt.h'
+        }
+        $libraryRelative = [ordered]@{
+            cuda = 'lib\x64\cuda.lib'
+            cudart = 'lib\x64\cudart.lib'
+            cublas = 'lib\x64\cublas.lib'
+            cublaslt = 'lib\x64\cublasLt.lib'
+        }
+        $tools = [ordered]@{}
+        $headers = [ordered]@{}
+        $libraries = [ordered]@{}
+        $missing = [Collections.Generic.List[string]]::new()
+        foreach ($entry in $toolRelative.GetEnumerator()) {
+            $path = Join-Path $root ([string]$entry.Value)
+            if (-not (Test-P1BContainedPathWithoutReparse -Path $path -Root $root -Leaf)) {
+                $missing.Add([string]$entry.Value)
+            }
+            else { $tools[[string]$entry.Key] = $path }
+        }
+        foreach ($entry in $headerRelative.GetEnumerator()) {
+            $path = Join-Path $root ([string]$entry.Value)
+            if (-not (Test-P1BContainedPathWithoutReparse -Path $path -Root $root -Leaf)) {
+                $missing.Add([string]$entry.Value)
+            }
+            else { $headers[[string]$entry.Key] = $path }
+        }
+        foreach ($entry in $libraryRelative.GetEnumerator()) {
+            $path = Join-Path $root ([string]$entry.Value)
+            if (-not (Test-P1BContainedPathWithoutReparse -Path $path -Root $root -Leaf)) {
+                $missing.Add([string]$entry.Value)
+            }
+            else { $libraries[[string]$entry.Key] = $path }
+        }
+        $runtimeDlls = [ordered]@{}
+        foreach ($entry in ([ordered]@{
+                    cudart = 'cudart64_*.dll'
+                    cublas = 'cublas64_*.dll'
+                    cublaslt = 'cublasLt64_*.dll'
+                }).GetEnumerator()) {
+            $matches = @(Get-ChildItem -LiteralPath (Join-Path $root 'bin\x64') `
+                    -Filter ([string]$entry.Value) -File -ErrorAction SilentlyContinue | Where-Object {
+                    Test-P1BContainedPathWithoutReparse -Path $_.FullName -Root $root -Leaf
+                })
+            if ($matches.Count -ne 1) {
+                $missing.Add('bin\x64\' + [string]$entry.Value)
+            }
+            else { $runtimeDlls[[string]$entry.Key] = $matches[0].FullName }
+        }
+        if ($missing.Count -ne 0) {
+            continue
+        }
+        $optionalTools = [ordered]@{}
+        foreach ($entry in ([ordered]@{ nvdisasm = 'bin\nvdisasm.exe' }).GetEnumerator()) {
+            $path = Join-Path $root ([string]$entry.Value)
+            if (Test-P1BContainedPathWithoutReparse -Path $path -Root $root -Leaf) {
+                $optionalTools[[string]$entry.Key] = $path
+            }
+        }
+        $optionalInventory = [ordered]@{}
+        foreach ($entry in ([ordered]@{
+                    curand_header = 'include\curand.h'
+                    curand_library = 'lib\x64\curand.lib'
+                    nvrtc_header = 'include\nvrtc.h'
+                    nvrtc_library = 'lib\x64\nvrtc.lib'
+                    nvjitlink_header = 'include\nvJitLink.h'
+                    nvjitlink_library = 'lib\x64\nvJitLink.lib'
+                    compute_sanitizer = 'compute-sanitizer\compute-sanitizer.exe'
+                    cudnn_header = 'include\cudnn.h'
+                    cudnn_library = 'lib\x64\cudnn.lib'
+                }).GetEnumerator()) {
+            $path = Join-Path $root ([string]$entry.Value)
+            if (Test-P1BContainedPathWithoutReparse -Path $path -Root $root -Leaf) {
+                $optionalInventory[[string]$entry.Key] = $path
+            }
+        }
+        foreach ($entry in ([ordered]@{
+                    curand_runtime = 'curand64_*.dll'
+                    nvrtc_runtime = 'nvrtc64_*.dll'
+                    nvjitlink_runtime = 'nvJitLink_*.dll'
+                    cudnn_runtime = 'cudnn*.dll'
+                }).GetEnumerator()) {
+            $matches = @(Get-ChildItem -LiteralPath (Join-Path $root 'bin\x64') `
+                    -Filter ([string]$entry.Value) -File -ErrorAction SilentlyContinue | Where-Object {
+                    Test-P1BContainedPathWithoutReparse -Path $_.FullName -Root $root -Leaf
+                } | Sort-Object FullName)
+            if ($matches.Count -gt 0) {
+                $optionalInventory[[string]$entry.Key] = @($matches | ForEach-Object { $_.FullName })
+            }
+        }
+        $eligible.Add([pscustomobject][ordered]@{
+                root = $root
+                source = [string]$candidate.source
+                explicit = [bool]$candidate.explicit
+                version = $version.ToString(3)
+                major = $version.Major
+                minor = $version.Minor
+                tools = $tools
+                optional_tools = $optionalTools
+                optional_inventory = $optionalInventory
+                headers = $headers
+                libraries = $libraries
+                runtime_dlls = $runtimeDlls
+            })
+    }
+    $selected = @($eligible | Sort-Object -Property `
+            @{ Expression = { [version]$_.version }; Descending = $true },
+            @{ Expression = { ([string]$_.root).ToLowerInvariant() }; Descending = $false })
+    if ($selected.Count -eq 0) {
+        throw '[CUDA_TOOLKIT_NOT_FOUND] no complete non-reparse CUDA 12.8-or-newer toolkit was found'
+    }
+    return $selected[0]
+}
+
+function Get-P1BSelectedP1ADependency {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$RepositoryRoot)
+
+    $repository = [IO.Path]::GetFullPath($RepositoryRoot).TrimEnd('\', '/')
+    $p1aRoot = Join-Path $repository 'docs\receipts\P1A'
+    $pointerPath = Join-Path $p1aRoot 'evidence.json'
+    if (-not (Test-P1BContainedPathWithoutReparse -Path $pointerPath -Root $p1aRoot -Leaf)) {
+        throw '[P1A_DEPENDENCY_INVALID] selected P1A pointer is missing or unsafe'
+    }
+    $pointer = [IO.File]::ReadAllText($pointerPath, $script:Utf8NoBom) | ConvertFrom-Json
+    Assert-P1AClosedObject -Value $pointer -Fields @(
+        'schema', 'phase_id', 'acceptance_path', 'acceptance_sha256', 'updated_at'
+    ) -Name 'selected P1A pointer'
+    if ([string]$pointer.schema -cne 'python-slm-phase-evidence-pointer-v1' -or
+        [string]$pointer.phase_id -cne 'P1A' -or
+        [string]$pointer.acceptance_path -cnotmatch '^acceptances/[0-9]{8}\.json$') {
+        throw '[P1A_DEPENDENCY_INVALID] selected P1A pointer identity or path is invalid'
+    }
+    Assert-P1ASha256Value -Value ([string]$pointer.acceptance_sha256) `
+        -Name 'selected P1A acceptance hash'
+    $acceptancePath = [IO.Path]::GetFullPath((Join-Path $p1aRoot `
+                ([string]$pointer.acceptance_path).Replace('/', '\')))
+    $acceptancesRoot = Join-Path $p1aRoot 'acceptances'
+    if (-not (Test-P1BContainedPathWithoutReparse -Path $acceptancePath `
+            -Root $acceptancesRoot -Leaf) -or
+        (Get-P1ASha256 -Path $acceptancePath) -cne [string]$pointer.acceptance_sha256) {
+        throw '[P1A_DEPENDENCY_INVALID] selected P1A acceptance is missing or hash-invalid'
+    }
+
+    $allAcceptances = @(Get-ChildItem -LiteralPath $acceptancesRoot -File -ErrorAction Stop |
+        Sort-Object Name)
+    $previousHash = $null
+    $selectedAcceptance = $null
+    for ($index = 0; $index -lt $allAcceptances.Count; $index++) {
+        $expectedSequence = $index + 1
+        $file = $allAcceptances[$index]
+        if ($file.Name -cne ($expectedSequence.ToString('00000000') + '.json')) {
+            throw '[P1A_DEPENDENCY_INVALID] P1A acceptance chain has a gap or noncanonical file'
+        }
+        $acceptance = [IO.File]::ReadAllText($file.FullName, $script:Utf8NoBom) |
+            ConvertFrom-Json
+        Assert-P1AAcceptanceObject -Acceptance $acceptance -Sequence $expectedSequence `
+            -PreviousHash $previousHash -OutputRoot $p1aRoot
+        if ([string]::Equals($file.FullName, $acceptancePath, [StringComparison]::OrdinalIgnoreCase)) {
+            $selectedAcceptance = $acceptance
+        }
+        $previousHash = Get-P1ASha256 -Path $file.FullName
+    }
+    if ($null -eq $selectedAcceptance) {
+        throw '[P1A_DEPENDENCY_INVALID] P1A pointer does not select an acceptance in the validated chain'
+    }
+    $runId = Split-Path -Leaf ([string]$selectedAcceptance.run_path)
+    $runRoot = Join-Path (Join-Path $p1aRoot 'runs') $runId
+    if (-not (Test-P1ASeal -RunRoot $runRoot)) {
+        throw '[P1A_DEPENDENCY_INVALID] selected P1A run seal is invalid'
+    }
+    $evidencePath = Join-Path $runRoot 'evidence.json'
+    $environmentPath = Join-Path $runRoot 'artifacts\environment.json'
+    $sourcePath = Join-Path $runRoot 'artifacts\source-identity.json'
+    $sealPath = Join-Path $runRoot 'SHA256SUMS'
+    $evidenceText = [IO.File]::ReadAllText($evidencePath, $script:Utf8NoBom)
+    $evidence = $evidenceText | ConvertFrom-Json
+    $environment = [IO.File]::ReadAllText($environmentPath, $script:Utf8NoBom) | ConvertFrom-Json
+    if ([string]$evidence.phase_id -cne 'P1A' -or [string]$evidence.mode -cne 'Cpu' -or
+        [string]$evidence.status -cne 'PASS' -or [string]$evidence.run_id -cne $runId -or
+        [string]$environment.phase_id -cne 'P1A' -or [string]$environment.status -cne 'PASS' -or
+        [string]$environment.run_id -cne $runId) {
+        throw '[P1A_DEPENDENCY_INVALID] selected P1A run or environment is not PASS'
+    }
+    if ((Get-P1ASha256 -Path $evidencePath) -cne [string]$selectedAcceptance.run_evidence_sha256 -or
+        (Get-P1ASha256 -Path $sealPath) -cne [string]$selectedAcceptance.seal_sha256 -or
+        (Get-P1ASha256 -Path $environmentPath) -cne [string]$selectedAcceptance.environment_sha256 -or
+        (Get-P1ASha256 -Path $sourcePath) -cne [string]$selectedAcceptance.source_identity_sha256) {
+        throw '[P1A_DEPENDENCY_INVALID] selected P1A acceptance does not pin its run artifacts'
+    }
+    $reviewClosureCommit = '9359c989fa63d4a300abc509e735b7e81a24a2ea'
+    $git = Get-P1AApplicationPath -Name 'git.exe'
+    $ancestor = Invoke-P1AProcess -FilePath $git -ArgumentList @(
+        'merge-base', '--is-ancestor', $reviewClosureCommit, 'HEAD'
+    ) -WorkingDirectory $repository -Environment @{} -TimeoutSeconds 30
+    if ($ancestor.timed_out -or $ancestor.exit_code -ne 0) {
+        throw '[P1A_DEPENDENCY_INVALID] P1A review-closure commit is not an ancestor of HEAD'
+    }
+    return [ordered]@{
+        status = 'PASS'
+        pointer_path = 'docs/receipts/P1A/evidence.json'
+        pointer_sha256 = Get-P1ASha256 -Path $pointerPath
+        acceptance_path = 'docs/receipts/P1A/' + ([string]$pointer.acceptance_path)
+        acceptance_sha256 = Get-P1ASha256 -Path $acceptancePath
+        acceptance_sequence = [int]$selectedAcceptance.sequence
+        run_path = "docs/receipts/P1A/runs/$runId"
+        run_evidence_sha256 = Get-P1ASha256 -Path $evidencePath
+        seal_path = "docs/receipts/P1A/runs/$runId/SHA256SUMS"
+        seal_sha256 = Get-P1ASha256 -Path $sealPath
+        environment_path = "docs/receipts/P1A/runs/$runId/artifacts/environment.json"
+        environment_sha256 = Get-P1ASha256 -Path $environmentPath
+        source_identity_sha256 = Get-P1ASha256 -Path $sourcePath
+        verifier_sha256 = [string]$environment.source.verifier_sha256
+        schema_bundle_sha256 = [string]$environment.source.schema_bundle_sha256
+        review_closure_commit = $reviewClosureCommit
+    }
+}
+
+function New-P1BGates {
+    $gates = [ordered]@{}
+    foreach ($name in @(
+            'p0', 'p1a', 'cpu_regression', 'input_stability', 'toolchain',
+            'cuda_toolkit', 'architecture_targets', 'gpu_identity', 'driver_runtime',
+            'device_probe', 'python_isolation', 'redaction', 'cleanup'
+        )) {
+        $gates[$name] = [ordered]@{ status = 'NOT_RUN'; detail = 'not reached' }
+    }
+    return $gates
+}
+
 function Get-P1AForbiddenCargoTreeTokens {
     param([AllowEmptyString()][string]$Text = '')
 
@@ -353,7 +832,10 @@ function Protect-P1AText {
         elseif ($fullRoot -match '(?i)[\\/]Windows Kits[\\/]') {
             'WINDOWS_KITS'
         }
-        elseif ($fullRoot -match '(?i)[\\/]docs[\\/]receipts[\\/]P1A$') {
+        elseif ($fullRoot -match '(?i)[\\/]NVIDIA GPU Computing Toolkit[\\/]CUDA[\\/]v[0-9.]+$') {
+            'CUDA_TOOLKIT'
+        }
+        elseif ($fullRoot -match '(?i)[\\/]docs[\\/]receipts[\\/]P1[AB]$') {
             'OUTPUT_ROOT'
         }
         elseif ((Test-P1APathWithin -Path $fullRoot -Root ([IO.Path]::GetTempPath()))) {
@@ -1823,7 +2305,7 @@ function Save-P1ACommandResult {
     $safeOut = Protect-P1AText -Text ([string]$Result.stdout) -RepositoryRoot $Context.RepositoryRoot -ExtraRoots $Context.RedactionRoots
     $safeErr = Protect-P1AText -Text ([string]$Result.stderr) -RepositoryRoot $Context.RepositoryRoot -ExtraRoots $Context.RedactionRoots
     $safeArgv = @(
-        @($DisplayFile) + $Arguments | ForEach-Object {
+        @((Split-Path -Leaf $DisplayFile)) + $Arguments | ForEach-Object {
             Protect-P1AText -Text ([string]$_) -RepositoryRoot $Context.RepositoryRoot -ExtraRoots $Context.RedactionRoots
         }
     )
@@ -1907,7 +2389,8 @@ function Get-P1AInputManifestLegacy {
     $lines = [Collections.Generic.List[string]]::new()
     foreach ($relative in @($result.stdout -split '\r?\n' | Where-Object { $_ })) {
         $normalized = $relative.Replace('\', '/')
-        if ($normalized.StartsWith('docs/receipts/P1A/', [StringComparison]::OrdinalIgnoreCase)) {
+        if ($normalized.StartsWith('docs/receipts/P1A/', [StringComparison]::OrdinalIgnoreCase) -or
+            $normalized.StartsWith('docs/receipts/P1B/', [StringComparison]::OrdinalIgnoreCase)) {
             continue
         }
         $path = [IO.Path]::GetFullPath((Join-Path $RepositoryRoot $relative))
@@ -2005,13 +2488,13 @@ function Add-P1AError {
 
 function Get-P1AErrorCategory {
     param([Parameter(Mandatory)][string]$Code)
-    if ($Code -match '^(P0_|INPUT_|CARGO_LOCK_|CARGO_CONFIG_|REPOSITORY_|PARENT_|REDACTION_|UNSAFE_|CHILD_ENVIRONMENT_)') {
+    if ($Code -match '^(P0_|P1A_|INPUT_|CARGO_LOCK_|CARGO_CONFIG_|REPOSITORY_|PARENT_|REDACTION_|UNSAFE_|CHILD_ENVIRONMENT_)') {
         return 3
     }
     if ($Code -match '^(UNSUPPORTED_|TOOL_|RUST_|CARGO_VERSION_|VS_|VSWHERE_|VSDEVCMD_|MSVC_TOOL_|WINDOWS_SDK_|GIT_|TARGET_NOT_CLEAN|TEMP_PATH_)') {
         return 4
     }
-    if ($Code -match '^(MODE_NOT_IMPLEMENTED|COMMAND_|NATIVE_|CANARY_|CPU_|CLEAN_|CARGO_METADATA_|CARGO_TREE_|CARGO_MESSAGE_|CARGO_ARTIFACT_|CUDA_|PYTHON_|PE_|EVIDENCE_|TEMP_CLEANUP_)') {
+    if ($Code -match '^(MODE_NOT_IMPLEMENTED|COMMAND_|NATIVE_|CANARY_|CPU_|CLEAN_|CARGO_METADATA_|CARGO_TREE_|CARGO_MESSAGE_|CARGO_ARTIFACT_|CUDA_|GPU_|PYTHON_|PE_|EVIDENCE_|TEMP_CLEANUP_)') {
         return 5
     }
     return 1
@@ -2072,7 +2555,7 @@ function Invoke-P1ARecordedCommand {
         Protect-P1AText -Text ([string]$_) -RepositoryRoot $Context.RepositoryRoot `
             -ExtraRoots $Context.RedactionRoots
     })
-    $environmentPolicyPattern = '^(?i:Path|PATHEXT|SystemRoot|WINDIR|ComSpec|TEMP|TMP|USERPROFILE|HOME|INCLUDE|LIB|LIBPATH|CL|_CL_|LINK|_LINK_|VS.*|VC.*|WindowsSDK.*|UCRT.*|UniversalCRTSdkDir|CARGO_.*|RUST.*|CUDA.*|CUDNN.*|NVCC.*|SCCACHE.*|NO_COLOR|CC_.*|AR_.*|P1A_CANARY_DIR)$'
+    $environmentPolicyPattern = '^(?i:Path|PATHEXT|SystemRoot|WINDIR|ComSpec|TEMP|TMP|USERPROFILE|HOME|INCLUDE|LIB|LIBPATH|CL|_CL_|LINK|_LINK_|VS.*|VC.*|WindowsSDK.*|UCRT.*|UniversalCRTSdkDir|CARGO_.*|RUST.*|CUDA.*|CUDNN.*|NVCC.*|SCCACHE.*|NO_COLOR|CC_.*|AR_.*|P1[AB]_CANARY_DIR)$'
     $environmentDeltaNames = @($Environment.Keys | ForEach-Object { [string]$_ } |
         Where-Object { $_ -match $environmentPolicyPattern } | Sort-Object -Unique)
     $effectiveEnvironment = Get-P1ACanonicalEnvironment
@@ -2197,7 +2680,8 @@ function Get-P1AInputManifest {
     $paths = [Collections.Generic.List[string]]::new()
     foreach ($relative in @($listed.stdout -split [char]0 | Where-Object { $_ })) {
         $normalized = $relative.Replace('\', '/')
-        if ($normalized.StartsWith('docs/receipts/P1A/', [StringComparison]::OrdinalIgnoreCase)) {
+        if ($normalized.StartsWith('docs/receipts/P1A/', [StringComparison]::OrdinalIgnoreCase) -or
+            $normalized.StartsWith('docs/receipts/P1B/', [StringComparison]::OrdinalIgnoreCase)) {
             continue
         }
         $path = [IO.Path]::GetFullPath((Join-Path $RepositoryRoot $relative))
@@ -2496,12 +2980,13 @@ function Invoke-P1AVerification {
     if ($Mode -cne 'Cpu' -and $Mode -cne 'Cuda') {
         Throw-P1AFailure -Code 'MODE_INVALID' -Category 2 `
             -Message "Mode must be Cpu or Cuda; got $Mode" `
-            -Remediation 'Use -Mode Cpu for P1A or -Mode Cuda for the sealed P1B placeholder.'
+            -Remediation 'Use -Mode Cpu for P1A or -Mode Cuda for P1B.'
     }
     $phaseId = if ($Mode -ceq 'Cuda') { 'P1B' } else { 'P1A' }
     $output = Resolve-P1AOutputRoot -RepositoryRoot $repository -OutputRoot $OutputRoot -PhaseId $phaseId
     if ($Mode -ceq 'Cuda') {
-        return New-P1AModeNotImplementedRun -OutputRoot $output -RepositoryRoot $repository
+        return Invoke-P1BVerification -OutputRoot $output -RepositoryRoot $repository `
+            -ScriptPath $ScriptPath -Started $started
     }
     [void][IO.Directory]::CreateDirectory((Join-Path $output 'runs'))
     $runId = New-P1ARunId
@@ -2583,6 +3068,7 @@ function Invoke-P1AVerification {
     $verifierFiles = @(
         $ScriptPath,
         $MyInvocation.MyCommand.Module.Path,
+        (Join-Path $PSScriptRoot 'VerifyCuda.ps1'),
         (Join-Path $repository 'scripts\tests\verify-env.tests.ps1')
     )
     $verifierBundleSha = Get-P1ATextSha256 -Text ((@($verifierFiles | ForEach-Object {
@@ -3550,6 +4036,947 @@ int main(void) {
     }
 }
 
+. (Join-Path $PSScriptRoot 'VerifyCuda.ps1')
+
+function New-P1BNvccArguments {
+    param(
+        [Parameter(Mandatory)][ValidateSet('Mixed', 'PtxOnly')][string]$Kind,
+        [Parameter(Mandatory)][string]$SourcePath,
+        [Parameter(Mandatory)][string]$OutputPath,
+        [Parameter(Mandatory)][string]$CudaRoot,
+        [Parameter(Mandatory)][string]$CompilerDirectory,
+        [Parameter(Mandatory)][int]$ToolkitMajor
+    )
+    $runtimeLinkage = if ($ToolkitMajor -ge 13) { 'hybrid' } else { 'shared' }
+    $linkerOptions = if ($ToolkitMajor -ge 13) {
+        # CUDA 13's Windows hybrid loader carries a LIBCMT default-library
+        # directive. The probe is contractually /MD, so ignore that conflicting
+        # static CRT while preserving warning-as-error for every other warning.
+        '--linker-options=/WX,/NODEFAULTLIB:LIBCMT'
+    }
+    else { '--linker-options=/WX' }
+    $arguments = @(
+        '-m64', '-std=c++17', '-O2', ('--cudart=' + $runtimeLinkage),
+        '--compiler-options=/EHsc,/W4,/WX,/MD',
+        $linkerOptions,
+        '-ccbin', $CompilerDirectory,
+        ('-I=' + (Join-Path $CudaRoot 'include')),
+        ('-L=' + (Join-Path $CudaRoot 'lib\x64')),
+        $(if ($Kind -ceq 'Mixed') {
+                '-gencode=arch=compute_120,code=[sm_120,compute_120]'
+            }
+            else {
+                '-gencode=arch=compute_120,code=compute_120'
+            })
+    )
+    $arguments += @(
+        '-o', $OutputPath, $SourcePath,
+        (Join-Path $CudaRoot 'lib\x64\cuda.lib'),
+        (Join-Path $CudaRoot 'lib\x64\cublas.lib'),
+        (Join-Path $CudaRoot 'lib\x64\cublasLt.lib')
+    )
+    return $arguments
+}
+
+function Assert-P1BArtifactInspection {
+    param(
+        [Parameter(Mandatory)][ValidateSet('Mixed', 'PtxOnly')][string]$Kind,
+        [AllowEmptyString()][string]$ListElfText = '',
+        [AllowEmptyString()][string]$ListPtxText = '',
+        [AllowEmptyString()][string]$SassText = '',
+        [AllowEmptyString()][string]$PtxText = ''
+    )
+    $elfRecords = @([regex]::Matches($ListElfText,
+            '(?im)^\s*ELF file\s+\d+:\s+(?<name>\S+)\s*$'))
+    $ptxRecords = @([regex]::Matches($ListPtxText,
+            '(?im)^\s*PTX file\s+\d+:\s+(?<name>\S+)\s*$'))
+    $allElfSm120 = $elfRecords.Count -gt 0 -and
+        @($elfRecords | Where-Object {
+                $_.Groups['name'].Value -cnotmatch '\.sm_120\.cubin$'
+            }).Count -eq 0
+    $allPtxCompute120 = $ptxRecords.Count -gt 0 -and
+        @($ptxRecords | Where-Object {
+                $_.Groups['name'].Value -cnotmatch '\.sm_120\.ptx$'
+            }).Count -eq 0
+    # `cuobjdump --dump-sass` prints the PTX fatbin header (including
+    # `arch = sm_120`) even when the executable has no ELF/SASS image. Count
+    # SASS only when every listed cubin is SM120 and the generated sentinel
+    # kernel's function block contains a real encoded instruction.
+    $sentinelSassBlock = [regex]::Match($SassText,
+        '(?ims)^\s*Function\s*:\s*\S*add_sentinel\S*\s*$.*?(?=^\s*Function\s*:|\z)')
+    $hasSm120Sass = $allElfSm120 -and
+        $SassText -match '(?im)^\s*code for sm_120\s*$' -and
+        $sentinelSassBlock.Success -and
+        $sentinelSassBlock.Value -match '(?im)^\s*/\*[0-9a-f]{4,8}\*/\s+[A-Z][A-Z0-9_.]*\b.*;\s*/\*\s*0x[0-9a-f]{16}\s*\*/\s*$'
+    $hasPtxPayload = $allPtxCompute120 -and
+        $PtxText -match '(?im)^\s*\.version\s+' -and
+        $PtxText -match '(?im)^\s*\.target\s+sm_120(?:\s|,|$)' -and
+        $PtxText -match '(?im)^\s*(?:\.visible\s+)?\.entry\s+\S*add_sentinel\S*'
+    if (-not $hasPtxPayload) {
+        throw '[CUDA_PTX_INSPECTION_FAILED] artifact does not contain inspectable compute_120 PTX'
+    }
+    if ($Kind -ceq 'Mixed') {
+        if (-not $hasSm120Sass) {
+            throw '[CUDA_SASS_INSPECTION_FAILED] mixed artifact does not contain inspectable sm_120 SASS'
+        }
+        return [ordered]@{ embedded_sass = @('sm_120'); embedded_ptx = @('compute_120') }
+    }
+    if ($elfRecords.Count -ne 0 -or $SassText -match '(?im)^\s*Function\s*:') {
+        throw '[CUDA_PTX_ONLY_INSPECTION_FAILED] PTX-only artifact unexpectedly contains SASS'
+    }
+    return [ordered]@{ embedded_sass = @(); embedded_ptx = @('compute_120') }
+}
+
+function Assert-P1BPeInspection {
+    param(
+        [Parameter(Mandatory)][string]$HeadersText,
+        [Parameter(Mandatory)][string]$DependentsText,
+        [Parameter(Mandatory)][ValidateSet('Hybrid', 'Shared')][string]$RuntimeLinkage
+    )
+    if ($HeadersText -notmatch '(?im)(?:^|\s)8664\s+machine\s+\(x64\)|machine\s+\(x64\)') {
+        throw '[CUDA_PE_ARCH_INVALID] CUDA probe executable is not x64 PE'
+    }
+    $imports = @([regex]::Matches($DependentsText, '(?im)^\s*(?<dll>[A-Za-z0-9_.+-]+\.dll)\s*$') |
+        ForEach-Object { $_.Groups['dll'].Value.ToLowerInvariant() } | Sort-Object -Unique)
+    if ($imports.Count -lt 1) { throw '[CUDA_PE_IMPORTS_EMPTY] CUDA probe has no recorded imports' }
+    # CUDA 13 on Windows uses the compiler's hybrid runtime, loaded from the
+    # display driver, so nvcuda/cudart need not be direct PE imports. The probe
+    # still calls both APIs and validates their versions at runtime. cuBLAS and
+    # cuBLASLt remain direct dynamic-library boundaries and must be imported.
+    foreach ($pattern in @('^cublas64_[0-9]+\.dll$', '^cublaslt64_[0-9]+\.dll$')) {
+        if (@($imports | Where-Object { $_ -match $pattern }).Count -ne 1) {
+            throw '[CUDA_PE_IMPORTS_INVALID] CUDA probe does not import the complete cuBLAS boundary'
+        }
+    }
+    if ($RuntimeLinkage -ceq 'Shared' -and
+        @($imports | Where-Object { $_ -match '^cudart64_[0-9]+\.dll$' }).Count -ne 1) {
+        throw '[CUDA_PE_IMPORTS_INVALID] shared CUDA runtime is not a direct PE dependency'
+    }
+    $allowed = @(
+        '^nvcuda\.dll$', '^cudart64_[0-9]+\.dll$', '^cublas64_[0-9]+\.dll$',
+        '^cublaslt64_[0-9]+\.dll$', '^kernel32\.dll$', '^ntdll\.dll$',
+        '^ucrtbase\.dll$', '^vcruntime140(?:_1)?\.dll$', '^msvcp140(?:_[0-9]+)?\.dll$',
+        '^concrt140\.dll$', '^api-ms-win-[a-z0-9_-]+\.dll$'
+    )
+    foreach ($import in $imports) {
+        if (@($allowed | Where-Object { $import -match $_ }).Count -eq 0) {
+            throw "[CUDA_PE_IMPORTS_INVALID] CUDA probe imports an unapproved DLL: $import"
+        }
+    }
+    return $imports
+}
+
+function New-P1BProbeSource {
+    return @'
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include <cublas_v2.h>
+#include <cublasLt.h>
+#include <cstdio>
+#include <cstring>
+
+__global__ void add_sentinel(int* value) { if (blockIdx.x == 0 && threadIdx.x == 0) { *value += 35; } }
+
+int main() {
+    int device_count = 0, target_matches = 0, target_index = -1;
+    int runtime_version = 0, driver_version = 0, direct_driver_version = 0;
+    int cublas_version = 0, host_value = 7, result_value = 0;
+    size_t cublaslt_version = 0;
+    int* device_value = nullptr;
+    cublasHandle_t cublas = nullptr;
+    cublasLtHandle_t cublaslt = nullptr;
+    cudaDeviceProp property = {};
+    cudaDeviceProp target_property = {};
+    bool selected = false;
+    int failure = 0;
+
+#define CUDA_TRY(expr) do { cudaError_t e = (expr); if (e != cudaSuccess) { std::fprintf(stderr, "CUDA failure %d at %s\n", (int)e, #expr); failure = 10; goto cleanup; } } while (0)
+#define DRIVER_TRY(expr) do { CUresult e = (expr); if (e != CUDA_SUCCESS) { std::fprintf(stderr, "driver failure %d at %s\n", (int)e, #expr); failure = 11; goto cleanup; } } while (0)
+#define CUBLAS_TRY(expr) do { cublasStatus_t e = (expr); if (e != CUBLAS_STATUS_SUCCESS) { std::fprintf(stderr, "cuBLAS failure %d at %s\n", (int)e, #expr); failure = 12; goto cleanup; } } while (0)
+
+    CUDA_TRY(cudaGetDeviceCount(&device_count));
+    for (int i = 0; i < device_count; ++i) {
+        CUDA_TRY(cudaGetDeviceProperties(&property, i));
+        if (std::strcmp(property.name, "NVIDIA GeForce RTX 5090") == 0 &&
+            property.major == 12 && property.minor == 0) {
+            ++target_matches;
+            target_index = i;
+            target_property = property;
+        }
+    }
+    if (target_matches != 1) { std::fprintf(stderr, "target match count %d\n", target_matches); return 13; }
+    CUDA_TRY(cudaSetDevice(target_index)); selected = true;
+    DRIVER_TRY(cuInit(0));
+    DRIVER_TRY(cuDriverGetVersion(&direct_driver_version));
+    CUDA_TRY(cudaRuntimeGetVersion(&runtime_version));
+    CUDA_TRY(cudaDriverGetVersion(&driver_version));
+    if (driver_version != direct_driver_version) { std::fprintf(stderr, "driver version disagreement\n"); failure = 14; goto cleanup; }
+    CUBLAS_TRY(cublasCreate(&cublas));
+    CUBLAS_TRY(cublasGetVersion(cublas, &cublas_version));
+    CUBLAS_TRY(cublasLtCreate(&cublaslt));
+    cublaslt_version = cublasLtGetVersion();
+    if (cublaslt_version == 0) { std::fprintf(stderr, "cuBLASLt version is zero\n"); failure = 15; goto cleanup; }
+    CUDA_TRY(cudaMalloc(reinterpret_cast<void**>(&device_value), sizeof(int)));
+    CUDA_TRY(cudaMemcpy(device_value, &host_value, sizeof(int), cudaMemcpyHostToDevice));
+    add_sentinel<<<1, 1>>>(device_value);
+    CUDA_TRY(cudaGetLastError());
+    CUDA_TRY(cudaDeviceSynchronize());
+    CUDA_TRY(cudaMemcpy(&result_value, device_value, sizeof(int), cudaMemcpyDeviceToHost));
+    if (result_value != 42) { std::fprintf(stderr, "sentinel mismatch %d\n", result_value); failure = 16; goto cleanup; }
+
+cleanup:
+    if (device_value != nullptr) { cudaError_t e = cudaFree(device_value); device_value = nullptr; if (e != cudaSuccess && failure == 0) failure = 17; }
+    if (cublaslt != nullptr) { cublasStatus_t e = cublasLtDestroy(cublaslt); cublaslt = nullptr; if (e != CUBLAS_STATUS_SUCCESS && failure == 0) failure = 18; }
+    if (cublas != nullptr) { cublasStatus_t e = cublasDestroy(cublas); cublas = nullptr; if (e != CUBLAS_STATUS_SUCCESS && failure == 0) failure = 19; }
+    if (selected) { cudaError_t e = cudaDeviceReset(); if (e != cudaSuccess && failure == 0) failure = 20; }
+    if (failure != 0) return failure;
+    std::printf("{\"schema\":\"python-slm-cuda-device-probe-v1\",\"device_count\":%d,\"target_match_count\":%d,\"device_index\":%d,\"device_name\":\"%s\",\"memory_total_bytes\":%llu,\"compute_capability_major\":%d,\"compute_capability_minor\":%d,\"runtime_version\":%d,\"driver_version\":%d,\"cublas_version\":%d,\"cublaslt_version\":%llu,\"sentinel\":%d}\n",
+        device_count, target_matches, target_index, target_property.name,
+        static_cast<unsigned long long>(target_property.totalGlobalMem),
+        target_property.major, target_property.minor, runtime_version, driver_version,
+        cublas_version, static_cast<unsigned long long>(cublaslt_version), result_value);
+    return 0;
+}
+'@
+}
+
+function Get-P1BCudaCandidates {
+    param()
+    $values = [Collections.Generic.List[object]]::new()
+    foreach ($scopeName in @('Process', 'Machine')) {
+        try { $scope = [EnvironmentVariableTarget]::$scopeName } catch { continue }
+        try { $variables = [Environment]::GetEnvironmentVariables($scope) } catch { continue }
+        foreach ($entry in $variables.GetEnumerator()) {
+            $name = [string]$entry.Key
+            if ($name -match '^CUDA_PATH(?:_V[0-9_]+)?$' -and
+                -not [string]::IsNullOrWhiteSpace([string]$entry.Value)) {
+                $values.Add([pscustomobject]@{
+                        root = [string]$entry.Value
+                        source = ($scopeName.ToLowerInvariant() + ':' + $name)
+                        explicit = $true
+                    })
+            }
+        }
+    }
+    $programFiles = [Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFiles)
+    if (-not [string]::IsNullOrWhiteSpace($programFiles)) {
+        $parent = Join-Path $programFiles 'NVIDIA GPU Computing Toolkit\CUDA'
+        if (Test-Path -LiteralPath $parent -PathType Container) {
+            foreach ($directory in Get-ChildItem -LiteralPath $parent -Directory -ErrorAction SilentlyContinue) {
+                if ($directory.Name -match '^v[0-9]+\.[0-9]+$') {
+                    $values.Add([pscustomobject]@{
+                            root = $directory.FullName
+                            source = 'standard-installation'
+                            explicit = $false
+                        })
+                }
+            }
+        }
+    }
+    if ($values.Count -eq 0) { throw '[CUDA_TOOLKIT_NOT_FOUND] no CUDA toolkit candidates were discovered' }
+    return @($values)
+}
+
+function New-P1BComponentDescriptor {
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][hashtable]$Roots)
+    return [ordered]@{
+        name = Split-Path -Leaf $Path
+        path = ConvertTo-P1ATokenizedToolPath -Path $Path -Roots $Roots
+        sha256 = Get-P1ASha256 -Path $Path
+        bytes = [int64](Get-Item -LiteralPath $Path).Length
+    }
+}
+
+function New-P1BOptionalComponentRecord {
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)]$Toolkit,
+        [Parameter(Mandatory)][hashtable]$Roots
+    )
+    $keys = switch ($Name) {
+        'cudnn' { @('cudnn_header', 'cudnn_library', 'cudnn_runtime') }
+        'nvrtc' { @('nvrtc_header', 'nvrtc_library', 'nvrtc_runtime') }
+        'nvjitlink' { @('nvjitlink_header', 'nvjitlink_library', 'nvjitlink_runtime') }
+        'compute_sanitizer' { @('compute_sanitizer') }
+        'curand' { @('curand_header', 'curand_library', 'curand_runtime') }
+    }
+    $selectedPath = $null
+    foreach ($key in $keys) {
+        if ($Toolkit.optional_inventory.Contains($key)) {
+            $value = $Toolkit.optional_inventory[$key]
+            $candidate = if ($value -is [Array]) { @($value | Sort-Object)[0] } else { [string]$value }
+            if (-not [string]::IsNullOrWhiteSpace([string]$candidate)) { $selectedPath = [string]$candidate; break }
+        }
+    }
+    if ($null -eq $selectedPath) {
+        return [ordered]@{ present = $false; version = $null; path = $null; sha256 = $null }
+    }
+    return [ordered]@{
+        present = $true
+        version = $null
+        path = ConvertTo-P1ATokenizedToolPath -Path $selectedPath -Roots $Roots
+        sha256 = Get-P1ASha256 -Path $selectedPath
+    }
+}
+
+function Assert-P1BManifestTool {
+    param([Parameter(Mandatory)]$Value, [Parameter(Mandatory)][string]$Name)
+    Assert-P1AToolDescriptor -Value $Value -Name $Name
+    if ([string]$Value.path -cnotmatch '^\$\{(?:REPO|OUTPUT_ROOT|TEMP|USERPROFILE|VS_INSTALL|VC_TOOLS|WINDOWS_KITS|WINDOWS|CARGO_HOME|RUSTUP_HOME|CUDA_TOOLKIT)\}(?:/[A-Za-z0-9][A-Za-z0-9._+() -]*)*$') {
+        throw "$Name path is not tokenized"
+    }
+}
+
+function Assert-P1BManifestComponent {
+    param([Parameter(Mandatory)]$Value, [Parameter(Mandatory)][string]$Name)
+    Assert-P1AClosedObject -Value $Value -Fields @('name', 'path', 'sha256', 'bytes') -Name $Name
+    Assert-P1ASha256Value -Value ([string]$Value.sha256) -Name "$Name.sha256"
+    if ([string]::IsNullOrWhiteSpace([string]$Value.name) -or
+        [string]$Value.path -cnotmatch '^\$\{(?:REPO|OUTPUT_ROOT|TEMP|USERPROFILE|VS_INSTALL|VC_TOOLS|WINDOWS_KITS|WINDOWS|CARGO_HOME|RUSTUP_HOME|CUDA_TOOLKIT)\}(?:/[A-Za-z0-9][A-Za-z0-9._+() -]*)*$' -or
+        [int64]$Value.bytes -lt 1) {
+        throw "$Name is incomplete"
+    }
+}
+
+function Assert-P1BEnvironmentManifest {
+    param(
+        [Parameter(Mandatory)]$Environment,
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$RunRoot,
+        [Parameter(Mandatory)]$Evidence,
+        [Parameter(Mandatory)][Collections.Generic.HashSet[string]]$CommandIds
+    )
+
+    Assert-P1AClosedObject -Value $Environment -Fields @(
+        'schema', 'phase_id', 'run_id', 'mode', 'status', 'p0', 'p1a', 'source',
+        'host', 'rust', 'visual_studio', 'windows_sdk', 'cuda_toolkit',
+        'runtime_linkage', 'optional_components', 'driver', 'gpu', 'architecture_targets',
+        'device_probe', 'isolation', 'cleanup'
+    ) -Name 'P1B CUDA environment manifest'
+    if ([string]$Environment.schema -cne 'python-slm-cuda-environment-manifest-v1' -or
+        [string]$Environment.phase_id -cne 'P1B' -or [string]$Environment.run_id -cne $RunId -or
+        [string]$Environment.mode -cne 'Cuda' -or [string]$Environment.status -cne 'PASS') {
+        throw 'P1B CUDA environment identity is invalid'
+    }
+    Assert-P1AClosedObject -Value $Environment.p0 -Fields @(
+        'receipt_commit', 'receipt_sha256', 'contract_sha256', 'decision_ledger_sha256'
+    ) -Name 'P1B environment P0 identity'
+    foreach ($field in @('receipt_sha256', 'contract_sha256', 'decision_ledger_sha256')) {
+        Assert-P1ASha256Value -Value ([string]$Environment.p0.$field) -Name "P1B P0 $field"
+    }
+    if (([string]$Environment.p0.receipt_commit) -cnotmatch '^[0-9a-f]{40}$') {
+        throw 'P1B P0 commit is invalid'
+    }
+    foreach ($field in @('receipt_commit', 'receipt_sha256', 'contract_sha256',
+            'decision_ledger_sha256')) {
+        if ([string]$Environment.p0.$field -cne [string]$Evidence.p0_dependency.$field) {
+            throw 'P1B environment and run evidence bind different P0 identities'
+        }
+    }
+    $p1aFields = @(
+        'status', 'pointer_path', 'pointer_sha256', 'acceptance_path', 'acceptance_sha256',
+        'acceptance_sequence', 'run_path', 'run_evidence_sha256', 'seal_path', 'seal_sha256',
+        'environment_path', 'environment_sha256', 'source_identity_sha256', 'verifier_sha256',
+        'schema_bundle_sha256', 'review_closure_commit'
+    )
+    Assert-P1AClosedObject -Value $Environment.p1a -Fields $p1aFields -Name 'P1B environment P1A dependency'
+    if ((($Environment.p1a | ConvertTo-Json -Depth 12 -Compress)) -cne
+        (($Evidence.p1a_dependency | ConvertTo-Json -Depth 12 -Compress))) {
+        throw 'P1B environment and run evidence bind different P1A dependencies'
+    }
+    Assert-P1AClosedObject -Value $Environment.source -Fields @(
+        'head', 'dirty', 'input_manifest_sha256', 'cargo_lock_sha256',
+        'verifier_sha256', 'schema_bundle_sha256'
+    ) -Name 'P1B source identity'
+    if ([string]$Environment.source.head -cnotmatch '^[0-9a-f]{40}$') {
+        throw 'P1B source HEAD is invalid'
+    }
+    foreach ($field in @('input_manifest_sha256', 'cargo_lock_sha256', 'verifier_sha256', 'schema_bundle_sha256')) {
+        Assert-P1ASha256Value -Value ([string]$Environment.source.$field) -Name "P1B source $field"
+    }
+    if ([string]$Environment.source.verifier_sha256 -cne [string]$Environment.p1a.verifier_sha256 -or
+        [string]$Environment.source.schema_bundle_sha256 -cne [string]$Environment.p1a.schema_bundle_sha256) {
+        throw 'P1B source bundles do not match the selected P1A regression run'
+    }
+
+    $repository = $RunRoot
+    for ($index = 0; $index -lt 5; $index++) { $repository = Split-Path -Parent $repository }
+    $p1aEnvironmentPath = [IO.Path]::GetFullPath((Join-Path $repository `
+                ([string]$Environment.p1a.environment_path).Replace('/', '\')))
+    $p1aRoot = Join-Path $repository 'docs\receipts\P1A'
+    if (-not (Test-P1BContainedPathWithoutReparse -Path $p1aEnvironmentPath `
+            -Root $p1aRoot -Leaf) -or
+        (Get-P1ASha256 -Path $p1aEnvironmentPath) -cne [string]$Environment.p1a.environment_sha256) {
+        throw 'P1B host/toolchain reconciliation could not validate the selected P1A environment'
+    }
+    $selectedP1AEnvironment = [IO.File]::ReadAllText($p1aEnvironmentPath, $script:Utf8NoBom) |
+        ConvertFrom-Json
+    foreach ($field in @('host', 'rust', 'visual_studio', 'windows_sdk')) {
+        Assert-P1AClosedObject -Value $Environment.$field `
+            -Fields @($selectedP1AEnvironment.$field.PSObject.Properties.Name) `
+            -Name "P1B reconciled $field identity"
+        if (($Environment.$field | ConvertTo-Json -Depth 20 -Compress) -cne
+            ($selectedP1AEnvironment.$field | ConvertTo-Json -Depth 20 -Compress)) {
+            throw "P1B $field identity differs from the selected P1A environment"
+        }
+    }
+
+    Assert-P1AClosedObject -Value $Environment.cuda_toolkit -Fields @(
+        'version', 'root', 'tools', 'headers', 'libraries', 'runtime_dlls'
+    ) -Name 'CUDA toolkit identity'
+    if ([string]$Environment.cuda_toolkit.version -cnotmatch '^[0-9]+\.[0-9]+(?:\.[0-9]+){0,2}$' -or
+        -not (Test-P1AVersionAtLeast -Actual ([string]$Environment.cuda_toolkit.version) -Minimum '12.8') -or
+        [string]$Environment.cuda_toolkit.root -cne '${CUDA_TOOLKIT}') {
+        throw 'CUDA toolkit version or root is invalid'
+    }
+    $toolNames = @($Environment.cuda_toolkit.tools | ForEach-Object {
+            Assert-P1BManifestTool -Value $_ -Name 'CUDA toolkit tool'; [string]$_.name
+        })
+    if (($toolNames -join [char]0) -cne ((@('nvcc', 'ptxas', 'fatbinary', 'nvlink', 'cuobjdump')) -join [char]0)) {
+        throw 'CUDA toolkit tool identities are incomplete or out of order'
+    }
+    foreach ($set in @(
+            [pscustomobject]@{ Value = $Environment.cuda_toolkit.headers; Names = @('cuda.h', 'cuda_runtime.h', 'cublas_v2.h', 'cublasLt.h'); Label = 'CUDA header' },
+            [pscustomobject]@{ Value = $Environment.cuda_toolkit.libraries; Names = @('cuda.lib', 'cudart.lib', 'cublas.lib', 'cublasLt.lib'); Label = 'CUDA library' }
+        )) {
+        $names = @($set.Value | ForEach-Object {
+                Assert-P1BManifestComponent -Value $_ -Name $set.Label; [string]$_.name
+            })
+        if (($names -join [char]0) -cne (@($set.Names) -join [char]0)) {
+            throw "$($set.Label) identities are incomplete or out of order"
+        }
+    }
+    $runtimeNames = @($Environment.cuda_toolkit.runtime_dlls | ForEach-Object {
+            Assert-P1BManifestComponent -Value $_ -Name 'CUDA runtime DLL'; [string]$_.name
+        })
+    if ($runtimeNames.Count -ne 3 -or $runtimeNames[0] -cnotmatch '^cudart64_[0-9]+\.dll$' -or
+        $runtimeNames[1] -cnotmatch '^cublas64_[0-9]+\.dll$' -or
+        $runtimeNames[2] -cnotmatch '^cublasLt64_[0-9]+\.dll$') {
+        throw 'CUDA runtime DLL identities are incomplete or out of order'
+    }
+    $toolkitVersion = [version][string]$Environment.cuda_toolkit.version
+    $expectedLinkage = if ($toolkitVersion.Major -ge 13) { 'hybrid' } else { 'shared' }
+    $expectedProvider = if ($expectedLinkage -ceq 'hybrid') { 'display_driver' } else { 'toolkit_cudart' }
+    $expectedStagedComponents = if ($expectedLinkage -ceq 'hybrid') {
+        @('cublas', 'cublaslt')
+    }
+    else { @('cudart', 'cublas', 'cublaslt') }
+    Assert-P1AClosedObject -Value $Environment.runtime_linkage -Fields @(
+        'mode', 'active_provider', 'staged_runtime_dlls'
+    ) -Name 'CUDA runtime linkage identity'
+    if ([string]$Environment.runtime_linkage.mode -cne $expectedLinkage -or
+        [string]$Environment.runtime_linkage.active_provider -cne $expectedProvider) {
+        throw 'CUDA runtime linkage mode or provider does not match the toolkit major version'
+    }
+    $runtimeDescriptorByComponent = @{
+        cudart = $Environment.cuda_toolkit.runtime_dlls[0]
+        cublas = $Environment.cuda_toolkit.runtime_dlls[1]
+        cublaslt = $Environment.cuda_toolkit.runtime_dlls[2]
+    }
+    $stagedComponents = @($Environment.runtime_linkage.staged_runtime_dlls | ForEach-Object {
+            Assert-P1AClosedObject -Value $_ -Fields @('component', 'sha256') `
+                -Name 'staged CUDA runtime DLL'
+            $component = [string]$_.component
+            if (-not $runtimeDescriptorByComponent.ContainsKey($component) -or
+                [string]$_.sha256 -cne [string]$runtimeDescriptorByComponent[$component].sha256) {
+                throw 'staged CUDA runtime DLL does not match the selected toolkit identity'
+            }
+            $component
+        })
+    if (($stagedComponents -join [char]0) -cne ($expectedStagedComponents -join [char]0)) {
+        throw 'staged CUDA runtime DLL components are incomplete or out of order'
+    }
+
+    Assert-P1AClosedObject -Value $Environment.optional_components -Fields @(
+        'cudnn', 'nvrtc', 'nvjitlink', 'compute_sanitizer', 'curand'
+    ) -Name 'optional CUDA inventory'
+    foreach ($name in @('cudnn', 'nvrtc', 'nvjitlink', 'compute_sanitizer', 'curand')) {
+        $component = $Environment.optional_components.$name
+        Assert-P1AClosedObject -Value $component -Fields @('present', 'version', 'path', 'sha256') `
+            -Name "optional CUDA component $name"
+        if ([bool]$component.present) {
+            if ([string]$component.path -cnotmatch '^\$\{(?:REPO|OUTPUT_ROOT|TEMP|USERPROFILE|VS_INSTALL|VC_TOOLS|WINDOWS_KITS|WINDOWS|CARGO_HOME|RUSTUP_HOME|CUDA_TOOLKIT)\}/' ) {
+                throw "optional CUDA component $name has invalid present identity"
+            }
+            Assert-P1ASha256Value -Value ([string]$component.sha256) -Name "optional CUDA component $name hash"
+        }
+        elseif ($null -ne $component.version -or $null -ne $component.path -or $null -ne $component.sha256) {
+            throw "optional CUDA component $name has data while absent"
+        }
+    }
+
+    Assert-P1AClosedObject -Value $Environment.driver -Fields @('driver_version', 'cuda_umd_version', 'nvidia_smi', 'library') `
+        -Name 'CUDA driver identity'
+    if ([string]$Environment.driver.driver_version -cnotmatch '^[0-9]+\.[0-9]+(?:\.[0-9]+){0,2}$' -or
+        [string]::IsNullOrWhiteSpace([string]$Environment.driver.cuda_umd_version)) {
+        throw 'CUDA driver version identity is invalid'
+    }
+    Assert-P1BManifestTool -Value $Environment.driver.nvidia_smi -Name 'nvidia-smi tool'
+    Assert-P1BManifestTool -Value $Environment.driver.library -Name 'CUDA driver library'
+    if ([string]$Environment.driver.nvidia_smi.name -cne 'nvidia-smi' -or
+        [string]$Environment.driver.library.name -cne 'nvcuda') {
+        throw 'CUDA driver library identity is invalid'
+    }
+    Assert-P1AClosedObject -Value $Environment.gpu -Fields @(
+        'index', 'name', 'memory_total_bytes', 'compute_capability_major', 'compute_capability_minor'
+    ) -Name 'qualified GPU identity'
+    if ([int]$Environment.gpu.index -lt 0 -or
+        [string]$Environment.gpu.name -cne 'NVIDIA GeForce RTX 5090' -or
+        [int64]$Environment.gpu.memory_total_bytes -lt 1 -or
+        [int]$Environment.gpu.compute_capability_major -ne 12 -or
+        [int]$Environment.gpu.compute_capability_minor -ne 0) {
+        throw 'qualified GPU identity is invalid'
+    }
+
+    Assert-P1AClosedObject -Value $Environment.architecture_targets -Fields @(
+        'sass', 'ptx', 'advertised_architectures', 'advertised_code', 'mixed', 'ptx_only'
+    ) -Name 'CUDA architecture targets'
+    if ((@($Environment.architecture_targets.sass) -join ',') -cne 'sm_120' -or
+        (@($Environment.architecture_targets.ptx) -join ',') -cne 'compute_120' -or
+        @($Environment.architecture_targets.advertised_architectures) -notcontains 'compute_120' -or
+        @($Environment.architecture_targets.advertised_code) -notcontains 'sm_120') {
+        throw 'CUDA architecture target inventory is incomplete'
+    }
+    foreach ($variantName in @('mixed', 'ptx_only')) {
+        $variant = $Environment.architecture_targets.$variantName
+        Assert-P1AClosedObject -Value $variant -Fields @(
+            'compile_command_id', 'executable_sha256', 'run_command_id',
+            'pe_headers_command_id', 'pe_dependents_command_id', 'elf_command_id',
+            'ptx_list_command_id', 'sass_dump_command_id', 'ptx_dump_command_id',
+            'embedded_sass', 'embedded_ptx', 'pe_imports', 'result'
+        ) -Name "CUDA $variantName artifact inspection"
+        foreach ($idField in @('compile_command_id', 'run_command_id',
+                'pe_headers_command_id', 'pe_dependents_command_id', 'elf_command_id',
+                'ptx_list_command_id', 'sass_dump_command_id', 'ptx_dump_command_id')) {
+            if (-not $CommandIds.Contains([string]$variant.$idField)) {
+                throw "CUDA $variantName inspection references an unknown command ID"
+            }
+        }
+        Assert-P1ASha256Value -Value ([string]$variant.executable_sha256) -Name "CUDA $variantName executable hash"
+        if ([string]$variant.result -cne 'PASS' -or
+            (@($variant.embedded_ptx) -join ',') -cne 'compute_120' -or
+            ($variantName -ceq 'mixed' -and (@($variant.embedded_sass) -join ',') -cne 'sm_120') -or
+            ($variantName -ceq 'ptx_only' -and @($variant.embedded_sass).Count -ne 0)) {
+            throw "CUDA $variantName artifact inspection did not pass the target contract"
+        }
+        $variantImports = @($variant.pe_imports | ForEach-Object { ([string]$_).ToLowerInvariant() })
+        if (@($variantImports | Sort-Object -Unique).Count -ne $variantImports.Count) {
+            throw "CUDA $variantName PE import boundary contains duplicates"
+        }
+        foreach ($pattern in @('^cublas64_[0-9]+\.dll$', '^cublaslt64_[0-9]+\.dll$')) {
+            if (@($variantImports | Where-Object { $_ -match $pattern }).Count -ne 1) {
+                throw "CUDA $variantName PE import boundary is incomplete or ambiguous"
+            }
+        }
+        if ($expectedLinkage -ceq 'shared' -and
+            @($variantImports | Where-Object { $_ -match '^cudart64_[0-9]+\.dll$' }).Count -ne 1) {
+            throw "CUDA $variantName shared runtime import is incomplete or ambiguous"
+        }
+        $allowedImportPatterns = @(
+            '^nvcuda\.dll$', '^cudart64_[0-9]+\.dll$', '^cublas64_[0-9]+\.dll$',
+            '^cublaslt64_[0-9]+\.dll$', '^kernel32\.dll$', '^ntdll\.dll$',
+            '^ucrtbase\.dll$', '^vcruntime140(?:_1)?\.dll$', '^msvcp140(?:_[0-9]+)?\.dll$',
+            '^concrt140\.dll$', '^api-ms-win-[a-z0-9_-]+\.dll$'
+        )
+        foreach ($import in $variantImports) {
+            if (@($allowedImportPatterns | Where-Object { $import -match $_ }).Count -eq 0) {
+                throw "CUDA $variantName PE import boundary contains an unapproved DLL"
+            }
+        }
+        $compileRecord = @($Evidence.commands | Where-Object {
+                [string]$_.id -ceq [string]$variant.compile_command_id
+            })
+        if ($compileRecord.Count -ne 1) {
+            throw "CUDA $variantName compile command record is missing or ambiguous"
+        }
+        $expectedRuntimeArgument = '--cudart=' + $expectedLinkage
+        $expectedLinkerArgument = if ($expectedLinkage -ceq 'hybrid') {
+            '--linker-options=/WX,/NODEFAULTLIB:LIBCMT'
+        }
+        else { '--linker-options=/WX' }
+        $linkerArguments = @($compileRecord[0].argv | Where-Object {
+                $_ -like '--linker-options=*' -or $_ -match '(?i)(?:^|[,])/NODEFAULTLIB:'
+            })
+        if (@($compileRecord[0].argv) -notcontains $expectedRuntimeArgument -or
+            $linkerArguments.Count -ne 1 -or
+            [string]$linkerArguments[0] -cne $expectedLinkerArgument -or
+            @($compileRecord[0].argv | Where-Object { $_ -match '(?i)[\\/]cudart\.lib$' }).Count -ne 0) {
+            throw "CUDA $variantName compile command does not match the runtime linkage contract"
+        }
+    }
+
+    Assert-P1AClosedObject -Value $Environment.device_probe -Fields @(
+        'source_sha256', 'runtime_version',
+        'driver_version', 'cublas_version', 'cublaslt_version', 'mixed_result',
+        'ptx_only_result', 'sentinel', 'target_match_count'
+    ) -Name 'CUDA device probe evidence'
+    Assert-P1ASha256Value -Value ([string]$Environment.device_probe.source_sha256) -Name 'CUDA probe source hash'
+    if ([int]$Environment.device_probe.runtime_version -lt 12080 -or
+        [int]$Environment.device_probe.driver_version -lt [int]$Environment.device_probe.runtime_version -or
+        [int]$Environment.device_probe.cublas_version -lt 1 -or
+        [int64]$Environment.device_probe.cublaslt_version -lt 1 -or
+        [string]$Environment.device_probe.mixed_result -cne 'PASS' -or
+        [string]$Environment.device_probe.ptx_only_result -cne 'PASS' -or
+        [int]$Environment.device_probe.sentinel -ne 42 -or
+        [int]$Environment.device_probe.target_match_count -ne 1) {
+        throw 'CUDA device probe values do not satisfy the qualification contract'
+    }
+    Assert-P1AClosedObject -Value $Environment.isolation -Fields @(
+        'temporary_root_absent_before', 'temporary_root_outside_repository',
+        'python_canaries', 'canary_hits', 'python_invoked'
+    ) -Name 'P1B isolation evidence'
+    if (-not [bool]$Environment.isolation.temporary_root_absent_before -or
+        -not [bool]$Environment.isolation.temporary_root_outside_repository -or
+        @($Environment.isolation.python_canaries).Count -lt 1 -or
+        @($Environment.isolation.canary_hits).Count -ne 0 -or [bool]$Environment.isolation.python_invoked) {
+        throw 'P1B Python or temporary-root isolation did not pass'
+    }
+    Assert-P1AClosedObject -Value $Environment.cleanup -Fields @(
+        'temporary_root_removed', 'repository_target_unchanged',
+        'parent_environment_unchanged', 'inputs_unchanged'
+    ) -Name 'P1B manifest cleanup'
+    foreach ($field in @('temporary_root_removed', 'repository_target_unchanged',
+            'parent_environment_unchanged', 'inputs_unchanged')) {
+        if (-not [bool]$Environment.cleanup.$field) { throw "P1B cleanup assertion is false: $field" }
+    }
+}
+
+function Assert-P1BPassRun {
+    param(
+        [Parameter(Mandatory)][string]$RunRoot,
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$SourceIdentitySha256
+    )
+
+    if ($RunId -cnotmatch '^[0-9]{8}T[0-9]{9}Z-[0-9a-f]{24}$' -or
+        (Split-Path -Leaf ([IO.Path]::GetFullPath($RunRoot))) -cne $RunId -or
+        -not (Test-P1ASeal -RunRoot $RunRoot)) {
+        throw 'P1B run identity or seal is invalid'
+    }
+    Assert-P1ASha256Value -Value $SourceIdentitySha256 -Name 'P1B source identity hash'
+    $evidencePath = Resolve-P1ARunFile -RunRoot $RunRoot -RelativePath 'evidence.json' -Name 'P1B evidence'
+    $environmentPath = Resolve-P1ARunFile -RunRoot $RunRoot -RelativePath 'artifacts/environment.json' -Name 'P1B environment'
+    $sourcePath = Resolve-P1ARunFile -RunRoot $RunRoot -RelativePath 'artifacts/source-identity.json' -Name 'P1B source identity'
+    $sealPath = Resolve-P1ARunFile -RunRoot $RunRoot -RelativePath 'SHA256SUMS' -Name 'P1B seal'
+    if ((Get-P1ASha256 -Path $sourcePath) -cne $SourceIdentitySha256) {
+        throw 'P1B source identity hash does not match its run artifact'
+    }
+    $evidenceText = [IO.File]::ReadAllText($evidencePath, $script:Utf8NoBom)
+    $evidence = $evidenceText | ConvertFrom-Json
+    Assert-P1AClosedObject -Value $evidence -Fields @(
+        'schema', 'phase_id', 'run_id', 'mode', 'status', 'started_at', 'finished_at',
+        'duration_ms', 'invocation', 'source_identity_sha256', 'p0_dependency',
+        'p1a_dependency', 'environment', 'commands', 'gates', 'errors', 'cleanup', 'seal'
+    ) -Name 'P1B run evidence'
+    if ([string]$evidence.schema -cne 'python-slm-phase-evidence-v2' -or
+        [string]$evidence.phase_id -cne 'P1B' -or [string]$evidence.run_id -cne $RunId -or
+        [string]$evidence.mode -cne 'Cuda' -or [string]$evidence.status -cne 'PASS' -or
+        [string]$evidence.source_identity_sha256 -cne $SourceIdentitySha256 -or
+        [int64]$evidence.duration_ms -lt 0) {
+        throw 'P1B run evidence identity is invalid'
+    }
+    $parsedTimestamp = [DateTime]::MinValue
+    foreach ($timestamp in @([string]$evidence.started_at, [string]$evidence.finished_at)) {
+        if (-not $timestamp.EndsWith('Z', [StringComparison]::Ordinal) -or
+            -not [DateTime]::TryParse($timestamp, [ref]$parsedTimestamp)) {
+            throw 'P1B run evidence timestamp is invalid or not UTC'
+        }
+    }
+    Assert-P1AClosedObject -Value $evidence.invocation -Fields @('argv', 'cwd') -Name 'P1B invocation'
+    $expectedInvocation = @('powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File',
+        'scripts/verify-env.ps1', '-Mode', 'Cuda', '-OutputRoot', 'docs/receipts/P1B')
+    if ((@($evidence.invocation.argv) -join [char]0) -cne ($expectedInvocation -join [char]0) -or
+        [string]$evidence.invocation.cwd -cne '${REPO}') {
+        throw 'P1B invocation is not the exact approved command'
+    }
+    Assert-P1AClosedObject -Value $evidence.p0_dependency -Fields @(
+        'status', 'receipt_commit', 'receipt_sha256', 'contract_sha256', 'decision_ledger_sha256'
+    ) -Name 'P1B P0 dependency'
+    if ([string]$evidence.p0_dependency.status -cne 'PASS') { throw 'P1B P0 dependency is not PASS' }
+    $p1aFields = @('status', 'pointer_path', 'pointer_sha256', 'acceptance_path',
+        'acceptance_sha256', 'acceptance_sequence', 'run_path', 'run_evidence_sha256',
+        'seal_path', 'seal_sha256', 'environment_path', 'environment_sha256',
+        'source_identity_sha256', 'verifier_sha256', 'schema_bundle_sha256',
+        'review_closure_commit')
+    Assert-P1AClosedObject -Value $evidence.p1a_dependency -Fields $p1aFields -Name 'P1B P1A dependency'
+    if ([string]$evidence.p1a_dependency.status -cne 'PASS' -or
+        [string]$evidence.p1a_dependency.pointer_path -cne 'docs/receipts/P1A/evidence.json' -or
+        [string]$evidence.p1a_dependency.review_closure_commit -cne '9359c989fa63d4a300abc509e735b7e81a24a2ea' -or
+        [int]$evidence.p1a_dependency.acceptance_sequence -lt 1) {
+        throw 'P1B P1A dependency is incomplete or not reviewed'
+    }
+    foreach ($field in @('pointer_sha256', 'acceptance_sha256', 'run_evidence_sha256',
+            'seal_sha256', 'environment_sha256', 'source_identity_sha256',
+            'verifier_sha256', 'schema_bundle_sha256')) {
+        Assert-P1ASha256Value -Value ([string]$evidence.p1a_dependency.$field) -Name "P1A dependency $field"
+    }
+
+    $null = Assert-P1AFileReference -Reference $evidence.environment -RunRoot $RunRoot -Name 'P1B environment reference'
+    if ([string]$evidence.environment.path -cne 'artifacts/environment.json') {
+        throw 'P1B environment path is not canonical'
+    }
+    $commandIds = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    $expectedNumber = 1
+    foreach ($command in @($evidence.commands)) {
+        Assert-P1AClosedObject -Value $command -Fields @(
+            'id', 'argv', 'cwd', 'environment_delta_names', 'configuration_sha256',
+            'exit_code', 'duration_ms', 'status', 'stdout', 'stderr'
+        ) -Name 'P1B command record'
+        $expectedId = 'C' + $expectedNumber.ToString('00')
+        if ([string]$command.id -cne $expectedId -or -not $commandIds.Add([string]$command.id) -or
+            [string]$command.status -cne 'PASS' -or [int]$command.exit_code -ne 0 -or
+            [string]$command.cwd -cne '${REPO}' -or @($command.argv).Count -lt 1) {
+            throw 'P1B command sequence contains a failed, duplicate, or noncanonical record'
+        }
+        Assert-P1ASha256Value -Value ([string]$command.configuration_sha256) -Name 'P1B command configuration hash'
+        $null = Assert-P1AFileReference -Reference $command.stdout -RunRoot $RunRoot -Name 'P1B command stdout'
+        $null = Assert-P1AFileReference -Reference $command.stderr -RunRoot $RunRoot -Name 'P1B command stderr'
+        if ([string]$command.stdout.path -cne "commands/$expectedId.stdout.txt" -or
+            [string]$command.stderr.path -cne "commands/$expectedId.stderr.txt") {
+            throw 'P1B command transcript path is not canonical'
+        }
+        $expectedNumber++
+    }
+    if ($commandIds.Count -lt 1) { throw 'P1B PASS run contains no commands' }
+    $gateNames = @('p0', 'p1a', 'cpu_regression', 'input_stability', 'toolchain',
+        'cuda_toolkit', 'architecture_targets', 'gpu_identity', 'driver_runtime',
+        'device_probe', 'python_isolation', 'redaction', 'cleanup')
+    Assert-P1AClosedObject -Value $evidence.gates -Fields $gateNames -Name 'P1B gates'
+    foreach ($gate in $gateNames) {
+        Assert-P1AClosedObject -Value $evidence.gates.$gate -Fields @('status', 'detail') -Name "P1B gate $gate"
+        if ([string]$evidence.gates.$gate.status -cne 'PASS' -or
+            [string]::IsNullOrWhiteSpace([string]$evidence.gates.$gate.detail)) {
+            throw "P1B gate did not pass: $gate"
+        }
+    }
+    if ($null -eq $evidence.errors) {
+        if ($evidenceText -notmatch '"errors"\s*:\s*\[\s*\]') {
+            throw 'P1B PASS run errors field is not an empty array'
+        }
+    }
+    elseif (@($evidence.errors | Where-Object { $null -ne $_ }).Count -ne 0) {
+        throw 'P1B PASS run contains errors'
+    }
+    Assert-P1AClosedObject -Value $evidence.cleanup -Fields @('attempted', 'temporary_root_removed') `
+        -Name 'P1B cleanup'
+    if (-not [bool]$evidence.cleanup.attempted -or -not [bool]$evidence.cleanup.temporary_root_removed) {
+        throw 'P1B cleanup did not complete'
+    }
+    Assert-P1AClosedObject -Value $evidence.seal -Fields @('path', 'entries', 'coverage_rule') -Name 'P1B seal reference'
+    $sealLines = @([IO.File]::ReadAllLines($sealPath, $script:Utf8NoBom))
+    if ([string]$evidence.seal.path -cne 'SHA256SUMS' -or
+        [string]$evidence.seal.coverage_rule -cne 'all_run_files_except_seal' -or
+        [int]$evidence.seal.entries -ne $sealLines.Count) {
+        throw 'P1B seal reference does not match the immutable run'
+    }
+    $environment = [IO.File]::ReadAllText($environmentPath, $script:Utf8NoBom) | ConvertFrom-Json
+    $null = Assert-P1BEnvironmentManifest -Environment $environment -RunId $RunId `
+        -RunRoot $RunRoot -Evidence $evidence -CommandIds $commandIds
+    return [pscustomobject][ordered]@{
+        evidence_path = $evidencePath
+        evidence_sha256 = Get-P1ASha256 -Path $evidencePath
+        environment_path = $environmentPath
+        environment_sha256 = Get-P1ASha256 -Path $environmentPath
+        seal_path = $sealPath
+        seal_sha256 = Get-P1ASha256 -Path $sealPath
+    }
+}
+
+function Assert-P1BAcceptanceObject {
+    param(
+        [Parameter(Mandatory)]$Acceptance,
+        [Parameter(Mandatory)][int]$Sequence,
+        [AllowNull()][string]$PreviousHash,
+        [Parameter(Mandatory)][string]$OutputRoot
+    )
+    Assert-P1AClosedObject -Value $Acceptance -Fields @(
+        'schema', 'phase_id', 'sequence', 'status', 'acceptance_kind',
+        'required_approvals', 'run_path', 'run_evidence_sha256', 'seal_path',
+        'seal_sha256', 'environment_path', 'environment_sha256',
+        'source_identity_sha256', 'previous_acceptance_sha256', 'created_at'
+    ) -Name 'P1B acceptance record'
+    if ([string]$Acceptance.schema -cne 'python-slm-phase-acceptance-v2' -or
+        [string]$Acceptance.phase_id -cne 'P1B' -or [int]$Acceptance.sequence -ne $Sequence -or
+        [string]$Acceptance.status -cne 'PASS' -or
+        [string]$Acceptance.acceptance_kind -cne 'automatic_machine_qualification' -or
+        @($Acceptance.required_approvals).Count -ne 0 -or
+        [string]$Acceptance.previous_acceptance_sha256 -cne [string]$PreviousHash -or
+        [string]$Acceptance.run_path -cnotmatch '^runs/(?<run>[0-9]{8}T[0-9]{9}Z-[0-9a-f]{24})$') {
+        throw 'P1B acceptance record does not match the automatic qualification chain'
+    }
+    $parsedTimestamp = [DateTime]::MinValue
+    if (-not ([string]$Acceptance.created_at).EndsWith('Z', [StringComparison]::Ordinal) -or
+        -not [DateTime]::TryParse([string]$Acceptance.created_at, [ref]$parsedTimestamp)) {
+        throw 'P1B acceptance timestamp is invalid or not UTC'
+    }
+    $runId = $Matches['run']
+    $validated = Assert-P1BPassRun -RunRoot (Join-Path (Join-Path $OutputRoot 'runs') $runId) `
+        -RunId $runId -SourceIdentitySha256 ([string]$Acceptance.source_identity_sha256)
+    if ([string]$Acceptance.run_evidence_sha256 -cne $validated.evidence_sha256 -or
+        [string]$Acceptance.seal_sha256 -cne $validated.seal_sha256 -or
+        [string]$Acceptance.environment_sha256 -cne $validated.environment_sha256 -or
+        [string]$Acceptance.seal_path -cne "runs/$runId/SHA256SUMS" -or
+        [string]$Acceptance.environment_path -cne "runs/$runId/artifacts/environment.json") {
+        throw 'P1B acceptance hashes or paths do not match its run'
+    }
+}
+
+function Publish-P1BAcceptance {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$OutputRoot,
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$SourceIdentitySha256
+    )
+    $root = [IO.Path]::GetFullPath($OutputRoot).TrimEnd('\', '/')
+    if ($RunId -cnotmatch '^[0-9]{8}T[0-9]{9}Z-[0-9a-f]{24}$') { throw 'P1B acceptance run ID is invalid' }
+    $runRoot = [IO.Path]::GetFullPath((Join-Path (Join-Path $root 'runs') $RunId))
+    $validatedRun = Assert-P1BPassRun -RunRoot $runRoot -RunId $RunId `
+        -SourceIdentitySha256 $SourceIdentitySha256
+    $mutexNameHash = Get-P1ATextSha256 -Text $root.ToLowerInvariant()
+    $mutex = [Threading.Mutex]::new($false, "Local\python-slm-p1b-$mutexNameHash")
+    $locked = $false
+    try {
+        $locked = $mutex.WaitOne([TimeSpan]::FromSeconds(30))
+        if (-not $locked) { throw 'timed out waiting for the P1B publication lock' }
+        $validatedRun = Assert-P1BPassRun -RunRoot $runRoot -RunId $RunId `
+            -SourceIdentitySha256 $SourceIdentitySha256
+        $acceptanceRoot = Join-Path $root 'acceptances'
+        [void][IO.Directory]::CreateDirectory($acceptanceRoot)
+        if (((Get-Item -Force -LiteralPath $acceptanceRoot).Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw 'P1B acceptance directory is a reparse point'
+        }
+        $files = @(Get-ChildItem -LiteralPath $acceptanceRoot -File -ErrorAction Stop | Sort-Object Name)
+        $previousHash = $null
+        $lastAcceptance = $null
+        foreach ($index in 0..($files.Count - 1)) {
+            if ($files.Count -eq 0) { break }
+            $sequence = $index + 1
+            if ($files[$index].Name -cne ($sequence.ToString('00000000') + '.json')) {
+                throw 'P1B acceptance sequence contains a gap or noncanonical file'
+            }
+            $prior = [IO.File]::ReadAllText($files[$index].FullName, $script:Utf8NoBom) | ConvertFrom-Json
+            Assert-P1BAcceptanceObject -Acceptance $prior -Sequence $sequence `
+                -PreviousHash $previousHash -OutputRoot $root
+            $previousHash = Get-P1ASha256 -Path $files[$index].FullName
+            $lastAcceptance = $prior
+        }
+        $pointerPath = Join-Path $root 'evidence.json'
+        $oldPointer = $null
+        if (Test-Path -LiteralPath $pointerPath -PathType Leaf) {
+            $oldPointer = [IO.File]::ReadAllText($pointerPath, $script:Utf8NoBom) | ConvertFrom-Json
+            Assert-P1AClosedObject -Value $oldPointer -Fields @(
+                'schema', 'phase_id', 'acceptance_path', 'acceptance_sha256', 'updated_at'
+            ) -Name 'P1B selected pointer'
+            if ([string]$oldPointer.schema -cne 'python-slm-phase-evidence-pointer-v2' -or
+                [string]$oldPointer.phase_id -cne 'P1B' -or
+                [string]$oldPointer.acceptance_path -cnotmatch '^acceptances/(?<name>[0-9]{8}\.json)$') {
+                throw 'P1B selected pointer is invalid'
+            }
+            $parsedPointerTimestamp = [DateTime]::MinValue
+            if (-not ([string]$oldPointer.updated_at).EndsWith('Z', [StringComparison]::Ordinal) -or
+                -not [DateTime]::TryParse([string]$oldPointer.updated_at, [ref]$parsedPointerTimestamp)) {
+                throw 'P1B selected pointer timestamp is invalid or not UTC'
+            }
+            $oldSelected = Join-Path $acceptanceRoot $Matches['name']
+            if (-not (Test-Path -LiteralPath $oldSelected -PathType Leaf) -or
+                (Get-P1ASha256 -Path $oldSelected) -cne [string]$oldPointer.acceptance_sha256) {
+                throw 'P1B selected pointer hash does not match its acceptance'
+            }
+        }
+        $recoverOrphan = $null -ne $lastAcceptance -and
+            [string]$lastAcceptance.run_path -ceq "runs/$RunId" -and
+            [string]$lastAcceptance.source_identity_sha256 -ceq $SourceIdentitySha256 -and
+            ($null -eq $oldPointer -or
+                [string]$oldPointer.acceptance_sha256 -cne $previousHash)
+        if ($recoverOrphan) {
+            $sequence = [int]$lastAcceptance.sequence
+            $acceptanceRelative = 'acceptances/' + $sequence.ToString('00000000') + '.json'
+            $acceptanceHash = $previousHash
+        }
+        else {
+            $sequence = $files.Count + 1
+            $acceptanceRelative = 'acceptances/' + $sequence.ToString('00000000') + '.json'
+            $acceptancePath = Join-Path $root $acceptanceRelative.Replace('/', '\')
+            $acceptance = [ordered]@{
+                schema = 'python-slm-phase-acceptance-v2'; phase_id = 'P1B'; sequence = $sequence
+                status = 'PASS'; acceptance_kind = 'automatic_machine_qualification'; required_approvals = @()
+                run_path = "runs/$RunId"; run_evidence_sha256 = $validatedRun.evidence_sha256
+                seal_path = "runs/$RunId/SHA256SUMS"; seal_sha256 = $validatedRun.seal_sha256
+                environment_path = "runs/$RunId/artifacts/environment.json"
+                environment_sha256 = $validatedRun.environment_sha256
+                source_identity_sha256 = $SourceIdentitySha256
+                previous_acceptance_sha256 = $previousHash; created_at = [DateTime]::UtcNow.ToString('o')
+            }
+            Write-P1AJsonFile -Path $acceptancePath -Value $acceptance -CreateNew
+            $acceptanceHash = Get-P1ASha256 -Path $acceptancePath
+            Assert-P1BAcceptanceObject -Acceptance $acceptance -Sequence $sequence `
+                -PreviousHash $previousHash -OutputRoot $root
+        }
+        $pointer = [ordered]@{
+            schema = 'python-slm-phase-evidence-pointer-v2'; phase_id = 'P1B'
+            acceptance_path = $acceptanceRelative; acceptance_sha256 = $acceptanceHash
+            updated_at = [DateTime]::UtcNow.ToString('o')
+        }
+        $temporaryPointer = Join-Path $root ('.evidence.' + $RunId + '.tmp')
+        Write-P1AJsonFile -Path $temporaryPointer -Value $pointer -CreateNew
+        $backupPointer = $null
+        $hadPointer = Test-Path -LiteralPath $pointerPath -PathType Leaf
+        $replacementCompleted = $false
+        try {
+            if ($hadPointer) {
+                $backupPointer = Join-Path $root ('.evidence.' + $RunId + '.bak')
+                [IO.File]::Replace($temporaryPointer, $pointerPath, $backupPointer, $true)
+            }
+            else { [IO.File]::Move($temporaryPointer, $pointerPath) }
+            $replacementCompleted = $true
+            $verified = [IO.File]::ReadAllText($pointerPath, $script:Utf8NoBom) | ConvertFrom-Json
+            if ([string]$verified.schema -cne 'python-slm-phase-evidence-pointer-v2' -or
+                [string]$verified.phase_id -cne 'P1B' -or
+                [string]$verified.acceptance_path -cne $acceptanceRelative -or
+                [string]$verified.acceptance_sha256 -cne $acceptanceHash) {
+                throw 'published P1B pointer failed verification'
+            }
+            $parsedPointerTimestamp = [DateTime]::MinValue
+            if (-not ([string]$verified.updated_at).EndsWith('Z', [StringComparison]::Ordinal) -or
+                -not [DateTime]::TryParse([string]$verified.updated_at, [ref]$parsedPointerTimestamp)) {
+                throw 'published P1B pointer timestamp is invalid or not UTC'
+            }
+            $selectedPath = Join-Path $root $acceptanceRelative.Replace('/', '\')
+            $selected = [IO.File]::ReadAllText($selectedPath, $script:Utf8NoBom) | ConvertFrom-Json
+            $selectedPrevious = if ($sequence -eq 1) { $null } else {
+                Get-P1ASha256 -Path (Join-Path $acceptanceRoot (($sequence - 1).ToString('00000000') + '.json'))
+            }
+            Assert-P1BAcceptanceObject -Acceptance $selected -Sequence $sequence `
+                -PreviousHash $selectedPrevious -OutputRoot $root
+            if ($null -ne $backupPointer -and (Test-Path -LiteralPath $backupPointer)) {
+                Remove-Item -LiteralPath $backupPointer -Force -ErrorAction Stop
+            }
+        }
+        catch {
+            if ($null -ne $backupPointer -and (Test-Path -LiteralPath $backupPointer)) {
+                $failed = Join-Path $root ('.evidence.' + $RunId + '.failed')
+                [IO.File]::Replace($backupPointer, $pointerPath, $failed, $true)
+                if (Test-Path -LiteralPath $failed) { Remove-Item -LiteralPath $failed -Force }
+            }
+            elseif (-not $hadPointer -and $replacementCompleted -and
+                (Test-Path -LiteralPath $pointerPath)) {
+                Remove-Item -LiteralPath $pointerPath -Force
+            }
+            if (Test-Path -LiteralPath $temporaryPointer) { Remove-Item -LiteralPath $temporaryPointer -Force }
+            throw
+        }
+        return [pscustomobject][ordered]@{
+            sequence = $sequence; acceptance_path = $acceptanceRelative
+            acceptance_sha256 = $acceptanceHash; pointer_path = 'evidence.json'
+        }
+    }
+    finally {
+        if ($locked) { try { [void]$mutex.ReleaseMutex() } catch { } }
+        try { $mutex.Dispose() } catch { }
+    }
+}
+
 Export-ModuleMember -Function @(
     'ConvertTo-P1ACommandLine',
     'ConvertTo-P1ANormalizedPath',
@@ -3560,11 +4987,18 @@ Export-ModuleMember -Function @(
     'Resolve-P1AOutputRoot',
     'New-P1ARunId',
     'ConvertFrom-P1ARustcVersion',
+    'ConvertFrom-P1BNvccVersion',
+    'Get-P1BNvccTargets',
+    'ConvertFrom-P1BNvidiaSmi',
+    'Assert-P1BProbeResult',
+    'Select-P1BCudaToolkit',
+    'Get-P1BSelectedP1ADependency',
     'Select-P1AVs2022Instance',
     'Protect-P1AText',
     'Invoke-P1AProcess',
     'New-P1ASeal',
     'Test-P1ASeal',
     'Publish-P1AAcceptance',
+    'Publish-P1BAcceptance',
     'Invoke-P1AVerification'
 )

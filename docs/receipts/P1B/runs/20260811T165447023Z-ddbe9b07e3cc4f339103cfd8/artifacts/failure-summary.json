@@ -1,0 +1,11 @@
+{
+    "status":  "FAIL",
+    "errors":  [
+                   {
+                       "code":  "CUDA_PE_IMPORTS_INVALID",
+                       "category":  5,
+                       "message":  "CUDA probe does not import the complete driver/runtime/cuBLAS boundary",
+                       "remediation":  "Correct the reported CUDA environment prerequisite, then rerun the exact P1B command."
+                   }
+               ]
+}

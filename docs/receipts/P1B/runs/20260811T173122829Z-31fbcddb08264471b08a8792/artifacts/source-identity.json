@@ -1,0 +1,6 @@
+{
+    "schema":  "python-slm-source-identity-v1",
+    "status":  "FAIL",
+    "run_id":  "20260811T173122829Z-31fbcddb08264471b08a8792",
+    "note":  "source identity was unavailable before qualification failed"
+}

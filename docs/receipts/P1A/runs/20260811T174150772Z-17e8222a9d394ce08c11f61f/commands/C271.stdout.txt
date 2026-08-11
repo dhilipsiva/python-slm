@@ -1,0 +1,32 @@
+Microsoft (R) COFF/PE Dumper Version 14.44.35222.0
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+
+Dump of file ${TEMP}\cargo-target\x86_64-pc-windows-msvc\debug\deps\rust_llm_pretrain-2e543c7f4b7e4aec.exe
+
+File Type: EXECUTABLE IMAGE
+
+  Image has the following dependencies:
+
+    kernel32.dll
+    bcryptprimitives.dll
+    api-ms-win-core-synch-l1-2-0.dll
+    ntdll.dll
+    KERNEL32.dll
+    USERENV.dll
+    VCRUNTIME140.dll
+    api-ms-win-crt-math-l1-1-0.dll
+    api-ms-win-crt-heap-l1-1-0.dll
+    api-ms-win-crt-runtime-l1-1-0.dll
+    api-ms-win-crt-string-l1-1-0.dll
+    api-ms-win-crt-utility-l1-1-0.dll
+    api-ms-win-crt-stdio-l1-1-0.dll
+    api-ms-win-crt-locale-l1-1-0.dll
+
+  Summary
+
+       1F000 .data
+      1E9000 .pdata
+      7C8000 .rdata
+       1D000 .reloc
+     28CA000 .text

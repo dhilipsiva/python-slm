@@ -20,21 +20,24 @@ defines the target design. A conflict is a stop condition.
 - Normal tests are offline, deterministic, bounded, and credential-free. No Python
   executable or Python package is part of the build or pipeline.
 - Every attempt writes create-new
-  `docs/receipts/<phase-id>/runs/<run-id>/evidence.json` using schema
-  `python-slm-phase-evidence-v1`, with exact command transcripts and hashes. Failed and
-  superseded runs remain immutable and are never selected. A reviewed passing run gets a
-  create-new `acceptances/<sequence>.json` record; the root `evidence.json` is an atomically
-  replaceable `python-slm-phase-evidence-pointer-v1` pointer containing that acceptance
-  path and hash. A dependency passes only when the pointer, selected acceptance, referenced
-  immutable run, `PASS` status, and every required named approval all validate. P0 is the
+  `docs/receipts/<phase-id>/runs/<run-id>/evidence.json` using the closed schema named by
+  its phase card, with exact command transcripts and hashes. P1A retains the published v1
+  receipt schemas; P1B uses the v2 phase-evidence, acceptance, and pointer schemas plus the
+  CUDA-environment-manifest v1 schema. Failed and superseded runs remain immutable and are
+  never selected. A reviewed passing run gets a create-new `acceptances/<sequence>.json`
+  record; the root `evidence.json` is an atomically replaceable versioned pointer containing
+  that acceptance path and hash. A dependency passes only when the pointer, selected
+  acceptance, referenced immutable run, `PASS` status, and every required named approval
+  all validate. P0 is the
   sole receipt-model exception: its dependency passes only when the pinned P0 `VERIFY`
   block succeeds. `docs/receipts/P0.md` is its human approval authority, the sealed run is
   its machine evidence, and P0 requires no acceptance generation or root pointer. Machine
   evidence, checklist prose, silence, or an agent audit never substitutes for human approval.
-- P1A is the sole automatic machine-qualification exception currently authorized. A passing
-  P1A verifier publishes an acceptance with `required_approvals: []` and selects it through
-  the root pointer. The verifier never edits this checklist or commits; both remain subject
-  to human review. No later phase inherits this exception unless its card says so explicitly.
+- P1A and P1B are the automatic machine-qualification exceptions currently authorized. A
+  passing verifier publishes an acceptance with `required_approvals: []` and selects it
+  through the phase root pointer. The verifier never edits this checklist or commits. The
+  owner must review and check the phase complete before a dependent phase begins; no later
+  phase inherits this exception unless its card says so explicitly.
 - Each receipt records the command, working directory, relevant environment/configuration
   hashes, exit code, stdout/stderr or artifact hash, and status. A phase remains blocked
   unless its exact invocation appears in the normative global table below or its card.
@@ -255,16 +258,50 @@ Prompt:
 > SM120-capable compiler. If using CUDA 12.x, require at least 12.8. A newer toolkit
 > passes P1B when `nvcc` accepts the required SM120 image/PTX targets, the driver/runtime
 > probe launches, and toolkit/driver compatibility passes; backend compatibility is a
-> separate P2 gate. Record exact SASS/PTX targets. Compile and run one bounded CUDA device
-> probe from an x64 VS 2022 Developer PowerShell. Do not persist local `CUDA_PATH` values
-> in source control.
+> separate P2 gate. Require CUDA runtime, driver, cuBLAS, and cuBLASLt; record cuDNN,
+> NVRTC, NVJitLink, Compute Sanitizer, and cuRAND as optional. Compile both a native-plus-PTX
+> probe using `compute_120` with `sm_120,compute_120` code and a PTX-only variant. Inspect
+> both artifacts and run both from the P1A-qualified x64 VS 2022 environment. Require exactly
+> one runtime-visible `NVIDIA GeForce RTX 5090` with compute capability 12.0. Do not persist
+> local `CUDA_PATH` values or generated probe files in source control. Preserve the P1A v1
+> schemas; P1B uses closed v2 evidence/acceptance/pointer schemas and a dedicated CUDA
+> environment manifest. First rerun P1A CPU qualification and bind the newly selected P1A
+> chain and matching verifier/schema-bundle hashes into P1B. A PASS run creates an automatic
+> acceptance with `required_approvals: []`, but P2 remains blocked until owner review and
+> this checkbox is committed.
+
+VERIFY:
+
+```powershell
+$ErrorActionPreference = 'Stop'
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File scripts\tests\verify-env.tests.ps1
+if ($LASTEXITCODE -ne 0) { throw "environment verifier tests failed: $LASTEXITCODE" }
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File scripts\verify-env.ps1 `
+  -Mode Cpu `
+  -OutputRoot docs\receipts\P1A
+if ($LASTEXITCODE -ne 0) { throw "P1A regression qualification failed: $LASTEXITCODE" }
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File scripts\verify-env.ps1 `
+  -Mode Cuda `
+  -OutputRoot docs\receipts\P1B
+if ($LASTEXITCODE -ne 0) { throw "P1B CUDA qualification failed: $LASTEXITCODE" }
+```
 
 PASS:
 
-- The CUDA-required manifest records compiler, driver, GPU, library, and SM evidence.
-- The probe contains an SM120 image or supported forward-compatible code and launches on
-  the target GPU.
+- A fresh selected P1A regression run pins the same verifier and schema bundles used by
+  P1B, and P1B records and validates that complete dependency chain.
+- The CUDA-required manifest records compiler, driver, exact GPU, runtime, cuBLAS,
+  cuBLASLt, target, probe, isolation, and cleanup evidence without absolute local paths.
+- Inspection proves both SM120 SASS and compute_120 PTX. The mixed and PTX-only probes
+  allocate, launch, synchronize, copy, validate, release resources, and succeed on the
+  sole target GPU.
 - Missing or incompatible CUDA components fail with actionable messages.
+- PASS and FAIL runs are sealed; FAIL never moves the pointer. PASS publishes and
+  revalidates an automatic v2 acceptance/pointer chain before exit `0`.
+- The checkbox remains open until the owner reviews the selected machine qualification.
 
 STOP/loop: P2 and P10–P16 remain blocked, but CPU/data work may continue. Suggested
 commit: `build: verify RTX 5090 CUDA environment`.

@@ -1,0 +1,11 @@
+{
+    "status":  "FAIL",
+    "errors":  [
+                   {
+                       "code":  "UNEXPECTED_VERIFIER_FAILURE",
+                       "category":  3,
+                       "message":  "absolute path remained after redaction for command C01",
+                       "remediation":  "Correct the reported CUDA environment prerequisite, then rerun the exact P1B command."
+                   }
+               ]
+}

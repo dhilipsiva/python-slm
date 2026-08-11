@@ -1,0 +1,227 @@
+{
+    "schema":  "python-slm-environment-manifest-v1",
+    "phase_id":  "P1A",
+    "run_id":  "20260811T163811395Z-a6cc37d1df6c438283a21d0b",
+    "mode":  "Cpu",
+    "status":  "PASS",
+    "p0":  {
+               "receipt_commit":  "86fb1e4cc68efeb651e5362c4aca85c2827d8e4d",
+               "receipt_sha256":  "f08c6a41658ff287e238d6a96c4f2c874975964202c3eeced2bc0bc21f308904",
+               "contract_sha256":  "fc2c60b52fdd7c524e0da06bb03972a4d523c21ad5536cba536185435bd44ad4",
+               "decision_ledger_sha256":  "8349d8a3e06d96d6921889de5534715e7b2f7439caf7e06558a97652a8890c8d"
+           },
+    "source":  {
+                   "head":  "9359c989fa63d4a300abc509e735b7e81a24a2ea",
+                   "dirty":  true,
+                   "input_manifest_sha256":  "5a59c88a0d34e7c02ae3d6df4afaba37c7a7ebbb759304a73705cbcc1c84d9d7",
+                   "cargo_lock_sha256":  "c0a5e1afe02e252a22cca8bf07ab37fb2a25844210d2d5ce2e1e6082e497a28c",
+                   "verifier_sha256":  "156b4f591d9c614ae7e3be8531ec1ba560ca738077cff015ac21c3c16641b860",
+                   "schema_bundle_sha256":  "fe6d75a8fcbe9e0063361efb129476e9c313cf4787e1cfd0f339ca0f43df6cdc"
+               },
+    "host":  {
+                 "os_version":  "Microsoft Windows NT 10.0.26200.0",
+                 "os_architecture":  "AMD64",
+                 "process_architecture":  "AMD64",
+                 "powershell_edition":  "Desktop",
+                 "powershell_version":  "5.1.26100.8972"
+             },
+    "rust":  {
+                 "rustc_version":  "1.96.0",
+                 "commit_hash":  "ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96",
+                 "commit_date":  "2026-05-25",
+                 "host":  "x86_64-pc-windows-msvc",
+                 "llvm_version":  "22.1.2",
+                 "rustc":  {
+                               "name":  "rustc",
+                               "version":  "1.96.0",
+                               "path":  "${CARGO_HOME}/bin/rustc.exe",
+                               "sha256":  "86478e53f769379d7f0ebfa7c9aa97cb76ca92233f79aa2cc0dbee2efaac73c7"
+                           },
+                 "cargo_version":  "1.96.0",
+                 "cargo":  {
+                               "name":  "cargo",
+                               "version":  "1.96.0",
+                               "path":  "${CARGO_HOME}/bin/cargo.exe",
+                               "sha256":  "86478e53f769379d7f0ebfa7c9aa97cb76ca92233f79aa2cc0dbee2efaac73c7"
+                           },
+                 "rustup":  null
+             },
+    "visual_studio":  {
+                          "discovery_method":  "vswhere",
+                          "query":  [
+                                        "-version",
+                                        "[17.0,18.0)",
+                                        "-products",
+                                        "*",
+                                        "-requires",
+                                        "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+                                        "-format",
+                                        "json",
+                                        "-utf8"
+                                    ],
+                          "instance_id":  "6e4189bd",
+                          "product_id":  "Microsoft.VisualStudio.Product.Community",
+                          "product_version":  "17.14.23",
+                          "installation_version":  "17.14.36811.4",
+                          "complete":  true,
+                          "launchable":  true,
+                          "reboot_required":  false,
+                          "developer_environment_arguments":  [
+                                                                  "-arch=amd64",
+                                                                  "-host_arch=amd64",
+                                                                  "-startdir=none"
+                                                              ],
+                          "tools":  [
+                                        {
+                                            "name":  "cl",
+                                            "version":  "19.44.35222.0",
+                                            "path":  "${VC_TOOLS}/bin/HostX64/x64/cl.exe",
+                                            "sha256":  "4304307e1f0d0528ac13c513183e5cbfa20a7f8de6f0c8e5bc4293661e6d23a4"
+                                        },
+                                        {
+                                            "name":  "link",
+                                            "version":  "14.44.35222.0",
+                                            "path":  "${VC_TOOLS}/bin/HostX64/x64/link.exe",
+                                            "sha256":  "ba9bdf6fd3df9c7c3ae007fa3999302c2aa161fccb22831da28cfecb0e0c586b"
+                                        },
+                                        {
+                                            "name":  "lib",
+                                            "version":  "14.44.35222.0",
+                                            "path":  "${VC_TOOLS}/bin/HostX64/x64/lib.exe",
+                                            "sha256":  "6f53ab59c51490dae0ee7ecd32e9cd546a029999e59bcae89db3591d186c9681"
+                                        },
+                                        {
+                                            "name":  "dumpbin",
+                                            "version":  "14.44.35222.0",
+                                            "path":  "${VC_TOOLS}/bin/HostX64/x64/dumpbin.exe",
+                                            "sha256":  "f50e98dd528739d8f9cc4330a448b1962871260262abb87a168f407c45841cb7"
+                                        }
+                                    ]
+                      },
+    "windows_sdk":  {
+                        "version":  "10.0.26100.0",
+                        "ucrt_version":  "10.0.26100.0",
+                        "root":  "${WINDOWS_KITS}",
+                        "validated_paths":  [
+                                                "${WINDOWS_KITS}/Include/10.0.26100.0/um/Windows.h",
+                                                "${WINDOWS_KITS}/Include/10.0.26100.0/ucrt/stdlib.h",
+                                                "${WINDOWS_KITS}/Lib/10.0.26100.0/um/x64/kernel32.lib",
+                                                "${WINDOWS_KITS}/Lib/10.0.26100.0/ucrt/x64/ucrt.lib",
+                                                "${WINDOWS_KITS}/bin/10.0.26100.0/x64/rc.exe",
+                                                "${WINDOWS_KITS}/bin/10.0.26100.0/x64/mt.exe"
+                                            ],
+                        "tools":  [
+                                      {
+                                          "name":  "rc",
+                                          "version":  "10.0.26100.7175 (WinBuild.160101.0800)",
+                                          "path":  "${WINDOWS_KITS}/bin/10.0.26100.0/x64/rc.exe",
+                                          "sha256":  "650e6ea5be1447c6e4e68da6d8ce882fd294d3fdc9f697a62b1752f5a79c0090"
+                                      },
+                                      {
+                                          "name":  "mt",
+                                          "version":  "10.0.26100.7175 (WinBuild.160101.0800)",
+                                          "path":  "${WINDOWS_KITS}/bin/10.0.26100.0/x64/mt.exe",
+                                          "sha256":  "5370fbc9234c7d8ab88688f5a98c218b686f37096a4c88dac8498823a6154069"
+                                      }
+                                  ]
+                    },
+    "isolation":  {
+                      "target_absent_before":  true,
+                      "target_outside_repository":  true,
+                      "offline":  true,
+                      "incremental_disabled":  true,
+                      "wrappers_disabled":  true,
+                      "cargo_config_absent":  true,
+                      "cleared_environment_names":  [
+                                                        "_CL_",
+                                                        "_LINK_",
+                                                        "CARGO_BUILD_TARGET",
+                                                        "CARGO_ENCODED_RUSTFLAGS",
+                                                        "CARGO_TARGET_DIR",
+                                                        "CL",
+                                                        "CUDA_COMPUTE_CAP",
+                                                        "CUDA_HOME",
+                                                        "CUDA_PATH",
+                                                        "CUDA_PATH_V13_1",
+                                                        "CUDNN_HOME",
+                                                        "CUDNN_PATH",
+                                                        "LINK",
+                                                        "NVCC",
+                                                        "RUST_LLM_ALLOW_CUDA_13",
+                                                        "RUSTC",
+                                                        "RUSTC_WORKSPACE_WRAPPER",
+                                                        "RUSTC_WRAPPER",
+                                                        "RUSTDOC",
+                                                        "RUSTFLAGS",
+                                                        "SCCACHE_CACHE_SIZE",
+                                                        "SCCACHE_DIR"
+                                                    ],
+                      "canaries":  [
+                                       "fatbinary",
+                                       "nvcc",
+                                       "nvidia-smi",
+                                       "nvlink",
+                                       "pip",
+                                       "pip3",
+                                       "ptxas",
+                                       "py",
+                                       "python",
+                                       "python3",
+                                       "pythonw",
+                                       "pyw"
+                                   ],
+                      "canary_hits":  [
+
+                                      ],
+                      "forbidden_feature_matches":  [
+
+                                                    ],
+                      "forbidden_artifacts":  [
+
+                                              ],
+                      "forbidden_imports":  [
+
+                                            ],
+                      "python_invoked":  false,
+                      "cuda_invoked":  false
+                  },
+    "native_probe":  {
+                         "c_source_sha256":  "c27862d0edbb4d0dc6ff63e5cedde86c82d504629f2c10d2471849a3c7cea9a5",
+                         "rust_source_sha256":  "e9c3d8415aa2fca3922242fb2630fca9d90ced224f244957e4b19fffddfee686",
+                         "command_ids":  [
+                                             "C13",
+                                             "C14",
+                                             "C15",
+                                             "C16",
+                                             "C17",
+                                             "C18"
+                                         ],
+                         "result":  "PASS",
+                         "pe_imports":  [
+                                            "api-ms-win-core-synch-l1-2-0.dll",
+                                            "api-ms-win-crt-heap-l1-1-0.dll",
+                                            "api-ms-win-crt-locale-l1-1-0.dll",
+                                            "api-ms-win-crt-math-l1-1-0.dll",
+                                            "api-ms-win-crt-runtime-l1-1-0.dll",
+                                            "api-ms-win-crt-stdio-l1-1-0.dll",
+                                            "kernel32.dll",
+                                            "ntdll.dll",
+                                            "vcruntime140.dll"
+                                        ]
+                     },
+    "quality_gate":  {
+                         "command_ids":  [
+                                             "C21",
+                                             "C22",
+                                             "C23",
+                                             "C24"
+                                         ],
+                         "result":  "PASS"
+                     },
+    "cleanup":  {
+                    "temporary_root_removed":  true,
+                    "repository_target_unchanged":  true,
+                    "parent_environment_unchanged":  true,
+                    "inputs_unchanged":  true
+                }
+}

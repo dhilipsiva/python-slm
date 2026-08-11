@@ -1,0 +1,27 @@
+{
+    "schema":  "python-slm-native-probe-v1",
+    "status":  "PASS",
+    "c_source_sha256":  "c27862d0edbb4d0dc6ff63e5cedde86c82d504629f2c10d2471849a3c7cea9a5",
+    "rust_source_sha256":  "e9c3d8415aa2fca3922242fb2630fca9d90ced224f244957e4b19fffddfee686",
+    "canary_source_sha256":  "73a4cdc6fc05ee4e10000be65089cd1bf217f1c1436f31b8b9096db5c84159f9",
+    "command_ids":  [
+                        "C13",
+                        "C14",
+                        "C15",
+                        "C16",
+                        "C17",
+                        "C18"
+                    ],
+    "native_probe_value":  6657,
+    "imports":  [
+                    "api-ms-win-core-synch-l1-2-0.dll",
+                    "api-ms-win-crt-heap-l1-1-0.dll",
+                    "api-ms-win-crt-locale-l1-1-0.dll",
+                    "api-ms-win-crt-math-l1-1-0.dll",
+                    "api-ms-win-crt-runtime-l1-1-0.dll",
+                    "api-ms-win-crt-stdio-l1-1-0.dll",
+                    "kernel32.dll",
+                    "ntdll.dll",
+                    "vcruntime140.dll"
+                ]
+}

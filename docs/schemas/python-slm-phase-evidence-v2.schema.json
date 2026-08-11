@@ -1,0 +1,507 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://python-slm.local/schemas/python-slm-phase-evidence-v2.schema.json",
+  "title": "python-slm immutable P1B phase-run evidence v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "phase_id",
+    "run_id",
+    "mode",
+    "status",
+    "started_at",
+    "finished_at",
+    "duration_ms",
+    "invocation",
+    "source_identity_sha256",
+    "p0_dependency",
+    "p1a_dependency",
+    "environment",
+    "commands",
+    "gates",
+    "errors",
+    "cleanup",
+    "seal"
+  ],
+  "properties": {
+    "schema": { "const": "python-slm-phase-evidence-v2" },
+    "phase_id": { "const": "P1B" },
+    "run_id": { "$ref": "#/definitions/runId" },
+    "mode": { "const": "Cuda" },
+    "status": { "enum": ["PASS", "FAIL"] },
+    "started_at": { "$ref": "#/definitions/utcDateTime" },
+    "finished_at": { "$ref": "#/definitions/utcDateTime" },
+    "duration_ms": { "type": "integer", "minimum": 0 },
+    "invocation": { "$ref": "#/definitions/cudaInvocation" },
+    "source_identity_sha256": { "$ref": "#/definitions/sha256" },
+    "p0_dependency": { "$ref": "#/definitions/p0Dependency" },
+    "p1a_dependency": { "$ref": "#/definitions/p1aDependency" },
+    "environment": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/definitions/environmentFileRef" }
+      ]
+    },
+    "commands": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/command" }
+    },
+    "gates": { "$ref": "#/definitions/gates" },
+    "errors": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/error" }
+    },
+    "cleanup": { "$ref": "#/definitions/cleanup" },
+    "seal": { "$ref": "#/definitions/runSeal" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "status": { "const": "PASS" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "p0_dependency": { "$ref": "#/definitions/passingP0Dependency" },
+          "p1a_dependency": { "$ref": "#/definitions/passingP1ADependency" },
+          "environment": { "$ref": "#/definitions/environmentFileRef" },
+          "commands": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/definitions/passingCommand" }
+          },
+          "gates": { "$ref": "#/definitions/passingGates" },
+          "errors": { "type": "array", "maxItems": 0 },
+          "cleanup": { "$ref": "#/definitions/passingCleanup" }
+        }
+      },
+      "else": {
+        "properties": {
+          "errors": { "type": "array", "minItems": 1 }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "gitSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "runId": {
+      "type": "string",
+      "pattern": "^[0-9]{8}T[0-9]{9}Z-[0-9a-f]{24}$"
+    },
+    "utcDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "cudaInvocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["argv", "cwd"],
+      "properties": {
+        "argv": {
+          "const": [
+            "powershell",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            "scripts/verify-env.ps1",
+            "-Mode",
+            "Cuda",
+            "-OutputRoot",
+            "docs/receipts/P1B"
+          ]
+        },
+        "cwd": { "const": "${REPO}" }
+      }
+    },
+    "relativePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.{1,2}(?:/|$))[A-Za-z0-9_-][A-Za-z0-9._-]*(?:/[A-Za-z0-9_-][A-Za-z0-9._-]*)*$"
+    },
+    "nonEmptyRecordedString": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!.*(?:[A-Za-z]:[\\\\/]|\\\\\\\\))[^\\r\\n]+$"
+    },
+    "environmentName": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_()]*$"
+    },
+    "fileRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "bytes"],
+      "properties": {
+        "path": { "$ref": "#/definitions/relativePath" },
+        "sha256": { "$ref": "#/definitions/sha256" },
+        "bytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "environmentFileRef": {
+      "allOf": [
+        { "$ref": "#/definitions/fileRef" },
+        { "properties": { "path": { "const": "artifacts/environment.json" } } }
+      ]
+    },
+    "stdoutFileRef": {
+      "allOf": [
+        { "$ref": "#/definitions/fileRef" },
+        {
+          "properties": {
+            "path": {
+              "type": "string",
+              "pattern": "^commands/C[0-9]{2,4}\\.stdout\\.txt$"
+            }
+          }
+        }
+      ]
+    },
+    "stderrFileRef": {
+      "allOf": [
+        { "$ref": "#/definitions/fileRef" },
+        {
+          "properties": {
+            "path": {
+              "type": "string",
+              "pattern": "^commands/C[0-9]{2,4}\\.stderr\\.txt$"
+            }
+          }
+        }
+      ]
+    },
+    "runSeal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "entries", "coverage_rule"],
+      "properties": {
+        "path": { "const": "SHA256SUMS" },
+        "entries": { "type": "integer", "minimum": 1 },
+        "coverage_rule": { "const": "all_run_files_except_seal" }
+      }
+    },
+    "p0Dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "receipt_commit",
+        "receipt_sha256",
+        "contract_sha256",
+        "decision_ledger_sha256"
+      ],
+      "properties": {
+        "status": { "enum": ["PASS", "FAIL"] },
+        "receipt_commit": { "$ref": "#/definitions/gitSha" },
+        "receipt_sha256": { "$ref": "#/definitions/sha256" },
+        "contract_sha256": { "$ref": "#/definitions/sha256" },
+        "decision_ledger_sha256": { "$ref": "#/definitions/sha256" }
+      }
+    },
+    "passingP0Dependency": {
+      "allOf": [
+        { "$ref": "#/definitions/p0Dependency" },
+        { "properties": { "status": { "const": "PASS" } } }
+      ]
+    },
+    "nullableSha256": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/definitions/sha256" }
+      ]
+    },
+    "p1aDependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "pointer_path",
+        "pointer_sha256",
+        "acceptance_path",
+        "acceptance_sha256",
+        "acceptance_sequence",
+        "run_path",
+        "run_evidence_sha256",
+        "seal_path",
+        "seal_sha256",
+        "environment_path",
+        "environment_sha256",
+        "source_identity_sha256",
+        "verifier_sha256",
+        "schema_bundle_sha256",
+        "review_closure_commit"
+      ],
+      "properties": {
+        "status": { "enum": ["PASS", "FAIL", "NOT_RUN"] },
+        "pointer_path": {
+          "oneOf": [
+            { "type": "null" },
+            { "const": "docs/receipts/P1A/evidence.json" }
+          ]
+        },
+        "pointer_sha256": { "$ref": "#/definitions/nullableSha256" },
+        "acceptance_path": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "string",
+              "pattern": "^docs/receipts/P1A/acceptances/[0-9]{8}\\.json$"
+            }
+          ]
+        },
+        "acceptance_sha256": { "$ref": "#/definitions/nullableSha256" },
+        "acceptance_sequence": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "integer", "minimum": 1, "maximum": 99999999 }
+          ]
+        },
+        "run_path": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "string",
+              "pattern": "^docs/receipts/P1A/runs/[0-9]{8}T[0-9]{9}Z-[0-9a-f]{24}$"
+            }
+          ]
+        },
+        "run_evidence_sha256": { "$ref": "#/definitions/nullableSha256" },
+        "seal_path": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "string",
+              "pattern": "^docs/receipts/P1A/runs/[0-9]{8}T[0-9]{9}Z-[0-9a-f]{24}/SHA256SUMS$"
+            }
+          ]
+        },
+        "seal_sha256": { "$ref": "#/definitions/nullableSha256" },
+        "environment_path": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "string",
+              "pattern": "^docs/receipts/P1A/runs/[0-9]{8}T[0-9]{9}Z-[0-9a-f]{24}/artifacts/environment\\.json$"
+            }
+          ]
+        },
+        "environment_sha256": { "$ref": "#/definitions/nullableSha256" },
+        "source_identity_sha256": { "$ref": "#/definitions/nullableSha256" },
+        "verifier_sha256": { "$ref": "#/definitions/nullableSha256" },
+        "schema_bundle_sha256": { "$ref": "#/definitions/nullableSha256" },
+        "review_closure_commit": {
+          "oneOf": [
+            { "type": "null" },
+            { "const": "9359c989fa63d4a300abc509e735b7e81a24a2ea" }
+          ]
+        }
+      }
+    },
+    "passingP1ADependency": {
+      "allOf": [
+        { "$ref": "#/definitions/p1aDependency" },
+        {
+          "properties": {
+            "status": { "const": "PASS" },
+            "pointer_path": { "const": "docs/receipts/P1A/evidence.json" },
+            "pointer_sha256": { "$ref": "#/definitions/sha256" },
+            "acceptance_path": {
+              "type": "string",
+              "pattern": "^docs/receipts/P1A/acceptances/[0-9]{8}\\.json$"
+            },
+            "acceptance_sha256": { "$ref": "#/definitions/sha256" },
+            "acceptance_sequence": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 99999999
+            },
+            "run_path": {
+              "type": "string",
+              "pattern": "^docs/receipts/P1A/runs/[0-9]{8}T[0-9]{9}Z-[0-9a-f]{24}$"
+            },
+            "run_evidence_sha256": { "$ref": "#/definitions/sha256" },
+            "seal_path": {
+              "type": "string",
+              "pattern": "^docs/receipts/P1A/runs/[0-9]{8}T[0-9]{9}Z-[0-9a-f]{24}/SHA256SUMS$"
+            },
+            "seal_sha256": { "$ref": "#/definitions/sha256" },
+            "environment_path": {
+              "type": "string",
+              "pattern": "^docs/receipts/P1A/runs/[0-9]{8}T[0-9]{9}Z-[0-9a-f]{24}/artifacts/environment\\.json$"
+            },
+            "environment_sha256": { "$ref": "#/definitions/sha256" },
+            "source_identity_sha256": { "$ref": "#/definitions/sha256" },
+            "verifier_sha256": { "$ref": "#/definitions/sha256" },
+            "schema_bundle_sha256": { "$ref": "#/definitions/sha256" },
+            "review_closure_commit": {
+              "const": "9359c989fa63d4a300abc509e735b7e81a24a2ea"
+            }
+          }
+        }
+      ]
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "detail"],
+      "properties": {
+        "status": { "enum": ["PASS", "FAIL", "NOT_RUN"] },
+        "detail": { "$ref": "#/definitions/nonEmptyRecordedString" }
+      }
+    },
+    "passingGate": {
+      "allOf": [
+        { "$ref": "#/definitions/gate" },
+        { "properties": { "status": { "const": "PASS" } } }
+      ]
+    },
+    "gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "p0",
+        "p1a",
+        "cpu_regression",
+        "input_stability",
+        "toolchain",
+        "cuda_toolkit",
+        "architecture_targets",
+        "gpu_identity",
+        "driver_runtime",
+        "device_probe",
+        "python_isolation",
+        "redaction",
+        "cleanup"
+      ],
+      "properties": {
+        "p0": { "$ref": "#/definitions/gate" },
+        "p1a": { "$ref": "#/definitions/gate" },
+        "cpu_regression": { "$ref": "#/definitions/gate" },
+        "input_stability": { "$ref": "#/definitions/gate" },
+        "toolchain": { "$ref": "#/definitions/gate" },
+        "cuda_toolkit": { "$ref": "#/definitions/gate" },
+        "architecture_targets": { "$ref": "#/definitions/gate" },
+        "gpu_identity": { "$ref": "#/definitions/gate" },
+        "driver_runtime": { "$ref": "#/definitions/gate" },
+        "device_probe": { "$ref": "#/definitions/gate" },
+        "python_isolation": { "$ref": "#/definitions/gate" },
+        "redaction": { "$ref": "#/definitions/gate" },
+        "cleanup": { "$ref": "#/definitions/gate" }
+      }
+    },
+    "passingGates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "p0",
+        "p1a",
+        "cpu_regression",
+        "input_stability",
+        "toolchain",
+        "cuda_toolkit",
+        "architecture_targets",
+        "gpu_identity",
+        "driver_runtime",
+        "device_probe",
+        "python_isolation",
+        "redaction",
+        "cleanup"
+      ],
+      "properties": {
+        "p0": { "$ref": "#/definitions/passingGate" },
+        "p1a": { "$ref": "#/definitions/passingGate" },
+        "cpu_regression": { "$ref": "#/definitions/passingGate" },
+        "input_stability": { "$ref": "#/definitions/passingGate" },
+        "toolchain": { "$ref": "#/definitions/passingGate" },
+        "cuda_toolkit": { "$ref": "#/definitions/passingGate" },
+        "architecture_targets": { "$ref": "#/definitions/passingGate" },
+        "gpu_identity": { "$ref": "#/definitions/passingGate" },
+        "driver_runtime": { "$ref": "#/definitions/passingGate" },
+        "device_probe": { "$ref": "#/definitions/passingGate" },
+        "python_isolation": { "$ref": "#/definitions/passingGate" },
+        "redaction": { "$ref": "#/definitions/passingGate" },
+        "cleanup": { "$ref": "#/definitions/passingGate" }
+      }
+    },
+    "command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "argv",
+        "cwd",
+        "environment_delta_names",
+        "configuration_sha256",
+        "exit_code",
+        "duration_ms",
+        "status",
+        "stdout",
+        "stderr"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^C[0-9]{2,4}$" },
+        "argv": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/nonEmptyRecordedString" }
+        },
+        "cwd": { "const": "${REPO}" },
+        "environment_delta_names": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/environmentName" }
+        },
+        "configuration_sha256": { "$ref": "#/definitions/sha256" },
+        "exit_code": { "type": "integer" },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "status": { "enum": ["PASS", "FAIL"] },
+        "stdout": { "$ref": "#/definitions/stdoutFileRef" },
+        "stderr": { "$ref": "#/definitions/stderrFileRef" }
+      }
+    },
+    "passingCommand": {
+      "allOf": [
+        { "$ref": "#/definitions/command" },
+        {
+          "properties": {
+            "status": { "const": "PASS" },
+            "exit_code": { "const": 0 }
+          }
+        }
+      ]
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "category", "message", "remediation"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+        "category": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "message": { "$ref": "#/definitions/nonEmptyRecordedString" },
+        "remediation": { "$ref": "#/definitions/nonEmptyRecordedString" }
+      }
+    },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attempted", "temporary_root_removed"],
+      "properties": {
+        "attempted": { "type": "boolean" },
+        "temporary_root_removed": { "type": "boolean" }
+      }
+    },
+    "passingCleanup": {
+      "allOf": [
+        { "$ref": "#/definitions/cleanup" },
+        {
+          "properties": {
+            "attempted": { "const": true },
+            "temporary_root_removed": { "const": true }
+          }
+        }
+      ]
+    }
+  }
+}

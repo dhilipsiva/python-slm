@@ -1,0 +1,30 @@
+Microsoft (R) COFF/PE Dumper Version 14.44.35222.0
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+
+Dump of file ${TEMP}\p1b_cuda_probe_ptx.exe
+
+File Type: EXECUTABLE IMAGE
+
+  Image has the following dependencies:
+
+    cublas64_13.dll
+    cublasLt64_13.dll
+    KERNEL32.dll
+    VCRUNTIME140.dll
+    api-ms-win-crt-math-l1-1-0.dll
+    api-ms-win-crt-stdio-l1-1-0.dll
+    api-ms-win-crt-string-l1-1-0.dll
+    api-ms-win-crt-heap-l1-1-0.dll
+    api-ms-win-crt-runtime-l1-1-0.dll
+    api-ms-win-crt-locale-l1-1-0.dll
+
+  Summary
+
+        B000 .data
+        1000 .nvFatBi
+        1000 .nv_fatb
+        1000 .pdata
+        7000 .rdata
+        1000 .reloc
+        F000 .text

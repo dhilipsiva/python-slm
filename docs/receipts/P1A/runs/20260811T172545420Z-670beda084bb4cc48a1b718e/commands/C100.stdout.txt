@@ -1,0 +1,28 @@
+Microsoft (R) COFF/PE Dumper Version 14.44.35222.0
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+
+Dump of file ${TEMP}\cargo-target\debug\build\num-traits-51b613fc9631617b\build-script-build.exe
+
+File Type: EXECUTABLE IMAGE
+
+  Image has the following dependencies:
+
+    api-ms-win-core-synch-l1-2-0.dll
+    bcryptprimitives.dll
+    KERNEL32.dll
+    ntdll.dll
+    VCRUNTIME140.dll
+    api-ms-win-crt-runtime-l1-1-0.dll
+    api-ms-win-crt-math-l1-1-0.dll
+    api-ms-win-crt-stdio-l1-1-0.dll
+    api-ms-win-crt-locale-l1-1-0.dll
+    api-ms-win-crt-heap-l1-1-0.dll
+
+  Summary
+
+        1000 .data
+        4000 .pdata
+       16000 .rdata
+        1000 .reloc
+       41000 .text
