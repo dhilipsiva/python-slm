@@ -1,0 +1,464 @@
+The ordered prompt chain below drives the four deliverables from the prior spec through a strict **plan → implement → test → verify → commit → loop** cycle. Each prompt is self-contained and paste-ready for any agentic coding-loop driver (Claude Code, Codex CLI, OpenCode, Cursor agent mode, etc.); the loop discipline — analysis first, STOP gates for review, TDD red-green-refactor, pre-commit validation, and a retrospective per cycle — follows the PDCA agentic pattern that enforces human-in-the-loop checkpoints and prevents context overload【turn5fetch0】【turn1fetch1】【turn2search13】. Each card lists its acceptance gate and a "re-prompt if" condition so a failed verification cleanly restarts the loop instead of compounding errors.
+
+---
+
+## Master TODO Overview
+
+| # | Phase | Deliverable | Key files | Acceptance criteria | Commit gate |
+|---|---|---|---|---|---|
+| P0 | Bootstrap | Workspace + env verification | `Cargo.toml`, `rust-toolchain.toml`, `.cargo/config.toml` | `cargo -V`, `cl.exe`, `nvcc -V`, `CUDA_PATH` all resolve | `chore: scaffold workspace` |
+| P1 | Build config | `build.rs` + `Cargo.toml` MSVC/CUDA linkage | `build.rs`, `Cargo.toml` | `cargo build --release` links `cudart`/`cublas`/`cudnn`; FFI version query returns 12.x | `feat(build): msvc+cuda linkage` |
+| P2 | Data pipeline | Ingestion + curation + tokenize | `src/data/*.rs` | 100 MB shard → AST-filtered → minhash-deduped → 32k BPE → `tokens.bin16` round-trips | `feat(data): ingestion pipeline` |
+| P3 | Model arch | 135M Llama decoder (GQA+RoPE+SwiGLU) | `src/model.rs` | Param count 129–143 M; forward on `[1,2048]` bf16 CUDA produces `[B,T,32000]` | `feat(model): llama-135m gqa` |
+| P4 | Train loop | AdamW + cosine + VRAM + throughput | `src/train.rs` | 100-step smoke: peak VRAM ≤ 28 GB, sustained ≥ 40 k tok/s, loss decreases | `feat(train): pretraining loop` |
+| P5 | Integration | `main.rs` orchestration + full run | `src/main.rs`, `configs/` | 2 B-token run completes in ≤ 28 800 s; checkpoint saved; JSONL log coherent | `feat: end-to-end pretraining` |
+
+---
+
+## Phase 0 — Project Bootstrap & Environment Verification
+
+### Prompt P0.1 — Initialize workspace and verify toolchain
+
+> **Goal:** Create the Cargo workspace and prove the MSVC + CUDA 12.x environment is sound before any code is written.
+>
+> **Context:** Single binary crate `rust-llm-pretrain`, edition 2021, target `x86_64-pc-windows-msvc`.
+>
+> **Implementation steps:**
+> 1. `cargo new --bin rust-llm-pretrain` and convert to a virtual workspace if a separate `kernels/` crate is desired.
+> 2. Write `rust-toolchain.toml` pinning `stable` + `components = ["rustfmt", "clippy"]`.
+> 3. Write `.cargo/config.toml` with `[build] target = "x86_64-pc-windows-msvc"` and `[env] CUDA_PATH = "..."` resolved from the registry (`HKLM\SOFTWARE\NVIDIA Corporation\GPU Computing Toolkit\CUDA\v12.x`).
+> 4. Add `.gitignore` (`target/`, `data/`, `*.bin16`, `*.safetensors`, `*.parquet`).
+> 5. `git init` and commit.
+>
+> **Verification commands:**
+> ```bat
+> cargo -V && rustc -V
+> where cl.exe
+> nvcc -V
+> echo %CUDA_PATH%
+> nvidia-smi --query-gpu=name,memory.total --format=csv
+> ```
+>
+> **Acceptance criteria:** `cargo -V` ≥ 1.80; `cl.exe` resolves; `nvcc -V` reports 12.x; `nvidia-smi` shows an RTX 5090 with ~32 GB; `CUDA_PATH` is non-empty.
+>
+> **Commit gate:** `git commit -m "chore: scaffold workspace and pin toolchain"`
+>
+> **Re-prompt if:** `cl.exe` missing (agent must instruct opening "x64 Native Tools Command Prompt for VS 2022" and re-run); `nvcc` missing (install CUDA Toolkit 12.x, not just the driver).
+
+### Prompt P0.2 — Scaffold source tree and project context file
+
+> **Goal:** Create the module skeleton and an `AGENTS.md` (or `CLAUDE.md`) context file the loop will read each cycle.
+>
+> **Implementation steps:**
+> 1. Create `src/{main.rs, model.rs, train.rs, data/{mod.rs, ingest.rs, tokenize.rs}, build.rs}` as empty stubs with `todo!()`.
+> 2. Write `AGENTS.md` summarizing: target spec (135M, d=768, L=12, GQA 4 KV heads, ctx 2048), VRAM ceiling 28 GB, throughput target > 70 k tok/s, MSVC+CUDA12, no Python runtime, TDD discipline (failing test first, max 3 red-green iterations), pre-commit gate = `cargo fmt --check && cargo clippy -- -D warnings && cargo test`.
+> 3. Write `tests/` directory placeholders.
+>
+> **Verification:** `cargo check` compiles the stubs.
+> **Commit gate:** `git commit -m "chore: scaffold modules and agents context"`
+> **Re-prompt if:** any stub fails to compile — fix before proceeding (no forward progress on a broken tree).
+
+---
+
+## Phase 1 — `build.rs` + `Cargo.toml` (MSVC/CUDA Linkage)
+
+### Prompt P1.1 — Author `Cargo.toml` dependency manifest
+
+> **Goal:** Declare the full dependency set from the prior spec (candle git rev, cudarc, tokio, rayon, arrow/parquet, tree-sitter, tokenizers, memmap2, half, tracing, anyhow, clap, indicatif).
+>
+> **Implementation steps:**
+> 1. Paste the `[dependencies]` and `[profile.release]` blocks from the spec.
+> 2. Pin `candle-core`/`candle-nn` to a concrete git `rev=` (resolve via `cargo add` then freeze) — floating `rev = "main"` breaks reproducibility.
+> 3. Gate `cuda` feature behind `candle-core`/`cudarc` only (no `metal`/` accelerate`).
+>
+> **Verification:** `cargo fetch` succeeds; `cargo tree -d` shows no duplicate major versions of `half`/`cudarc`/`syn`.
+> **Acceptance:** lockfile (`Cargo.lock`) committed; no duplicate-version conflicts.
+> **Commit gate:** `git commit -m "feat(build): cargo manifest with pinned deps"`
+> **Re-prompt if:** version conflict between `candle` and `cudarc` on `half` — agent must align on one `half` major.
+
+### Prompt P1.2 — Implement `build.rs` MSVC + CUDA discovery
+
+> **Goal:** `build.rs` discovers `CUDA_PATH`, validates `cl.exe` on PATH, emits `rustc-link-search`/`rustc-link-lib` for `cudart, cublas, cublasLt, cudnn, curand, nvrtc`.
+>
+> **Implementation steps:**
+> 1. Read `CUDA_PATH` env; if absent, fall back to registry lookup; panic with an actionable message if missing.
+> 2. Assert `TARGET` contains `msvc`; assert `which::which("cl.exe").is_ok()`.
+> 3. Emit `cargo:rustc-link-search=native={cuda_path}/lib/x64` and one `cargo:rustc-link-lib=dylib={lib}` per lib.
+> 4. `cargo:rerun-if-env-changed=CUDA_PATH` and `rerun-if-changed=build.rs`.
+>
+> **Verification:**
+> ```bat
+> cargo build --release 2>&1 | findstr /I "linking cudart cublas"
+> ```
+> **Acceptance:** build links successfully; `dumpbin /dependents target\release\rust-llm-pretrain.exe` lists `cudart64_12.dll`, `cublasLt64_12.dll`, `cudnn64_*.dll`.
+> **Commit gate:** `git commit -m "feat(build): msvc+cuda 12.x linkage in build.rs"`
+> **Re-prompt if:** linker error `LNK2019` for a CUDA symbol — the lib name suffix is wrong (`cudnn` vs `cudnn64_9`); agent must probe `dir "%CUDA_PATH%\lib\x64\*.lib"`.
+
+### Prompt P1.3 — (Optional) `nvcc` kernel compilation for FA3/fp8
+
+> **Goal:** If a `kernels/` directory exists, compile each `.cu` to an object with `-gencode=arch=compute_120,code=sm_120` (Blackwell sm_120) and emit `rustc-link-lib=static`.
+>
+> **Implementation steps:**
+> 1. Iterate `kernels/*.cu`, invoke `nvcc -O3 --use_fast_math -c ... -o $OUT_DIR/{stem}.o`.
+> 2. Emit `rustc-link-search=native=$OUT_DIR` + `rustc-link-lib=static={stem}`.
+> 3. Skip gracefully (warn, don't fail) if `kernels/` empty — keeps the loop unblocked until FA3 kernels are needed.
+>
+> **Verification:** add a trivial `kernels/noop.cu` with `extern "C" __declspec(dllexport) int noop(){return 42;}`; call from Rust; assert returns 42.
+> **Commit gate:** `git commit -m "feat(build): nvcc kernel compilation hook"`
+> **Re-prompt if:** `nvcc` exits non-zero — capture stderr, common cause is wrong `-arch` for installed toolkit (agent must query `nvcc --list-gpu-arch` and pick the highest ≤ installed).
+
+### Prompt P1.4 — FFI smoke test: query CUDA runtime version
+
+> **Goal:** Prove the CUDA bridge works end-to-end before building on it.
+>
+> **Implementation steps:**
+> 1. In `tests/cuda_ffi.rs`, `extern "C" { fn cudaRuntimeGetVersion(out: *mut i32) -> i32; }`.
+> 2. Call it via `cudarc`'s safe wrapper as a cross-check.
+> 3. Assert returned version ≥ 12000 and ≤ 12999.
+>
+> **Verification:** `cargo test --release cuda_ffi -- --nocapture` prints the runtime version.
+> **Acceptance:** both raw FFI and `cudarc` return the same version.
+> **Commit gate:** `git commit -m "test(build): cuda runtime version ffi smoke"`
+> **Re-prompt if:** version mismatch between `cudaRuntimeGetVersion` and `nvcc -V` driver — driver too old; instruct `nvidia-smi` driver update, not a code change.
+
+---
+
+## Phase 2 — Data Ingestion & Curation Subsystem
+
+### Prompt P2.1 — Parquet fetch + arrow-rs decompression
+
+> **Goal:** Async `reqwest` fetch of a Stack-v2 Python parquet shard, decompress into arrow `RecordBatch`, extract the `content` column.
+>
+> **Implementation steps:**
+> 1. `src/data/ingest.rs`: `fetch_parquet_shard(url) -> Bytes` with `rustls-tls`, `pool_max_idle_per_host(16)`.
+> 2. `parse_filter_and_store`: wrap bytes in `object_store::memory::InMemory`, build `ParquetRecordBatchStreamBuilder`, collect batches, extract `content` Utf8 column into `Vec<String>`.
+> 3. Use `Bytes` (pinned, refcounted) — not `Vec<u8>` — to keep buffers page-locked-friendly.
+>
+> **Verification:** unit test fetching the first 1-row slice of a known shard URL; assert `content` non-empty and contains `def ` or `import `.
+> **Test command:** `cargo test --release ingest::fetch -- --include-ignored` (mark network tests `#[ignore]`).
+> **Acceptance:** one shard parsed without panic; row count > 0.
+> **Commit gate:** `git commit -m "feat(data): parquet fetch and arrow decode"`
+> **Re-prompt if:** HTTP 401/403 — HF requires the `Authorization: Bearer $HF_TOKEN` header for The Stack v2; agent must add it, not retry blindly.
+
+### Prompt P2.2 — tree-sitter-python AST validation & filtering
+
+> **Goal:** Reject files with syntax errors, < 100 bytes, auto-generated boilerplate, or comment ratio > 50%.
+>
+> **Implementation steps:**
+> 1. `passes_filters(src) -> bool`: parse with `tree-sitter-python`; `tree.root_node().has_error()` → reject.
+> 2. Boilerplate substring scan (`auto-generated`, `do not edit`, `generated by`) case-insensitive.
+> 3. `walk(node)` accumulating byte ranges by `kind == "comment"` vs everything else; reject if `comment / total > 0.50`.
+> 4. Parallelize with `rayon::par_iter` over the `Vec<String>`.
+>
+> **Verification:** `tests/ast_filter.rs` with fixtures: valid file (pass), syntax-broken file (reject), `# Generated by tool` (reject), all-comments file (reject), 50-byte file (reject).
+> **Acceptance:** all 5 fixtures pass; rayon speedup ≥ 3× over serial on a 10k-file sample.
+> **Commit gate:** `git commit -m "feat(data): tree-sitter ast filter and boilerplate rejection"`
+> **Re-prompt if:** `tree-sitter-python` crate fails to load grammar — pin to `0.22` matching `tree-sitter` `0.22`; mismatched majors panic at `set_language`.
+
+### Prompt P2.3 — Parallel MinHash dedup (Jaccard > 0.85)
+
+> **Goal:** LSH-banded MinHash (128 perms, 16 bands × 8 rows) to drop near-duplicates.
+>
+> **Implementation steps:**
+> 1. `minhash_signature(text) -> [u64; 128]` over 5-gram shingles (whitespace-split), FNV-1a hashing.
+> 2. LSH banding into `HashMap<u64, Vec<usize>>`; candidate pairs within a band.
+> 3. Exact Jaccard on signatures for candidates; mark earlier index as dropped.
+> 4. `rayon::par_iter` over signatures for the candidate scan.
+>
+> **Verification:** `tests/minhash.rs` — inject 100 files with 10 near-duplicate pairs (≥ 90% overlap); assert exactly 10 dropped, 90 kept; assert a known-different pair not flagged.
+> **Acceptance:** precision = 1.0, recall = 1.0 on the synthetic set; wall time on 100k files < 60 s.
+> **Commit gate:** `git commit -m "feat(data): minhash lsh dedup at 0.85"`
+> **Re-prompt if:** dropped count > expected → threshold off; verify `jaccard` divides by `N_PERM` not `BANDS`.
+
+### Prompt P2.4 — Train 32k BPE tokenizer
+
+> **Goal:** `tokenizers` crate BPE, byte-level pre-tokenizer, trained on a 2 GB subset, 4 special tokens (`<pad> <bos> <eos> <unk>`), `min_frequency=50`.
+>
+> **Implementation steps:**
+> 1. `train_bpe(corpus_path, 32_000) -> Tokenizer` per spec.
+> 2. Save to `data/bpe.json`.
+> 3. Round-trip test: encode → decode must reproduce the original (modulo special-token boundaries).
+>
+> **Verification:** `tests/tokenizer.rs` — encode `"def f(x): return x+1"`; assert decode equals input; assert vocab size == 32000; assert `<pad>` id == 0.
+> **Acceptance:** round-trip fidelity 100% on a 1000-line sample.
+> **Commit gate:** `git commit -m "feat(data): 32k byte-level bpe tokenizer"`
+> **Re-prompt if:** vocab < 32000 after training — corpus too small or `min_frequency` too high; lower to 20 and retrain.
+
+### Prompt P2.5 — u16 binary serialization + memmap2 reader
+
+> **Goal:** Stream the full corpus to `tokens.bin16` (little-endian u16 per token, contiguous), expose `TokenMmap::get(i) -> u16` via `memmap2::Mmap`.
+>
+> **Implementation steps:**
+> 1. `encode_corpus_to_bin16(tok, input, out, target_tokens=2_000_000_000)` — write `id.to_le_bytes()` per token, stop at target.
+> 2. `TokenMmap::open(path)` maps the file; `len = file_len / 2`.
+> 3. Safety: `unsafe { Mmap::map(&f) }` — document why the file is trusted (locally produced).
+>
+> **Verification:** write 1000 known tokens, reopen, assert `get(i)` matches for all 1000; assert `len == 1000`.
+> **Acceptance:** round-trip exact; mmap open on a 4 GB file < 10 ms (no read-on-open).
+> **Commit gate:** `git commit -m "feat(data): u16 bin serialization and memmap2 reader"`
+> **Re-prompt if:** panic on `Mmap::map` — file is being written; ensure writer flushes and drops the `BufWriter` before the test opens.
+
+### Prompt P2.6 — End-to-end ingestion smoke (small shard)
+
+> **Goal:** Wire P2.1→P2.5 into a CLI subcommand `ingest` that produces `tokens.bin16` from one shard, capped at 1 M tokens.
+>
+> **Implementation steps:**
+> 1. `clap` subcommand `ingest --shard <url> --out tokens.bin16 --cap 1000000`.
+> 2. Run fetch → filter → dedup → tokenize → serialize.
+> 3. Log per-stage byte/token counts with `tracing`.
+>
+> **Verification:** `cargo run --release -- ingest --shard <url> --out smoke.bin16 --cap 1000000`; assert file size == 2 MB; assert first 10 tokens decode to valid Python fragments.
+> **Acceptance:** pipeline completes in < 5 min on one shard; no panics; log shows monotonic token count growth.
+> **Commit gate:** `git commit -m "feat(data): e2e ingest subcommand"`
+> **Re-prompt if:** token count << cap after dedup — dedup threshold too aggressive or shingle window too small; raise threshold to 0.90.
+
+---
+
+## Phase 3 — Model Architecture (~135M Llama Decoder)
+
+### Prompt P3.1 — Config + `rope_freqs` precompute
+
+> **Goal:** `Config` struct with all spec hyperparameters; `rope_freqs(d_head, theta, dev)` returning `[CTX, d_head]` cos/sin tables on GPU.
+>
+> **Implementation steps:**
+> 1. Consts: `D_MODEL=768, D_FF=2048, N_LAYERS=12, N_QH=12, N_KVH=4, D_HEAD=64, VOCAB=32000, CTX=2048, ROPE_THETA=10000.0, EPS=1e-5`.
+> 2. `rope_freqs`: `pos:[CTX,1] ⊗ inv_freq:[1,d_head/2]` → cat with itself → `[CTX, d_head]`; keep as f32 master, cast to bf16 at apply time.
+>
+> **Verification:** `tests/model.rs::rope_freqs_shape` — assert dims `[2048, 64]`; assert `freqs[0]` all-zero (pos 0); assert monotonic increase in `freqs[:, 0]`.
+> **Acceptance:** shape + value invariants hold on `Device::Cpu` and `Device::Cuda(0)`.
+> **Commit gate:** `git commit -m "feat(model): config and rope freq tables"`
+> **Re-prompt if:** CUDA version returns f32 while CPU returns bf16 — dtype mismatch; pin `to_dtype(DType::F32)` explicitly in both paths.
+
+### Prompt P3.2 — RMSNorm (pre-LN, ε=1e-5)
+
+> **Goal:** `RmsNorm` matching candle's but with configurable ε; pre-norm placement in the block.
+>
+> **Implementation steps:**
+> 1. Use `candle_nn::RmsNorm::new(d_model, eps)`.
+> 2. Wrap to enforce ε=1e-5 (candle default is 1e-5, but assert in a test).
+>
+> **Verification:** feed `[2, 8, 768]` tensor; assert output RMS ≈ 1 per token (within 1e-3).
+> **Acceptance:** numerical test passes on CPU and CUDA (bf16 tolerance 1e-2).
+> **Commit gate:** `git commit -m "feat(model): rmsnorm pre-ln"`
+> **Re-prompt if:** bf16 CUDA test fails tolerance — cast to f32 for the norm math, back to bf16 after.
+
+### Prompt P3.3 — GQA attention (4 KV heads, 3:1 repeat) with RoPE
+
+> **Goal:** `Attention` block: Q proj `768→768`, K/V proj `768→256`, O proj `768→768`; apply RoPE to Q and K; repeat KV heads 3×; SDPA with causal mask.
+>
+> **Implementation steps:**
+> 1. Projections as `Linear::new_no_bias` on f32 master weights.
+> 2. `apply_rope(q, k, freqs)` per spec: `rotate_half`, broadcast cos/sin `[1,1,T,D]`.
+> 3. Repeat KV via `Tensor::cat([&k; 3], 1)` (cheaper than broadcast for SDPA).
+> 4. `candle_nn::ops::sdpa(q, k, v, scale, Some(mask), is_causal=true)` — triggers flash-attn on CUDA.
+>
+> **Verification:**
+> - Shape test: `[32, 2048, 768]` in → `[32, 2048, 768]` out.
+> - Causality test: zero out input tokens after position 100; assert logits at position 50 unchanged (±1e-3).
+> - RoPE numerical test: compare against a reference NumPy/torch-free pure-Rust rotation on `[1, 1, 4, 8]` for exactness.
+> **Acceptance:** all three pass on CUDA bf16 (causality tolerance 1e-2).
+> **Commit gate:** `git commit -m "feat(model): gqa attention with rope"`
+> **Rust pitfall — re-prompt if:** `Tensor::cat([&k; rep], 1)` panics on contiguous requirement; use `k.repeat(1, rep)` instead (verify VRAM delta is acceptable).
+> **Re-prompt if:** `sdpa` not selecting flash kernel — confirm `is_causal=true` AND mask is `None` (candle skips flash when an explicit mask is passed); pass only the causal flag.
+
+### Prompt P3.4 — SwiGLU MLP
+
+> **Goal:** `Mlp { gate, up, down }`: `down(silu(gate(x)) * up(x))`, dims `768→2048→768`.
+>
+> **Implementation steps:**
+> 1. Three `Linear::new_no_bias`.
+> 2. `candle_nn::ops::silu` for the gate activation.
+>
+> **Verification:** feed `[2, 8, 768]`; assert output shape `[2, 8, 768]`; assert with zeroed `up` weights output is zero.
+> **Acceptance:** shape + zero-gate test pass.
+> **Commit gate:** `git commit -m "feat(model): swiglu mlp"`
+> **Re-prompt if:** VRAM spikes 2× expected — SwiGLU materializes three `[B,T,2048]` intermediates; if OOM-prone, fuse via a custom CUDA kernel later in Phase 4.
+
+### Prompt P3.5 — Transformer block + full Llama forward
+
+> **Goal:** `Block { attn, mlp, n1, n2 }` with residual + pre-norm; `Llama` stacking 12 blocks + embedding + final norm + untied LM head.
+>
+> **Implementation steps:**
+> 1. `Block::forward`: `h = x + attn(n1(x)); h = h + mlp(n2(h))`.
+> 2. `Llama::new`: `VarMap`-backed `VarBuilder`, embed `[32000, 768]`, 12 blocks, final RMSNorm, untied `lm_head` `[768, 32000]`.
+> 3. `forward(ids)`: embed → blocks → norm → lm_head → `[B, T, 32000]`.
+>
+> **Verification:**
+> - Forward smoke: `ids = [4, 2048]` u32 → logits `[4, 2048, 32000]` on CUDA bf16, < 200 ms.
+> - Backward smoke: `logits.flatten(0,1).cross_entropy(targets).backward()` completes without OOM at micro_bs=4.
+> **Acceptance:** both pass; `nvidia-smi` peak < 4 GB at micro_bs=4.
+> **Commit gate:** `git commit -m "feat(model): full llama-135m forward"`
+> **Re-prompt if:** OOM at micro_bs=4 — leak; check that `freqs`/`mask` are computed once in `new`, not per-forward.
+
+### Prompt P3.6 — Parameter count unit test (135M ±5%)
+
+> **Goal:** Assert total trainable params ∈ [129 M, 143 M].
+>
+> **Implementation steps:**
+> 1. `model.varmap().all_vars()` → sum `elem_count()`.
+> 2. Test asserts the range; also assert per-component counts match the budget table from the spec (embed 24.59 M, 12×attn 23.5 M, 12×ffn 56.6 M, lm_head 24.59 M).
+>
+> **Verification:** `cargo test --release param_count -- --nocapture`.
+> **Acceptance:** total printed and within range; per-component deltas < 0.1 M.
+> **Commit gate:** `git commit -m "test(model): 135m param budget verification"`
+> **Re-prompt if:** count off by exactly `vocab × d_model` — tied vs untied head; ensure `lm_head` is a separate `Linear`, not `embed.weight().t()`.
+
+---
+
+## Phase 4 — Pre-Training Loop & Hardware Utilization
+
+### Prompt P4.1 — AdamW + cosine LR schedule with 1000-step warmup
+
+> **Goal:** `candle_nn::AdamW` with β1=0.9, β2=0.95, wd=0.1, eps=1e-8; `cosine_lr(step)` peaking 2.5e-3, floor 2.5e-5, 1000-step linear warmup.
+>
+> **Implementation steps:**
+> 1. `TrainCfg` struct per spec.
+> 2. `cosine_lr`: linear ramp `[0, warmup)` then `0.5*(1+cos(π·progress))` decay.
+> 3. Wrap `AdamW` with `set_lr` per step.
+>
+> **Verification:** `tests/lr_schedule.rs` — assert `lr(0) ≈ 0`, `lr(1000) == 2.5e-3`, `lr(total_steps) ≈ 2.5e-5`, monotonic decrease after warmup.
+> **Acceptance:** all assertions pass to 1e-6.
+> **Commit gate:** `git commit -m "feat(train): adamw and cosine warmup schedule"`
+> **Re-prompt if:** `candle_nn::AdamW` API changed across the pinned rev — re-check `ParamsAdamW` field names; don't guess.
+
+### Prompt P4.2 — Zero-copy batch streaming from `TokenMmap`
+
+> **Goal:** `next_batch(data, cursor, bs, ctx) -> Vec<u32>` with wrap-around; pinned-host staging ring for async H2D.
+>
+> **Implementation steps:**
+> 1. Read `bs × ctx` u16 tokens, upcast to u32, advance cursor (wrap at `len - ctx - 1`).
+> 2. Optional: `cudaHostRegister` a 4-slot ring buffer; overlap H2D with compute via a separate CUDA stream (`cudarc::stream::Stream`).
+> 3. Build `Tensor::from_vec(...).to_device(dev).to_dtype(U32)`.
+>
+> **Verification:** `tests/batching.rs` — 1000 sequential batches; assert cursor advances by `bs*ctx` per call modulo wrap; assert no token index out of bounds.
+> **Acceptance:** zero panics over 1000 batches; H2D overlap yields ≥ 1.5× throughput vs synchronous in a micro-benchmark.
+> **Commit gate:** `git commit -m "feat(train): zero-copy batch streaming"`
+> **Rust pitfall — re-prompt if:** `Mmap` borrow lives across `.await` — `TokenMmap` must be `Send + Sync` and owned, not borrowed; if the borrow checker complains, wrap in `Arc<TokenMmap>`.
+
+### Prompt P4.3 — Forward + backward + gradient accumulation
+
+> **Goal:** Inner loop: for `accum=4` micro-batches, compute shifted CE loss, scale by `1/accum`, `backward()`, accumulate; then `clip_grad_norm_(1.0)` + `optim.step()` + `zero_grad()`.
+>
+> **Implementation steps:**
+> 1. Per spec: `x = ids.narrow(1, 0, ctx-1)`, `y = ids.narrow(1, 1, ctx-1).flatten_all()`.
+> 2. `logits.flatten(0,1)` → `cross_entropy(logits, y)`.
+> 3. `(loss * (1/accum)).backward()`; accumulate scalar for logging.
+> 4. After accum loop: clip, step, zero.
+>
+> **Verification:** `tests/grad_flow.rs` — run 5 steps on CPU with a tiny model (2 layers, d=64); assert loss decreases monotonically (allow 1 non-monotonic step); assert all grads non-zero before step.
+> **Acceptance:** CPU tiny-model loss converges; CUDA 135M version completes one step without OOM at micro_bs=8, accum=4.
+> **Commit gate:** `git commit -m "feat(train): forward-backward with grad accumulation"`
+> **Rust pitfall — re-prompt if:** `backward()` on bf16 throws dtype error — candle requires the loss tensor in f32 for stable grads; cast loss to f32 before `.backward()`.
+> **Re-prompt if:** OOM at micro_bs=8 — enable gradient checkpointing on `Block` (`candle_nn` supports `checkpoint`); re-test at micro_bs=8 then push to 32.
+
+### Prompt P4.4 — VRAM monitor + throughput logger
+
+> **Goal:** Background `tokio::task` polling `nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits -i 0` every 1 s; per-step JSONL log `{step, lr, loss, grad_norm, tps, vram_mb, elapsed_s}`.
+>
+> **Implementation steps:**
+> 1. Spawn a tokio task that shells out to `nvidia-smi` (or uses `cudarc::driver::result::mem_get_info` for in-process accuracy).
+> 2. In the train loop, after each `optim.step()`, compute `tps = tokens_seen / elapsed` and write a JSON line to `logs/train.jsonl`.
+> 3. `indicatif` progress bar with `tok/s` in the message.
+>
+> **Verification:** run 20 steps; assert `logs/train.jsonl` has 20 valid JSON lines; assert `vram_mb` field present and ≤ 28 000; assert `tps > 0`.
+> **Acceptance:** JSONL parses with `serde_json`; peak VRAM logged matches `nvidia-smi` peak within 100 MB.
+> **Commit gate:** `git commit -m "feat(train): vram monitor and jsonl throughput log"`
+> **Re-prompt if:** `nvidia-smi` polling adds > 2% overhead — switch to `cudarc::driver::result::mem_get_info` (zero-shell, zero-overhead).
+
+### Prompt P4.5 — 100-step smoke test (OOM + throughput gate)
+
+> **Goal:** Run 100 optimizer steps at micro_bs=32, accum=4, ctx=2048 on CUDA bf16; assert no OOM, sustained ≥ 40 k tok/s, loss decreases over the window.
+>
+> **Implementation steps:**
+> 1. CLI subcommand `smoke --steps 100 --micro-bs 32 --accum 4`.
+> 2. Use a small pre-tokenized sample (reuse P2.6 smoke output, tiled to fill batches).
+> 3. Print final loss, peak VRAM, mean tps.
+>
+> **Verification:** `cargo run --release -- smoke --steps 100`; parse the printed summary.
+> **Acceptance criteria (all must hold):**
+> - Process exits 0 (no OOM, no panic).
+> - Peak VRAM ≤ 28 000 MB.
+> - Mean tps ≥ 40 000 (interim gate; full target 70 k unlocked in Phase 5 with flash-attn varlen).
+> - `loss[99] < loss[0] × 0.95`.
+> **Commit gate:** `git commit -m "test(train): 100-step smoke oom and throughput gate"`
+> **Re-prompt if:**
+> - OOM → reduce micro_bs to 24, re-run; if still OOM, enable checkpointing.
+> - tps < 40 k → confirm `sdpa(is_causal=true, mask=None)` is hitting flash; profile with `nvtx` markers via `cudarc`.
+> - loss not decreasing → check LR warmup isn't stuck at 0 (verify `cosine_lr(1) > 0`).
+
+---
+
+## Phase 5 — Integration & Full Run
+
+### Prompt P5.1 — `main.rs` orchestration with stage skipping
+
+> **Goal:** Single `main` that runs ingest → tokenize → train, skipping stages whose outputs already exist (idempotent resumption).
+>
+> **Implementation steps:**
+> 1. `clap` top-level with subcommands `ingest`, `tokenize`, `train`, `smoke`, and `run-all`.
+> 2. `run-all` checks `data/corpus.txt`, `data/bpe.json`, `data/tokens.bin16` existence; skips completed stages.
+> 3. `tracing_subscriber` with env filter `rust_llm_pretrain=info,candle=warn`.
+> 4. Final `model.varmap().save("ckpt/llama135m.safetensors")`.
+>
+> **Verification:** `cargo run --release -- run-all --cap-tokens 2000000` on a 2 M-token subset; assert all stages run and a checkpoint file appears.
+> **Acceptance:** checkpoint loads back via `VarMap::load` with matching param count.
+> **Commit gate:** `git commit -m "feat: main orchestration and stage skipping"`
+> **Re-prompt if:** resumption re-ingests — the skip predicate is wrong; check file existence before the stage call, not after.
+
+### Prompt P5.2 — Full 2B-token run within 8-hour window
+
+> **Goal:** End-to-end run consuming 2 B tokens, ≤ 28 800 s wall clock, checkpoints every 1000 steps, final checkpoint saved.
+>
+> **Implementation steps:**
+> 1. `TrainCfg { micro_bs: 32, accum: 4, ctx: 2048, total_tokens: 2_000_000_000, ... }`.
+> 2. Periodic checkpoint every 1000 steps to `ckpt/step-{N}.safetensors`.
+> 3. Wall-clock budget alarm: if elapsed > 25 200 s (7 h) at < 90% token progress, log a WARNING (don't abort — let it finish or OOM-kill naturally).
+> 4. Final summary: total tokens, total steps, mean tps, peak VRAM, final loss, wall clock.
+>
+> **Verification:** run on the full 2 B-token `tokens.bin16`; tail `logs/train.jsonl`.
+> **Acceptance criteria (all must hold):**
+> - Wall clock ≤ 28 800 s.
+> - Mean tps ≥ 70 000.
+> - Peak VRAM ≤ 28 000 MB (≤ 30 000 acceptable).
+> - Final loss < initial loss × 0.5.
+> - `ckpt/llama135m.safetensors` exists and loads.
+> **Commit gate:** `git commit -m "feat: full 2b-token pretraining run" --allow-empty` (the run produces artifacts, not code; the commit tags the validated state).
+> **Re-prompt if:**
+> - tps < 70 k but ≥ 40 k → enable flash-attn varlen packing (re-iterate P4.3 with variable-length doc packing); re-run.
+> - tps < 40 k → stop; the kernel path is wrong (likely `sdpa` not using flash); debug before burning the 8-hour budget.
+> - OOM after step N (not at start) → activation leak; add `cudarc::driver::result::stream_synchronize` + `drop` of intermediate tensors explicitly.
+
+### Prompt P5.3 — Retrospective + spec delta
+
+> **Goal:** Close the loop per PDCA Phase 4【turn5fetch0】: write `RETRO.md` analyzing what worked, what failed, and spec amendments for the next cycle.
+>
+> **Implementation steps:**
+> 1. Extract from `logs/train.jsonl`: tps trajectory, VRAM trajectory, loss curve.
+> 2. Document any prompt that required > 3 red-green iterations (process smell).
+> 3. Update `AGENTS.md` with hard-won facts (e.g., "flash-attn requires `is_causal=true` + `mask=None`").
+> 4. Open issues for deferred items (FA3 kernel, fp8 GEMM, varlen packing).
+>
+> **Verification:** `RETRO.md` has sections: Wins, Failures, Spec Delta, Next-cycle Issues.
+> **Commit gate:** `git commit -m "docs: retrospective and spec delta for cycle 1"`
+> **Re-prompt if:** retro identifies a systemic issue (e.g., repeated dtype bugs) → add a `pre-commit` hook running a dtype-assertion test before the next cycle starts.
+
+---
+
+## Verification & Loop-Closure Discipline
+
+Every prompt above is a self-contained PDCA cycle: **Plan** (goal + context + steps), **Do** (implementation), **Check** (verification command + acceptance criteria), **Act** (commit gate + retro at P5.3). The `re-prompt if` field is the explicit loop-restart condition — when a check fails, the agent re-enters the same prompt with the failure's root cause, never cascading a broken artifact into the next phase【turn5fetch0】【turn1fetch1】.
+
+**Global pre-commit gate** (runs before every commit, enforced via a `pre-commit` hook or the agent's validation step):
+```bat
+cargo fmt -- --check && cargo clippy --release -- -D warnings && cargo test --release
+```
+A failing gate blocks the commit and re-enters the current prompt's loop【turn1fetch1】.
+
+**Acceptance gates between phases** (hard STOP, human review required per PDCA【turn5fetch0】):
+- P1→P2: `cargo build --release` links CUDA; FFI version test green.
+- P2→P3: `tokens.bin16` exists, size ≈ 4 GB, round-trips.
+- P3→P4: param count in [129 M, 143 M]; forward+backward on CUDA bf16 no OOM at micro_bs=4.
+- P4→P5: 100-step smoke green (VRAM, tps, loss all pass).
+- P5 complete: full run within 28 800 s, checkpoint loads.
+
+**Rust-specific failure modes the loop must guard against**, baked into the `re-prompt if` fields above: unsafe `Mmap` lifetime across `.await` in the async ingestion path; dtype mismatches between bf16 activations and f32 loss/grad in candle; `Tensor::cat` contiguous-requirement panics in the GQA head-repeat; `candle_nn::AdamW` API drift across git revs; and flash-attn kernel selection depending on `is_causal=true` with `mask=None` (an explicit mask silently falls back to the slow path)【turn0search11】.

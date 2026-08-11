@@ -1,0 +1,12 @@
+{
+  "format_version": 1,
+  "bearer_token_env": "CORPUS_BEARER_TOKEN",
+  "shards": [
+    {
+      "url": "https://corpus.example.invalid/python/train-00000.parquet",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "content_column": "content",
+      "id_column": "blob_id"
+    }
+  ]
+}

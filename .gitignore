@@ -1,0 +1,8 @@
+/target/
+/.cache/
+/data/
+*.bin
+*.parquet
+*.safetensors
+*.mpk
+

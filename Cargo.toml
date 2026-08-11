@@ -1,0 +1,53 @@
+[package]
+name = "rust-llm-pretrain"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.96"
+description = "Zero-Python Rust reference pipeline for code-corpus curation and Llama pre-training"
+license = "Apache-2.0 OR MIT"
+build = "build.rs"
+
+[features]
+default = ["cpu-reference"]
+# The CPU backend exists for correctness tests and pipeline development only.
+cpu-reference = ["burn/flex", "burn/autodiff"]
+# Burn's CUDA backend is Rust/CubeCL-based and JIT-compiles its GPU kernels.
+cuda = ["burn/cuda", "burn/autodiff", "burn/fusion", "burn/autotune", "dep:half"]
+# Additionally compile an MSVC/nvcc ABI probe and link the requested CUDA/cuDNN libs.
+cuda-msvc-link = ["cuda"]
+
+[dependencies]
+anyhow = "1.0"
+arrow-array = "=59.1.0"
+arrow-schema = "=59.1.0"
+burn = { version = "=0.21.0", default-features = false, features = ["std"] }
+clap = { version = "4.5", features = ["derive"] }
+futures-util = "0.3"
+half = { version = "2.7", optional = true }
+hex = "0.4"
+memmap2 = "0.9.11"
+parquet = { version = "=59.1.0", features = ["arrow"] }
+rayon = "1.12"
+reqwest = { version = "0.12.28", default-features = false, features = ["http2", "rustls-tls", "stream"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+tokenizers = { version = "=0.23.1", default-features = false, features = ["fancy-regex", "progressbar"] }
+tokio = { version = "1.53", features = ["fs", "io-util", "macros", "rt-multi-thread", "sync"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+tree-sitter = "=0.25.8"
+tree-sitter-python = "=0.25.0"
+xxhash-rust = { version = "0.8.17", features = ["xxh3"] }
+
+[dev-dependencies]
+tempfile = "3.23"
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+panic = "abort"
+
+[profile.release-with-debug]
+inherits = "release"
+debug = true

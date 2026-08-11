@@ -1,0 +1,81 @@
+
+### Ordered prompts / TODO items (plan → implement → test → verify → commit → loop)
+
+Use these as sequential agent prompts or as a human checklist. Each major phase ends with an Antigen scan/audit + commit gate.
+
+#### Phase 0 — Bootstrap & Antigen setup (do once)
+1. Create Cargo workspace `rust-llm-pretrain` with crates: `data`, `model`, `train`, `kernels` (optional), `bin`.
+2. `cargo install cargo-antigen` (or pin latest published version).
+3. Add `antigen` dependency; run first `cargo antigen scan` to pull stdlib failure-classes.
+4. Seed project antigens (create via `cargo antigen new` or hand-write):
+   - `msvc-cuda-link-failure` (stdc++ / missing cudart on Windows)
+   - `cuda-compute-cap-mismatch` (sm_120 vs compiled kernels)
+   - `silent-syntax-reject` (tree-sitter parse errors ignored)
+   - `jaccard-dedup-false-negative`
+   - `gqa-head-count-mismatch`
+   - `rope-theta-or-convention-error`
+   - `vram-oom-without-grad-accum`
+   - `bf16-or-fp8-dtype-mismatch`
+   - `memmap-u16-endian-or-alignment`
+   - `adamw-state-not-zeroed`
+5. Commit: `chore: workspace + antigen seed`.
+
+#### Phase 1 — Build system (MSVC + CUDA)
+6. **Prompt:** “Write `build.rs` and root `Cargo.toml` that locate CUDA via `CUDA_PATH`, link cudart/cublas on MSVC without stdc++, emit `CUDA_COMPUTE_CAP=120`, and support Candle cuda feature.”
+7. Implement + `cargo check --features cuda`.
+8. Test: build on clean Windows MSVC machine; confirm no LNK1181 / stdc++ errors.
+9. `cargo antigen scan` + `cargo antigen audit`; fix any presentations of the CUDA-link antigens.
+10. Commit: `build: MSVC/CUDA linkage + antigen defenses`.
+
+#### Phase 2 — Data ingestion & curation
+11. **Prompt:** “Implement async (tokio) parquet/HF streaming with arrow-rs, tree-sitter-python hard reject on syntax error, comment-ratio >50% filter, size <100 B reject, boilerplate heuristics, and parallel MinHash (Jaccard >0.85) with rayon.”
+12. Implement filters + MinHash; write unit tests with synthetic good/bad Python files.
+13. **Prompt:** “Train 32k BPE with tokenizers crate on a 2 GB high-quality subset; serialize vocab; tokenize full corpus to contiguous little-endian u16 files; expose memmap2 zero-copy reader.”
+14. Test: round-trip encode/decode, token count ≈ target, memmap loads without copy.
+15. `cargo antigen scan/audit` (focus on silent-reject and dedup antigens); add `#[defended_by]` or attestations on the critical filter paths.
+16. Commit: `feat(data): curated 2B-token pipeline + antigen coverage`.
+
+#### Phase 3 — Model architecture (~135 M Llama)
+17. **Prompt:** “Implement decoder-only Transformer in Candle: d_model=768, d_ff=2048, 12 layers, 12 Q / 4 KV heads (GQA), L=2048, RMSNorm ε=1e-5, RoPE θ=10000, SwiGLU. Expose exact parameter count and forward that returns logits.”
+18. Implement; add shape/dtype assertions and a tiny overfit test (random tokens → loss decreases).
+19. Verify GQA expansion and RoPE application against a known-good reference (Candle Llama or hand-checked small case).
+20. `cargo antigen scan/audit` (GQA/RoPE antigens); defend the attention and rotary modules.
+21. Commit: `feat(model): 135M Llama GQA+RoPE+SwiGLU`.
+
+#### Phase 4 — Training loop & hardware utilization
+22. **Prompt:** “Write AdamW (β1=0.9, β2=0.95, wd=0.1) training loop with micro-batch + gradient accumulation, cosine LR (peak 2.5e-3, 1k warmup), BF16 (or FP8 if available), VRAM-aware batch sizing targeting ≤28 GB on 32 GB card, and continuous tok/s logging.”
+23. Implement data loader over memmap, loss, backward, optimizer step, checkpointing (safetensors).
+24. Test: short run on synthetic data; confirm no OOM at chosen micro-batch; measure tok/s.
+25. Profile with nvidia-smi / Nsight; adjust accumulation or enable checkpointing if needed.
+26. `cargo antigen scan/audit` (VRAM-OOM, dtype, AdamW antigens).
+27. Commit: `feat(train): pretrain loop + throughput instrumentation`.
+
+#### Phase 5 — Integration, end-to-end, hardening
+28. Wire full pipeline: data → tokenize → train for a small number of steps; assert loss trend and checkpoint load.
+29. **Prompt:** “Add FlashAttention-style path (candle-flash-attn or portable fallback) and any custom kernels required for Blackwell; keep pure-Rust host code.”
+30. Full dry-run on a reduced 10–50 M token subset; measure sustained tok/s vs 70 k target.
+31. Run complete `cargo antigen scan` + `cargo antigen audit`; raise any remaining presentations to defended or tolerated with rationale.
+32. Optional: `cargo antigen propose` on clusters of similar unmarked sites to grow the antigen catalog.
+33. Commit: `feat: e2e pipeline + antigen-hardened`.
+
+#### Phase 6 — Continuous loop (repeat for every subsequent change)
+34. After any non-trivial edit:
+    - Re-run targeted tests + `cargo check --features cuda`
+    - `cargo antigen scan`
+    - `cargo antigen audit`
+    - Fix or explicitly tolerate new presentations
+    - Commit with message that references the antigen(s) defended
+35. Weekly / before long training runs: full audit + re-profile tok/s and VRAM.
+36. When adding new modules (e.g. evaluation, quantization), first declare relevant antigens, then implement, then defend.
+
+---
+
+**How to drive this with an AI coding agent**
+
+- Give the agent the full original specification + this ordered list.
+- Instruct it: “After every implementation step run `cargo antigen scan` and `cargo antigen audit`. Do not commit until presentations of the seeded antigens are defended or explicitly tolerated with a comment.”
+- Keep the antigen catalog in-repo so the agent can read existing fingerprints and extend them rather than inventing ad-hoc checks.
+
+This produces a verifiable, incrementally hardened pure-Rust pipeline while using Antigen as the durable memory of failure classes across the long build.
+
+

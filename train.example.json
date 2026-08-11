@@ -1,0 +1,16 @@
+{
+  "target_tokens": 2000000000,
+  "micro_batch_size": 16,
+  "gradient_accumulation": 2,
+  "peak_learning_rate": 0.0025,
+  "minimum_learning_rate": 0.0,
+  "warmup_steps": 1000,
+  "beta_1": 0.9,
+  "beta_2": 0.95,
+  "adam_epsilon": 1e-8,
+  "weight_decay": 0.1,
+  "log_every_micro_steps": 10,
+  "target_tokens_per_second": 75000.0,
+  "vram_budget_gib": 28.0,
+  "allow_reference_attention": false
+}

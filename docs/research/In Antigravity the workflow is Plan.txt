@@ -1,0 +1,114 @@
+In Antigravity the workflow is Plan -> Act -> Verify - it generates artifacts like Implementation Plan, task list, diffs, verification walkthrough. If you feed it one giant spec it will hallucinate.
+
+For your Rust pipeline you want atomic, loopable prompts. This is the ordered prompt chain I use for this exact build. Assuming Antigenic = Antigravity - if it's a different agentic CLI, same prompts work.
+How to run the loop
+
+In Agent Manager > New Conversation, set mode to Planner first, then Act.
+
+After each prompt:
+
+    cargo check --target x86_64-pc-windows-msvc --features cuda
+    cargo test <module>
+    git add. && git commit -m "<msg>" - Antigravity has a Ratchet that auto-commits after successful tests
+
+PHASE 0 - Research & Scaffolding
+
+Prompt 1 - Create Implementation Plan artifact:
+
+    Plan this: Research pure-Rust LLM pre-training on Windows MSVC + CUDA 12.8+ RTX 5090 sm_120. Create artifact: docs/IMPLEMENTATION_PLAN.md with FLOPs budget for 135M * 2B tokens in 28,800s, why CUDA_COMPUTE_CAP=120 needed for Blackwell, and project structure. Verify: Plan artifact exists in Auxiliary Pane. Do NOT code yet.
+
+Prompt 2 - Scaffold repo:
+
+    Scaffold: Create rust-llm-pretrain binary crate, x86_64-pc-windows-msvc default. Create folders src/data, src/model, src/train, src/cuda, tests, data/shards. Init git. Acceptance: cargo check passes. Commit: chore: scaffold windows-msvc cuda project
+
+PHASE 1 - Windows MSVC & CUDA Build System
+
+Prompt 3 - Cargo.toml:
+
+    Implement: Write Cargo.toml with dependencies: tokio full, reqwest stream, arrow 53, parquet async, tree-sitter 0.22, tree-sitter-python 0.20.4, rayon, tokenizers 0.19, memmap2, bytemuck, candle-core 0.7 with cuda,bf16, candle-nn, safetensors. Build-dep cc 1.1. Acceptance: cargo tree --features cuda resolves.
+
+Prompt 4 - build.rs + FlashAttention wrapper:
+
+    Implement build.rs: Detect CUDA_PATH, link-search lib/x64, link cublas, cublasLt, cudart, curand, cudnn. Use cc::Build::new().cuda(true) pattern. Compile src/cuda/flash_attn_wrapper.cu with flags -gencode arch=compute_120,code=sm_120a -gencode arch=compute_120,code=compute_120 -O3 --use_fast_math. Expose extern C flash_attn3_fwd_bf16. Set env CUDA_COMPUTE_CAP=120. Create flash_attn_wrapper.h/.cu stubs. Acceptance: cargo check --features cuda does not error cannot find include/cuda.h. Commit: feat: build.rs msvc+sm_120 flash-attn3
+
+Prompt 5 - Verify CUDA device:
+
+    Test: Write src/bin/check_cuda.rs that prints Device::new_cuda(0) and candle BF16 tensor add. Run: cargo run --bin check_cuda --features cuda. Acceptance: Shows RTX 5090, 32GB, compute 12.0. Commit: test: verify cuda sm_120
+
+PHASE 2 - Data Ingestion Subsystem
+
+Prompt 6 - Fetcher:
+
+    Implement src/data/fetcher.rs: async stream_stack_v2 using reqwest bytes_stream -> ParquetRecordBatchStreamBuilder, extract content StringArray column, send via mpsc. Acceptance: unit test with 1 local parquet sample. Commit: feat: data fetcher arrow-rs
+
+Prompt 7 - Validator:
+
+    Implement src/data/validator.rs: fn is_valid_python(code: &str) -> bool filters <100 bytes, comment ratio >0.5, boilerplate, then tree-sitter. Use let mut parser = Parser::new(); let language = tree_sitter_python::LANGUAGE; parser.set_language(&language.into()). Check !root.has_error(). Acceptance: cargo test validator with 3 valid / 3 invalid Python snippets.
+
+Prompt 8 - Dedup MinHash:
+
+    Implement src/data/dedup.rs: 5-gram shingles -> u64, 128 minhash signatures, Jaccard >0.85 parallel dedup via rayon par_iter. Acceptance: benchmark 10k docs <2s, dedup rate >10% on synthetic duplicates.
+
+Prompt 9 - Tokenizer + memmap2 writer:
+
+    Implement src/data/tokenizer.rs and writer.rs: Train BPE 32k vocab on 2GB subset using tokenizers crate ByteLevel. Write write_u16_shard(&[u16], path) via OpenOptions + MmapMut + align_to_mut::<u16>(). Reader Mmap::map + align_to::<u16>() for zero-copy. Acceptance: Roundtrip 1M tokens -> file size = 2MB.
+
+Prompt 10 - Integration data pipeline:
+
+    Implement src/data/mod.rs orchestrating fetcher -> validator -> dedup -> tokenizer -> writer to train_*.bin + index.json. Acceptance: cargo run --bin ingest -- --limit 1M produces valid bin. Commit: feat: data pipeline complete
+
+PHASE 3 - Model Architecture - 135M Llama
+
+Prompt 11 - Config:
+
+    Implement src/model/config.rs: d_model 768, d_ff 2048, 12 layers, 12 q_heads, 4 kv_heads, head_dim 64, L 2048, vocab 32000, rms_eps 1e-5, rope_theta 10000.0
+
+Prompt 12 - RMSNorm + RoPE:
+
+    Implement rmsnorm.rs and rope.rs: RMSNorm forward = x / sqrt(mean(x^2)+eps) * weight. RoPE precompute inv_freq 1/theta^(2i/dim), cos/sin [seq_len, dim/2], apply rotate_half. Acceptance: test rope preserves norm, pos 0 = identity.
+
+Prompt 13 - GQA:
+
+    Implement gqa.rs: q, k,v -> repeat_interleave 3 ->. SDPA softmax(QK^T/sqrt(d))@V. Add FFI call to flash_attn3_fwd_bf16 if seq_len>512 else candle fused sdpa. Note FA3 is Hopper sm_90a gated, so compile for sm_120a. Acceptance: forward shape test, backward grad check.[B][L][12][64][4]
+
+Prompt 14 - SwiGLU:
+
+    Implement swiglu.rs: Swish(x)=x*sigmoid(x), SwiGLU = down(silu(gate)*up). d_ff 2048 -> actually gate/up 2048. Acceptance: output dim matches d_model.
+
+Prompt 15 - Layer + Llama:
+
+    Implement layer.rs pre-norm x + GQA(RMSNorm(x)) then x + SwiGLU(RMSNorm(x)). llama.rs embedding u16->bf16, 12 layers, final RMSNorm, LM head. Count params: cargo run --bin count_params must be ∼131-138M. Commit: feat: llama 135M GQA RoPE
+
+PHASE 4 - Pre-Training Loop & Hardware
+
+Prompt 16 - AdamW BF16:
+
+    Implement src/train/optimizer.rs: native Rust AdamW beta1 0.9 beta2 0.95 wd 0.1 eps 1e-8, master FP32 copy, bf16 compute. Clip grad 1.0.
+
+Prompt 17 - Memmap dataloader + VRAM manager:
+
+    Implement loader.rs: Mmap train bins, sample_batch with pinned host buffer + async H2D copy via cudarc. Micro-batch 32*2048=65536 tokens. Gradient checkpointing toggle. Log VRAM via Device::mem_info().
+
+Prompt 18 - Training loop:
+
+    Implement loop.rs: accum 8 => 524k effective batch. Cosine decay 2.5e-3 peak, 1000 step warmup, min 2.5e-4. Throughput logging tokens_seen/elapsed target >70k tok/sec. 2B / 524k ∼3815 steps. Each step ∼7.5s. Save safetensors every 100 steps. Acceptance: cargo run --bin train -- --dry-run shows MFU calc 6*N*D / 1.8e15 and vram <28GB.
+
+Prompt 19 - Metrics:
+
+    Implement metrics.rs: tps, loss, MFU, eta 8h. Write jsonl log.
+
+PHASE 5 - Verification Loop
+
+Prompt 20 - E2E smoke test:
+
+    Test: Train 1M tokens on CPU Device::Cpu + CUDA small. Assert loss decreases. Command: cargo test --features cuda -- --nocapture e2e. Fix any OOM. Commit: feat: training loop
+
+Prompt 21 - Perf verify:
+
+    Verify: Run cargo run --release --features cuda --bin bench -- --tokens 10M. Acceptance: sustained >70k tok/s on 5090. If <70k, optimize: enable cuda graphs, increase micro-batch to 48, enable fused_bias_add. Loop: profile -> fix -> bench.
+
+Prompt 22 - Final commit & artifact:
+
+    Generate final artifact: Verification Walkthrough with tokens/sec screenshot, checkpoint list, README with powershell env vars. Commit: release: 135M 2B token pipeline windows msvc sm_120
+
+This chain gives Antigravity exactly what it needs: a Plan artifact, then 20 small Act-Verify steps that each compile, test, and ratchet-commit.
