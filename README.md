@@ -4,9 +4,10 @@
 > implementation. Normative rebuild decisions live in
 > [`docs/rebuild-contract.md`](docs/rebuild-contract.md), the target design is
 > [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), and ordered gates are in
-> [`TODO.md`](TODO.md). Phase 0 remains awaiting technical and data-governance owner
-> approval. Commands, flags, schemas, artifacts, backend choices, and defaults below are
-> historical unless a normative document explicitly retains them.
+> [`TODO.md`](TODO.md). Phase 0 is approved through its signed
+> [`PASS` receipt](docs/receipts/P0.md). Commands, flags, schemas, artifacts, backend
+> choices, and defaults below are historical unless a normative document explicitly
+> retains them.
 
 This repository implements the correctness side of a Windows/MSVC pipeline:
 

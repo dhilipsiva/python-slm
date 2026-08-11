@@ -4,9 +4,9 @@
 
 Read authority in this order: this guide governs work, `docs/rebuild-contract.md`
 records Phase 0 product decisions, `docs/ARCHITECTURE.md` defines the target, and
-`TODO.md` defines phase dependencies and gates. The contract becomes approved only
-through the signed `docs/receipts/P0.md`; conflicts stop work. The current Rust 2024
-crate, root `*.example.json`, `build.rs`, and `kernels/` are behavioral evidence
+`TODO.md` defines phase dependencies and gates. The signed `PASS` receipt at
+`docs/receipts/P0.md` approves the sealed contract; conflicts stop work. The current
+Rust 2024 crate, root `*.example.json`, `build.rs`, and `kernels/` are behavioral evidence
 only; rebuild modules, schemas, formats, tests, and backend integrations from
 scratch. `docs/research/` is non-normative background. Keep generated corpora,
 tokens, caches, and checkpoints in ignored paths.

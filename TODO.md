@@ -4,8 +4,9 @@ Dependencies, not phase numbers, define admissible order. Never start a phase be
 dependencies pass. The GPU/backend track (P1B–P2), data track (P3–P9A), and CPU model
 track (P3–P9B) may run in parallel where dependencies permit. The existing Rust code is
 reference evidence, not code to copy. `AGENTS.md` governs work,
-`docs/rebuild-contract.md` records Phase 0 product decisions pending its signed receipt,
-and `docs/ARCHITECTURE.md` defines the target design. A conflict is a stop condition.
+`docs/rebuild-contract.md` records the approved Phase 0 product decisions,
+`docs/receipts/P0.md` is their signed approval authority, and `docs/ARCHITECTURE.md`
+defines the target design. A conflict is a stop condition.
 
 ## Operating Rules
 
@@ -26,8 +27,10 @@ and `docs/ARCHITECTURE.md` defines the target design. A conflict is a stop condi
   replaceable `python-slm-phase-evidence-pointer-v1` pointer containing that acceptance
   path and hash. A dependency passes only when the pointer, selected acceptance, referenced
   immutable run, `PASS` status, and every required named approval all validate. P0 is the
-  sole exception: its human approval authority is `docs/receipts/P0.md`. Machine evidence,
-  checklist prose, silence, or an agent audit never substitutes for human approval.
+  sole receipt-model exception: its dependency passes only when the pinned P0 `VERIFY`
+  block succeeds. `docs/receipts/P0.md` is its human approval authority, the sealed run is
+  its machine evidence, and P0 requires no acceptance generation or root pointer. Machine
+  evidence, checklist prose, silence, or an agent audit never substitutes for human approval.
 - Each receipt records the command, working directory, relevant environment/configuration
   hashes, exit code, stdout/stderr or artifact hash, and status. A phase remains blocked
   unless its exact invocation appears in the normative global table below or its card.
@@ -84,12 +87,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Ph
 
 ## Phase 0 — Freeze the Rebuild Contract
 
-- [ ] P0 complete
+- [x] P0 complete
 
-Status: `AWAITING_REVIEW`. Sealed machine evidence passed, but technical and
-data-governance approvals are both `PENDING`. Keep this checkbox unchecked until
-`docs/receipts/P0.md` is `PASS`, both top-level approval summaries say `APPROVED`, and
-both owner sign-off blocks explicitly say `APPROVE`.
+Status: `PASS`. Sealed machine evidence passed; both top-level approval summaries are
+`APPROVED`, and both owner sign-off decisions are `APPROVE`. Under `AGENTS.md`, the signed
+receipt is the approval authority and activates Change Control. The sealed contract and
+machine-evidence snapshots retain their historical `AWAITING_REVIEW` fields unchanged.
 
 Dependencies: none.
 
@@ -129,22 +132,30 @@ PASS:
   the contract/receipt evidence paths allowed by that capture. Later documentation
   reconciliation is a separate reviewed commit and does not alter sealed bytes.
 - Both top-level approval summaries say `APPROVED`, both named owner decisions explicitly
-  say `APPROVE`, and the authoritative receipt is `PASS`. The owner must first resolve the
-  contract's `APPROVED` status wording versus the receipt-only approval workflow; an agent
-  must not infer or perform that transition.
+  say `APPROVE`, and the authoritative receipt is `PASS`. The signed receipt resolves the
+  status transition without rewriting the sealed contract or machine-evidence snapshot.
 
 VERIFY:
 
 ```powershell
 $ErrorActionPreference = 'Stop'
 $baseline = 'b1ebb455cdae94bbb9fc54f246cdf2758eedf1d1'
-$sealed = @('docs/rebuild-contract.md', 'docs/receipts/P0/capture.ps1', 'docs/receipts/P0/evidence.json', 'docs/receipts/P0/runs/20260811T074740Z-d5008e94')
+$sealed = @('docs/rebuild-contract.md', 'docs/receipts/P0/capture.ps1', 'docs/receipts/P0/evidence.json', 'docs/receipts/P0/runs')
 git diff --exit-code $baseline -- $sealed
 if ($LASTEXITCODE -ne 0) { throw 'sealed Phase 0 bytes changed' }
 $sealedStatus = @(git status --porcelain=v1 --untracked-files=all -- $sealed)
 if ($LASTEXITCODE -ne 0 -or $sealedStatus.Count -ne 0) { throw 'sealed Phase 0 paths are dirty or contain additions' }
 $run = Resolve-Path docs\receipts\P0\runs\20260811T074740Z-d5008e94
 Get-Content "$run\SHA256SUMS" | ForEach-Object { $expected, $relative = $_ -split '  ', 2; if ((Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $run $relative)).Hash.ToLowerInvariant() -ne $expected) { throw "seal mismatch: $relative" } }
+$receiptCommit = '86fb1e4cc68efeb651e5362c4aca85c2827d8e4d'
+$receiptSha256 = 'f08c6a41658ff287e238d6a96c4f2c874975964202c3eeced2bc0bc21f308904'
+git merge-base --is-ancestor $receiptCommit HEAD
+if ($LASTEXITCODE -ne 0) { throw 'signed P0 receipt commit is not an ancestor of HEAD' }
+git diff --exit-code $receiptCommit -- docs\receipts\P0.md
+if ($LASTEXITCODE -ne 0) { throw 'signed P0 receipt differs from its approval commit' }
+$receiptStatus = @(git status --porcelain=v1 --untracked-files=all -- docs\receipts\P0.md)
+if ($LASTEXITCODE -ne 0 -or $receiptStatus.Count -ne 0) { throw 'signed P0 receipt is dirty' }
+if ((Get-FileHash -Algorithm SHA256 -LiteralPath docs\receipts\P0.md).Hash.ToLowerInvariant() -ne $receiptSha256) { throw 'signed P0 receipt hash mismatch' }
 $receipt = Get-Content -Raw docs\receipts\P0.md
 $statusLines = [regex]::Matches($receipt, '(?m)^Status:[^\r\n]*$')
 if ($statusLines.Count -ne 1 -or $statusLines[0].Value -notmatch '^Status:[ \t]+\*\*PASS\*\*[ \t]*$') { throw 'P0 receipt has no unique PASS status' }
@@ -168,12 +179,12 @@ foreach ($sectionName in @('Technical approval', 'Data-governance approval')) {
 ```
 
 The sealed capture remains authoritative for its frozen contract bytes and reference
-observations. This architecture/TODO reconciliation is a separate change set; technical
-review must include its resulting commit, which must not rewrite any sealed byte.
+observations. The signed receipt records technical and data-governance approval of the
+separate architecture/TODO reconciliation commit without rewriting any sealed byte.
 
-STOP/loop: unresolved product decisions or either missing approval stay in P0 and block
-P1A/P3. Never infer approval. Suggested commit:
-`docs: freeze clean-rebuild contract`.
+STOP/loop: a revoked or contradictory approval, failed P0 verifier, changed sealed byte,
+or frozen-decision change reopens P0 and blocks P1A/P3. Suggested commit:
+`docs: approve phase 0 rebuild contract`.
 
 ## Phase 1A — Verify and Pin the CPU Environment
 

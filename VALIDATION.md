@@ -3,9 +3,9 @@
 Validation date: 2026-08-11.
 
 This document records the legacy implementation only. It is not clean-rebuild, GPU, data,
-or performance qualification. The sealed Phase 0 machine evidence and pending owner
-approval state are recorded in [`docs/receipts/P0.md`](docs/receipts/P0.md); target gates
-are defined by [`docs/rebuild-contract.md`](docs/rebuild-contract.md),
+or performance qualification. The sealed Phase 0 machine evidence and signed `PASS`
+approval are recorded in [`docs/receipts/P0.md`](docs/receipts/P0.md); target gates are
+defined by [`docs/rebuild-contract.md`](docs/rebuild-contract.md),
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), and [`TODO.md`](TODO.md).
 The sealed capture predates the architecture/TODO reconciliation and authenticates only
 its frozen contract bytes and reference observations; technical review must include the

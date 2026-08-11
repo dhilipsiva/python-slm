@@ -4,8 +4,9 @@ Status: target design for the clean rebuild. The existing `src/`, `build.rs`, an
 root configuration files are reference evidence only; they are not the implementation
 baseline. `docs/rebuild-contract.md` is the normative Phase 0 refinement and `TODO.md`
 is the ordered execution specification. A conflict among these documents is a stop
-condition. The Phase 0 receipt remains `AWAITING_REVIEW`; technical and data-governance
-owner approvals are required before any phase that depends on P0 may start.
+condition. The Phase 0 receipt is `PASS`, with both technical and data-governance owner
+approvals recorded. Its signed receipt activates Change Control while the sealed contract
+and machine-evidence snapshots retain their historical pre-approval status fields.
 
 ## Scope and Success Contract
 
@@ -302,13 +303,17 @@ The authoritative Phase 0 machine-evidence run is
 the contract and decision-ledger hashes are respectively
 `fc2c60b52fdd7c524e0da06bb03972a4d523c21ad5536cba536185435bd44ad4`
 and `8349d8a3e06d96d6921889de5534715e7b2f7439caf7e06558a97652a8890c8d`.
-All 30 captured commands passed, but Phase 0 acceptance remains pending both owner
-approvals. These results validate only the existing reference checkout and local host;
-they do not qualify the rebuild, GPU training path, or eight-hour objective.
+All 30 captured commands passed. The signed Phase 0 receipt is committed at
+`86fb1e4cc68efeb651e5362c4aca85c2827d8e4d` with SHA-256
+`f08c6a41658ff287e238d6a96c4f2c874975964202c3eeced2bc0bc21f308904`; it records both
+owner approvals, is `PASS`, and covers reconciliation commit
+`245f5f71eb3a76b3ce8e7c42228c00167803947c`. These results validate only the existing
+reference checkout and local host; they do not qualify the rebuild, GPU training path, or
+eight-hour objective.
 This architecture and `TODO.md` reconciliation is a separate change set from the capture.
 The seal still authenticates its frozen contract bytes and reference observations, but it
-does not attest to the reconciled documentation tree; technical approval must review the
-resulting commit as well.
+does not attest to the reconciled documentation tree; the signed technical approval
+separately records review of that commit.
 
 - `cargo test --locked --features cpu-reference`: 22 passed.
 - `cargo run --locked -- plan`: confirmed 124,668,672 parameters for `d_ff=2048`, the
