@@ -1,0 +1,475 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://python-slm.local/schemas/python-slm-environment-manifest-v1.schema.json",
+  "title": "python-slm CPU environment manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "phase_id",
+    "run_id",
+    "mode",
+    "status",
+    "p0",
+    "source",
+    "host",
+    "rust",
+    "visual_studio",
+    "windows_sdk",
+    "isolation",
+    "native_probe",
+    "quality_gate",
+    "cleanup"
+  ],
+  "properties": {
+    "schema": { "const": "python-slm-environment-manifest-v1" },
+    "phase_id": { "const": "P1A" },
+    "run_id": { "$ref": "#/definitions/runId" },
+    "mode": { "const": "Cpu" },
+    "status": { "const": "PASS" },
+    "p0": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receipt_commit",
+        "receipt_sha256",
+        "contract_sha256",
+        "decision_ledger_sha256"
+      ],
+      "properties": {
+        "receipt_commit": { "$ref": "#/definitions/gitSha" },
+        "receipt_sha256": { "$ref": "#/definitions/sha256" },
+        "contract_sha256": { "$ref": "#/definitions/sha256" },
+        "decision_ledger_sha256": { "$ref": "#/definitions/sha256" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "head",
+        "dirty",
+        "input_manifest_sha256",
+        "cargo_lock_sha256",
+        "verifier_sha256",
+        "schema_bundle_sha256"
+      ],
+      "properties": {
+        "head": { "$ref": "#/definitions/gitSha" },
+        "dirty": { "type": "boolean" },
+        "input_manifest_sha256": { "$ref": "#/definitions/sha256" },
+        "cargo_lock_sha256": { "$ref": "#/definitions/sha256" },
+        "verifier_sha256": { "$ref": "#/definitions/sha256" },
+        "schema_bundle_sha256": { "$ref": "#/definitions/sha256" }
+      }
+    },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os_version",
+        "os_architecture",
+        "process_architecture",
+        "powershell_edition",
+        "powershell_version"
+      ],
+      "properties": {
+        "os_version": { "$ref": "#/definitions/nonEmptySingleLine" },
+        "os_architecture": { "const": "AMD64" },
+        "process_architecture": { "const": "AMD64" },
+        "powershell_edition": { "const": "Desktop" },
+        "powershell_version": {
+          "type": "string",
+          "pattern": "^5\\.1(?:\\.[0-9]+){0,2}$"
+        }
+      }
+    },
+    "rust": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rustc_version",
+        "commit_hash",
+        "commit_date",
+        "host",
+        "llvm_version",
+        "rustc",
+        "cargo_version",
+        "cargo",
+        "rustup"
+      ],
+      "properties": {
+        "rustc_version": { "$ref": "#/definitions/semanticVersion" },
+        "commit_hash": { "$ref": "#/definitions/gitSha" },
+        "commit_date": { "type": "string", "format": "date" },
+        "host": { "const": "x86_64-pc-windows-msvc" },
+        "llvm_version": { "$ref": "#/definitions/nonEmptySingleLine" },
+        "rustc": {
+          "allOf": [
+            { "$ref": "#/definitions/tool" },
+            {
+              "properties": { "name": { "const": "rustc" } }
+            }
+          ]
+        },
+        "cargo_version": { "$ref": "#/definitions/semanticVersion" },
+        "cargo": {
+          "allOf": [
+            { "$ref": "#/definitions/tool" },
+            {
+              "properties": { "name": { "const": "cargo" } }
+            }
+          ]
+        },
+        "rustup": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "version",
+                "active_toolchain",
+                "installed_target",
+                "components"
+              ],
+              "properties": {
+                "version": { "$ref": "#/definitions/nonEmptySingleLine" },
+                "active_toolchain": { "$ref": "#/definitions/nonEmptySingleLine" },
+                "installed_target": { "type": "boolean" },
+                "components": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "items": { "$ref": "#/definitions/nonEmptySingleLine" }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "visual_studio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "discovery_method",
+        "query",
+        "instance_id",
+        "product_id",
+        "product_version",
+        "installation_version",
+        "complete",
+        "launchable",
+        "reboot_required",
+        "developer_environment_arguments",
+        "tools"
+      ],
+      "properties": {
+        "discovery_method": { "const": "vswhere" },
+        "query": {
+          "const": [
+            "-version",
+            "[17.0,18.0)",
+            "-products",
+            "*",
+            "-requires",
+            "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+            "-format",
+            "json",
+            "-utf8"
+          ]
+        },
+        "instance_id": { "$ref": "#/definitions/nonEmptySingleLine" },
+        "product_id": { "$ref": "#/definitions/nonEmptySingleLine" },
+        "product_version": { "$ref": "#/definitions/nonEmptySingleLine" },
+        "installation_version": {
+          "type": "string",
+          "pattern": "^17\\.[0-9]+(?:\\.[0-9]+){1,2}$"
+        },
+        "complete": { "const": true },
+        "launchable": { "const": true },
+        "reboot_required": { "const": false },
+        "developer_environment_arguments": {
+          "const": ["-arch=amd64", "-host_arch=amd64", "-startdir=none"]
+        },
+        "tools": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/tool" },
+          "allOf": [
+            { "contains": { "$ref": "#/definitions/clTool" } },
+            { "contains": { "$ref": "#/definitions/linkTool" } },
+            { "contains": { "$ref": "#/definitions/libTool" } },
+            { "contains": { "$ref": "#/definitions/dumpbinTool" } }
+          ]
+        }
+      }
+    },
+    "windows_sdk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "ucrt_version", "root", "validated_paths", "tools"],
+      "properties": {
+        "version": { "$ref": "#/definitions/fourPartVersion" },
+        "ucrt_version": { "$ref": "#/definitions/fourPartVersion" },
+        "root": { "const": "${WINDOWS_KITS}" },
+        "validated_paths": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "uniqueItems": true,
+          "items": [
+            {
+              "allOf": [
+                { "$ref": "#/definitions/tokenizedPath" },
+                {
+                  "pattern": "^\\$\\{WINDOWS_KITS\\}/Include/[0-9]+(?:\\.[0-9]+){3}/um/Windows\\.h$"
+                }
+              ]
+            },
+            {
+              "allOf": [
+                { "$ref": "#/definitions/tokenizedPath" },
+                {
+                  "pattern": "^\\$\\{WINDOWS_KITS\\}/Include/[0-9]+(?:\\.[0-9]+){3}/ucrt/stdlib\\.h$"
+                }
+              ]
+            },
+            {
+              "allOf": [
+                { "$ref": "#/definitions/tokenizedPath" },
+                {
+                  "pattern": "^\\$\\{WINDOWS_KITS\\}/Lib/[0-9]+(?:\\.[0-9]+){3}/um/x64/kernel32\\.lib$"
+                }
+              ]
+            },
+            {
+              "allOf": [
+                { "$ref": "#/definitions/tokenizedPath" },
+                {
+                  "pattern": "^\\$\\{WINDOWS_KITS\\}/Lib/[0-9]+(?:\\.[0-9]+){3}/ucrt/x64/ucrt\\.lib$"
+                }
+              ]
+            },
+            {
+              "allOf": [
+                { "$ref": "#/definitions/tokenizedPath" },
+                {
+                  "pattern": "^\\$\\{WINDOWS_KITS\\}/bin/[0-9]+(?:\\.[0-9]+){3}/x64/rc\\.exe$"
+                }
+              ]
+            },
+            {
+              "allOf": [
+                { "$ref": "#/definitions/tokenizedPath" },
+                {
+                  "pattern": "^\\$\\{WINDOWS_KITS\\}/bin/[0-9]+(?:\\.[0-9]+){3}/x64/mt\\.exe$"
+                }
+              ]
+            }
+          ],
+          "additionalItems": false
+        },
+        "tools": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/tool" },
+          "allOf": [
+            { "contains": { "$ref": "#/definitions/rcTool" } },
+            { "contains": { "$ref": "#/definitions/mtTool" } }
+          ]
+        }
+      }
+    },
+    "isolation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_absent_before",
+        "target_outside_repository",
+        "offline",
+        "incremental_disabled",
+        "wrappers_disabled",
+        "cargo_config_absent",
+        "cleared_environment_names",
+        "canaries",
+        "canary_hits",
+        "forbidden_feature_matches",
+        "forbidden_artifacts",
+        "forbidden_imports",
+        "python_invoked",
+        "cuda_invoked"
+      ],
+      "properties": {
+        "target_absent_before": { "const": true },
+        "target_outside_repository": { "const": true },
+        "offline": { "const": true },
+        "incremental_disabled": { "const": true },
+        "wrappers_disabled": { "const": true },
+        "cargo_config_absent": { "const": true },
+        "cleared_environment_names": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/environmentName" }
+        },
+        "canaries": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/nonEmptySingleLine" }
+        },
+        "canary_hits": { "type": "array", "maxItems": 0 },
+        "forbidden_feature_matches": { "type": "array", "maxItems": 0 },
+        "forbidden_artifacts": { "type": "array", "maxItems": 0 },
+        "forbidden_imports": { "type": "array", "maxItems": 0 },
+        "python_invoked": { "const": false },
+        "cuda_invoked": { "const": false }
+      }
+    },
+    "native_probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["c_source_sha256", "rust_source_sha256", "command_ids", "result", "pe_imports"],
+      "properties": {
+        "c_source_sha256": { "$ref": "#/definitions/sha256" },
+        "rust_source_sha256": { "$ref": "#/definitions/sha256" },
+        "command_ids": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/commandId" }
+        },
+        "result": { "const": "PASS" },
+        "pe_imports": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/nonEmptySingleLine" }
+        }
+      }
+    },
+    "quality_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command_ids", "result"],
+      "properties": {
+        "command_ids": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/commandId" }
+        },
+        "result": { "const": "PASS" }
+      }
+    },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "temporary_root_removed",
+        "repository_target_unchanged",
+        "parent_environment_unchanged",
+        "inputs_unchanged"
+      ],
+      "properties": {
+        "temporary_root_removed": { "const": true },
+        "repository_target_unchanged": { "const": true },
+        "parent_environment_unchanged": { "const": true },
+        "inputs_unchanged": { "const": true }
+      }
+    }
+  },
+  "definitions": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "gitSha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "runId": {
+      "type": "string",
+      "pattern": "^[0-9]{8}T[0-9]{9}Z-[0-9a-f]{24}$"
+    },
+    "commandId": {
+      "type": "string",
+      "pattern": "^C[0-9]{2,4}$"
+    },
+    "semanticVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$"
+    },
+    "fourPartVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "nonEmptySingleLine": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^\\r\\n]+$"
+    },
+    "environmentName": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_()]*$"
+    },
+    "tokenizedPath": {
+      "type": "string",
+      "pattern": "^\\$\\{[A-Z][A-Z0-9_]*\\}(?:/[A-Za-z0-9][A-Za-z0-9._+() -]*)*$"
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "path", "sha256"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" },
+        "version": { "$ref": "#/definitions/nonEmptySingleLine" },
+        "path": { "$ref": "#/definitions/tokenizedPath" },
+        "sha256": { "$ref": "#/definitions/sha256" }
+      }
+    },
+    "clTool": {
+      "allOf": [
+        { "$ref": "#/definitions/tool" },
+        { "properties": { "name": { "const": "cl" } } }
+      ]
+    },
+    "linkTool": {
+      "allOf": [
+        { "$ref": "#/definitions/tool" },
+        { "properties": { "name": { "const": "link" } } }
+      ]
+    },
+    "libTool": {
+      "allOf": [
+        { "$ref": "#/definitions/tool" },
+        { "properties": { "name": { "const": "lib" } } }
+      ]
+    },
+    "dumpbinTool": {
+      "allOf": [
+        { "$ref": "#/definitions/tool" },
+        { "properties": { "name": { "const": "dumpbin" } } }
+      ]
+    },
+    "rcTool": {
+      "allOf": [
+        { "$ref": "#/definitions/tool" },
+        { "properties": { "name": { "const": "rc" } } }
+      ]
+    },
+    "mtTool": {
+      "allOf": [
+        { "$ref": "#/definitions/tool" },
+        { "properties": { "name": { "const": "mt" } } }
+      ]
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+    "status":  "FAIL",
+    "errors":  [
+                   {
+                       "code":  "CARGO_VERBOSE_AUDIT_EMPTY",
+                       "category":  1,
+                       "message":  "fresh Cargo compilation emitted no verbose command records",
+                       "remediation":  "Correct the reported prerequisite or command failure, then run the exact P1A command again."
+                   }
+               ]
+}

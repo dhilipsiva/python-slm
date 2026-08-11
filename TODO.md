@@ -31,6 +31,10 @@ defines the target design. A conflict is a stop condition.
   block succeeds. `docs/receipts/P0.md` is its human approval authority, the sealed run is
   its machine evidence, and P0 requires no acceptance generation or root pointer. Machine
   evidence, checklist prose, silence, or an agent audit never substitutes for human approval.
+- P1A is the sole automatic machine-qualification exception currently authorized. A passing
+  P1A verifier publishes an acceptance with `required_approvals: []` and selects it through
+  the root pointer. The verifier never edits this checklist or commits; both remain subject
+  to human review. No later phase inherits this exception unless its card says so explicitly.
 - Each receipt records the command, working directory, relevant environment/configuration
   hashes, exit code, stdout/stderr or artifact hash, and status. A phase remains blocked
   unless its exact invocation appears in the normative global table below or its card.
@@ -194,22 +198,47 @@ Dependencies: P0.
 
 Prompt:
 
-> Add a read-only `scripts/verify-env.ps1` with a CPU-only mode and an
-> environment-manifest schema. Detect `rustc -Vv`, Cargo, the MSVC Rust host, linker/C
-> compiler resolution, and Windows SDK without embedding machine-specific absolute paths
-> or mutating user environment variables. From an ordinary PowerShell, locate VS 2022 via
-> supported discovery and spawn an x64 Developer environment for the clean native build,
-> or instruct the operator to use an x64 VS 2022 Developer PowerShell. Perform a locked
-> CPU build and trivial Rust/native-dependency probe without silently relying on cached
-> objects. Record exactly how the toolchain was located.
+> Implement the Windows PowerShell 5.1 entry point `scripts/verify-env.ps1 -Mode Cpu`.
+> From an ordinary shell, discover a complete VS 2022 x64 toolchain and selected Windows
+> SDK, qualify Rust 1.96 or newer on `x86_64-pc-windows-msvc`, and record normalized tool
+> identities without installing tools or mutating persistent state. Use only a create-new
+> P1A run and a unique owned temporary directory. Build the native ABI probe and locked
+> CPU graph from an absent `CARGO_TARGET_DIR`, then run the exact pre-P3 format, Clippy,
+> and CPU-test gate offline. Reject wrappers, build-affecting Cargo configuration, Python
+> or CUDA tool execution, CUDA features/artifacts/linkage, input mutation, redaction leaks,
+> and incomplete cleanup. Seal every completed attempt. `Cuda` is recognized only as the
+> sealed P1B `MODE_NOT_IMPLEMENTED` failure until Phase 1B. A PASS run creates an automatic
+> hash-linked acceptance and atomically advances the validated P1A root pointer; it never
+> edits this checklist or commits. Phase 1B must regression-run CPU qualification after
+> extending the shared verifier.
+
+VERIFY:
+
+```powershell
+$ErrorActionPreference = 'Stop'
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File scripts\tests\verify-env.tests.ps1
+if ($LASTEXITCODE -ne 0) { throw "P1A verifier tests failed: $LASTEXITCODE" }
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File scripts\verify-env.ps1 `
+  -Mode Cpu `
+  -OutputRoot docs\receipts\P1A
+if ($LASTEXITCODE -ne 0) { throw "P1A qualification failed: $LASTEXITCODE" }
+```
 
 PASS:
 
 - A clean shell produces a machine-readable CPU environment manifest.
 - A clean-target locked CPU compile and probe run without CUDA discovery or linkage.
 - Missing CPU tools fail with actionable messages.
+- A passing immutable run is selected through a verified automatic acceptance with
+  `required_approvals: []`; a failed run never changes the previously selected pointer.
+- The closed schemas, transcript hashes, run seal, acceptance chain, root pointer,
+  input-stability checks, redaction, and temporary cleanup validate before exit `0`.
+- The checkbox remains open until a human reviews the selected machine qualification.
 
-STOP/loop: missing CPU tools block P3 onward. Suggested commit:
+STOP/loop: missing CPU tools, an invalid P0 dependency, or a failed evidence chain blocks
+P1B directly and P3 onward. Suggested commit:
 `build: add reproducible CPU environment verification`.
 
 ## Phase 1B — Verify the RTX/CUDA Environment

@@ -1,0 +1,11 @@
+{
+    "status":  "FAIL",
+    "errors":  [
+                   {
+                       "code":  "UNEXPECTED_VERIFIER_FAILURE",
+                       "category":  1,
+                       "message":  "Cannot convert \u0027System.Object[]\u0027 to the type \u0027System.String\u0027 required by parameter \u0027ChildPath\u0027. Specified method is not supported.",
+                       "remediation":  "Correct the reported prerequisite or command failure, then run the exact P1A command again."
+                   }
+               ]
+}

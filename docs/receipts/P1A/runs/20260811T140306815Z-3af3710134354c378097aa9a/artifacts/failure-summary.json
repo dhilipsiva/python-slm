@@ -1,0 +1,11 @@
+{
+    "status":  "FAIL",
+    "errors":  [
+                   {
+                       "code":  "CPU_GRAPH_CONTAINS_CUDA",
+                       "category":  5,
+                       "message":  "activated CPU dependency graph contains CUDA packages or features",
+                       "remediation":  "Correct the reported prerequisite or command failure, then run the exact P1A command again."
+                   }
+               ]
+}

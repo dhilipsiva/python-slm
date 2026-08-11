@@ -1,0 +1,14 @@
+{
+    "schema":  "python-slm-failure-summary-v1",
+    "phase_id":  "P1A",
+    "run_id":  "20260811T135349352Z-b7b1c0230b47473ba22ce6c0",
+    "status":  "FAIL",
+    "errors":  [
+                   {
+                       "code":  "UNEXPECTED_VERIFIER_FAILURE",
+                       "category":  1,
+                       "message":  "Exception calling \"GetFullPath\" with \"1\" argument(s): \"Illegal characters in path.\"",
+                       "remediation":  "Correct the reported prerequisite or verifier failure, then run the exact P1A command again."
+                   }
+               ]
+}

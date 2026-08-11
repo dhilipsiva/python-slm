@@ -1,0 +1,1176 @@
+{
+    "schema":  "python-slm-phase-evidence-v1",
+    "phase_id":  "P1A",
+    "run_id":  "20260811T140631147Z-fc46ebcc30184ee09fca08bd",
+    "mode":  "Cpu",
+    "status":  "FAIL",
+    "started_at":  "2026-08-11T14:06:31.0855321Z",
+    "finished_at":  "2026-08-11T14:06:48.4794595Z",
+    "duration_ms":  17394,
+    "invocation":  {
+                       "argv":  [
+                                    "powershell",
+                                    "-NoProfile",
+                                    "-ExecutionPolicy",
+                                    "Bypass",
+                                    "-File",
+                                    "scripts/verify-env.ps1",
+                                    "-Mode",
+                                    "Cpu",
+                                    "-OutputRoot",
+                                    "docs/receipts/P1A"
+                                ],
+                       "cwd":  "${REPO}"
+                   },
+    "source_identity_sha256":  "e6662e955423e5927ce6b8daa2ffd26213d995e1555589ec7bcd86f22311f26b",
+    "p0_dependency":  {
+                          "status":  "PASS",
+                          "receipt_commit":  "86fb1e4cc68efeb651e5362c4aca85c2827d8e4d",
+                          "receipt_sha256":  "f08c6a41658ff287e238d6a96c4f2c874975964202c3eeced2bc0bc21f308904",
+                          "contract_sha256":  "fc2c60b52fdd7c524e0da06bb03972a4d523c21ad5536cba536185435bd44ad4",
+                          "decision_ledger_sha256":  "8349d8a3e06d96d6921889de5534715e7b2f7439caf7e06558a97652a8890c8d"
+                      },
+    "environment":  null,
+    "commands":  [
+                     {
+                         "id":  "C01",
+                         "argv":  [
+                                      "git.exe",
+                                      "rev-parse",
+                                      "HEAD"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+
+                                                     ],
+                         "configuration_sha256":  "2932acd24ce8b29e94ee154aa907979e04139e35fb1a62548f1c03e41e285476",
+                         "exit_code":  0,
+                         "duration_ms":  45,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C01.stdout.txt",
+                                        "sha256":  "4b5e91b91f500bff81c73ff3d25ce800d4643ef52ea62c414a343986740ecc27",
+                                        "bytes":  41
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C01.stderr.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0
+                                    }
+                     },
+                     {
+                         "id":  "C02",
+                         "argv":  [
+                                      "git.exe",
+                                      "status",
+                                      "--porcelain=v1",
+                                      "--untracked-files=all",
+                                      "--",
+                                      ".",
+                                      ":(exclude)docs/receipts/P1A"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+
+                                                     ],
+                         "configuration_sha256":  "cb42fd8519842463fdeed353de7b71bb41c35da069e3a22cf7fd51a90751df3f",
+                         "exit_code":  0,
+                         "duration_ms":  57,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C02.stdout.txt",
+                                        "sha256":  "8d1f28d660c87951748674bf034f446b088ce088f9bec9846397dfaf360403ba",
+                                        "bytes":  108
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C02.stderr.txt",
+                                        "sha256":  "38060844ded27646fcc85e79e8ad59bea20b3c769ec843bf25d9c8f9bedc8e39",
+                                        "bytes":  108
+                                    }
+                     },
+                     {
+                         "id":  "C03",
+                         "argv":  [
+                                      "git.exe",
+                                      "diff",
+                                      "--exit-code",
+                                      "b1ebb455cdae94bbb9fc54f246cdf2758eedf1d1",
+                                      "--",
+                                      "docs/rebuild-contract.md",
+                                      "docs/receipts/P0/capture.ps1",
+                                      "docs/receipts/P0/evidence.json",
+                                      "docs/receipts/P0/runs"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+
+                                                     ],
+                         "configuration_sha256":  "f1fda4ee81baf6f1d5ef4fb736422734d2f06fe722c1dda5f15b1519327428a7",
+                         "exit_code":  0,
+                         "duration_ms":  60,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C03.stdout.txt",
+                                        "sha256":  "13c4c8ea4d93f06598103b7f8108fa40e2c22abda2db9e3957a9f8172c4f4b9c",
+                                        "bytes":  106
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C03.stderr.txt",
+                                        "sha256":  "8da8abf77c82c0fdd1e88e7418cbd3779f02a03f7e1475c5449c31c5515e798d",
+                                        "bytes":  107
+                                    }
+                     },
+                     {
+                         "id":  "C04",
+                         "argv":  [
+                                      "git.exe",
+                                      "status",
+                                      "--porcelain=v1",
+                                      "--untracked-files=all",
+                                      "--",
+                                      "docs/rebuild-contract.md",
+                                      "docs/receipts/P0/capture.ps1",
+                                      "docs/receipts/P0/evidence.json",
+                                      "docs/receipts/P0/runs"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+
+                                                     ],
+                         "configuration_sha256":  "cb090517fe55c301689d2d13f03e306a448d8a2ffa58697a4f2b1eb46187e34b",
+                         "exit_code":  0,
+                         "duration_ms":  41,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C04.stdout.txt",
+                                        "sha256":  "13c4c8ea4d93f06598103b7f8108fa40e2c22abda2db9e3957a9f8172c4f4b9c",
+                                        "bytes":  106
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C04.stderr.txt",
+                                        "sha256":  "38060844ded27646fcc85e79e8ad59bea20b3c769ec843bf25d9c8f9bedc8e39",
+                                        "bytes":  108
+                                    }
+                     },
+                     {
+                         "id":  "C05",
+                         "argv":  [
+                                      "git.exe",
+                                      "merge-base",
+                                      "--is-ancestor",
+                                      "86fb1e4cc68efeb651e5362c4aca85c2827d8e4d",
+                                      "HEAD"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+
+                                                     ],
+                         "configuration_sha256":  "efce64a191b2afe2db158d2160f870ad0d02347ed5e6f8a34476b5a5c9803579",
+                         "exit_code":  0,
+                         "duration_ms":  42,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C05.stdout.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C05.stderr.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0
+                                    }
+                     },
+                     {
+                         "id":  "C06",
+                         "argv":  [
+                                      "git.exe",
+                                      "diff",
+                                      "--exit-code",
+                                      "86fb1e4cc68efeb651e5362c4aca85c2827d8e4d",
+                                      "--",
+                                      "docs/receipts/P0.md"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+
+                                                     ],
+                         "configuration_sha256":  "56fc18bd59f5ef0828d20d7da72ed3977d231e05368249d90978ec38c32fb13c",
+                         "exit_code":  0,
+                         "duration_ms":  55,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C06.stdout.txt",
+                                        "sha256":  "13c4c8ea4d93f06598103b7f8108fa40e2c22abda2db9e3957a9f8172c4f4b9c",
+                                        "bytes":  106
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C06.stderr.txt",
+                                        "sha256":  "8da8abf77c82c0fdd1e88e7418cbd3779f02a03f7e1475c5449c31c5515e798d",
+                                        "bytes":  107
+                                    }
+                     },
+                     {
+                         "id":  "C07",
+                         "argv":  [
+                                      "git.exe",
+                                      "status",
+                                      "--porcelain=v1",
+                                      "--untracked-files=all",
+                                      "--",
+                                      "docs/receipts/P0.md"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+
+                                                     ],
+                         "configuration_sha256":  "a172612a2c87657e746a68fc8ffc97f5aa68166fb66b324b3959ee44aaaa4f8d",
+                         "exit_code":  0,
+                         "duration_ms":  42,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C07.stdout.txt",
+                                        "sha256":  "13c4c8ea4d93f06598103b7f8108fa40e2c22abda2db9e3957a9f8172c4f4b9c",
+                                        "bytes":  106
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C07.stderr.txt",
+                                        "sha256":  "38060844ded27646fcc85e79e8ad59bea20b3c769ec843bf25d9c8f9bedc8e39",
+                                        "bytes":  108
+                                    }
+                     },
+                     {
+                         "id":  "C08",
+                         "argv":  [
+                                      "rustc.exe",
+                                      "-Vv"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+
+                                                     ],
+                         "configuration_sha256":  "42dcd7cffc7d1b870ad88ec1129598f3b5d94c020769643a5e32846ba82ea1f3",
+                         "exit_code":  0,
+                         "duration_ms":  53,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C08.stdout.txt",
+                                        "sha256":  "2efe229f7908c2c19f459ca734101a5b35cb482476b8bee1357f94a18c766078",
+                                        "bytes":  194
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C08.stderr.txt",
+                                        "sha256":  "3c3aab9a5384530b820008cc3db8d84f814a305879a604989d7aae3861a30851",
+                                        "bytes":  49
+                                    }
+                     },
+                     {
+                         "id":  "C09",
+                         "argv":  [
+                                      "cargo.exe",
+                                      "-Vv"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+
+                                                     ],
+                         "configuration_sha256":  "6a53d9e233024c991e68cbed7a549dfb2cc1f5a518cf08dae7964825cf7576b2",
+                         "exit_code":  0,
+                         "duration_ms":  40,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C09.stdout.txt",
+                                        "sha256":  "aa4b48e772be811ab6fe5b57107ce5f1c02055c965756273cc9c9a95b3f1c98b",
+                                        "bytes":  321
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C09.stderr.txt",
+                                        "sha256":  "3c3aab9a5384530b820008cc3db8d84f814a305879a604989d7aae3861a30851",
+                                        "bytes":  49
+                                    }
+                     },
+                     {
+                         "id":  "C10",
+                         "argv":  [
+                                      "rustc.exe",
+                                      "--print",
+                                      "target-libdir",
+                                      "--target",
+                                      "x86_64-pc-windows-msvc"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+
+                                                     ],
+                         "configuration_sha256":  "bc16a21d104382f5997f2f2561483ab50e4a330f7464f0bcacb872db15c6ed84",
+                         "exit_code":  0,
+                         "duration_ms":  39,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C10.stdout.txt",
+                                        "sha256":  "1c06abe9bffc80b26b17c88fd64a65f81c2b3724cd3f95f7aca6ae4d7a1948a9",
+                                        "bytes":  95
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C10.stderr.txt",
+                                        "sha256":  "3c3aab9a5384530b820008cc3db8d84f814a305879a604989d7aae3861a30851",
+                                        "bytes":  49
+                                    }
+                     },
+                     {
+                         "id":  "C11",
+                         "argv":  [
+                                      "vswhere.exe",
+                                      "-version",
+                                      "[17.0,18.0)",
+                                      "-products",
+                                      "*",
+                                      "-requires",
+                                      "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+                                      "-format",
+                                      "json",
+                                      "-utf8"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+
+                                                     ],
+                         "configuration_sha256":  "bdd60ed027a07bc57484f4ea4f50d0c2ba1d335f8e48f4577739bcffe8e4a646",
+                         "exit_code":  0,
+                         "duration_ms":  31,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C11.stdout.txt",
+                                        "sha256":  "02a86f50152067d9cccc7cc7cfcae59a5544f823e209675e6df261f00a48d751",
+                                        "bytes":  76
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C11.stderr.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0
+                                    }
+                     },
+                     {
+                         "id":  "C12",
+                         "argv":  [
+                                      "cmd.exe",
+                                      "/d",
+                                      "/c",
+                                      "${TEMP}\\capture-vs-env.cmd",
+                                      "${VS_INSTALL}\\Common7\\Tools\\VsDevCmd.bat"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+
+                                                     ],
+                         "configuration_sha256":  "af0aa1e3b9fbcc54b95038863393404a3368117ab15c7c426b2631755f87c160",
+                         "exit_code":  0,
+                         "duration_ms":  1597,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C12.stdout.txt",
+                                        "sha256":  "53c7a4d577ada9423c7d8d471740f2df5675075c72897f3f299cc88fb8585344",
+                                        "bytes":  82
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C12.stderr.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0
+                                    }
+                     },
+                     {
+                         "id":  "C13",
+                         "argv":  [
+                                      "cl.exe",
+                                      "/nologo",
+                                      "/TC",
+                                      "/W4",
+                                      "/WX",
+                                      "/MD",
+                                      "${TEMP}\\tool_canary.c",
+                                      "/Fo${TEMP}\\tool_canary.obj",
+                                      "/Fe${TEMP}\\tool_canary.exe",
+                                      "/link",
+                                      "kernel32.lib"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+                                                         "_CL_",
+                                                         "_LINK_",
+                                                         "AR_x86_64_pc_windows_msvc",
+                                                         "CARGO_BUILD_TARGET",
+                                                         "CARGO_ENCODED_RUSTFLAGS",
+                                                         "CARGO_HOME",
+                                                         "CARGO_INCREMENTAL",
+                                                         "CARGO_NET_OFFLINE",
+                                                         "CARGO_TARGET_DIR",
+                                                         "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER",
+                                                         "CARGO_TERM_COLOR",
+                                                         "CARGO_TERM_VERBOSE",
+                                                         "CC_x86_64_pc_windows_msvc",
+                                                         "CL",
+                                                         "ComSpec",
+                                                         "CUDA_COMPUTE_CAP",
+                                                         "CUDA_HOME",
+                                                         "CUDA_PATH",
+                                                         "CUDA_PATH_V13_1",
+                                                         "CUDNN_HOME",
+                                                         "CUDNN_PATH",
+                                                         "HOME",
+                                                         "INCLUDE",
+                                                         "LIB",
+                                                         "LIBPATH",
+                                                         "LINK",
+                                                         "NO_COLOR",
+                                                         "NVCC",
+                                                         "P1A_CANARY_DIR",
+                                                         "Path",
+                                                         "PATHEXT",
+                                                         "RUST_LLM_ALLOW_CUDA_13",
+                                                         "RUST_LOG",
+                                                         "RUSTC",
+                                                         "RUSTC_WORKSPACE_WRAPPER",
+                                                         "RUSTC_WRAPPER",
+                                                         "RUSTDOC",
+                                                         "RUSTFLAGS",
+                                                         "RUSTUP_HOME",
+                                                         "SCCACHE_CACHE_SIZE",
+                                                         "SCCACHE_DIR",
+                                                         "SystemRoot",
+                                                         "TEMP",
+                                                         "TMP",
+                                                         "UCRTVersion",
+                                                         "UniversalCRTSdkDir",
+                                                         "USERPROFILE",
+                                                         "VCINSTALLDIR",
+                                                         "VCToolsInstallDir",
+                                                         "VCToolsVersion",
+                                                         "VSCMD_ARG_app_plat",
+                                                         "VSCMD_ARG_HOST_ARCH",
+                                                         "VSCMD_ARG_no_logo",
+                                                         "VSCMD_ARG_STARTDIR",
+                                                         "VSCMD_ARG_TGT_ARCH",
+                                                         "VSCMD_VER",
+                                                         "VSINSTALLDIR",
+                                                         "windir",
+                                                         "WindowsSdkBinPath",
+                                                         "WindowsSdkDir",
+                                                         "WindowsSdkVerBinPath",
+                                                         "WindowsSDKVersion"
+                                                     ],
+                         "configuration_sha256":  "d86fe091c73be7c11dc0750762a0f5b75a2ff2978bf59efc21d7a2ff76ac2ac4",
+                         "exit_code":  0,
+                         "duration_ms":  176,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C13.stdout.txt",
+                                        "sha256":  "c8ce80a618ac3d1f348ddcdaf92fa0064b574c16b21c569a764e0016af5bccef",
+                                        "bytes":  14
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C13.stderr.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0
+                                    }
+                     },
+                     {
+                         "id":  "C14",
+                         "argv":  [
+                                      "cl.exe",
+                                      "/nologo",
+                                      "/TC",
+                                      "/W4",
+                                      "/WX",
+                                      "/MD",
+                                      "/Bv",
+                                      "/c",
+                                      "${TEMP}\\native_probe.c",
+                                      "/Fo${TEMP}\\native_probe.obj"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+                                                         "_CL_",
+                                                         "_LINK_",
+                                                         "AR_x86_64_pc_windows_msvc",
+                                                         "CARGO_BUILD_TARGET",
+                                                         "CARGO_ENCODED_RUSTFLAGS",
+                                                         "CARGO_HOME",
+                                                         "CARGO_INCREMENTAL",
+                                                         "CARGO_NET_OFFLINE",
+                                                         "CARGO_TARGET_DIR",
+                                                         "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER",
+                                                         "CARGO_TERM_COLOR",
+                                                         "CARGO_TERM_VERBOSE",
+                                                         "CC_x86_64_pc_windows_msvc",
+                                                         "CL",
+                                                         "ComSpec",
+                                                         "CUDA_COMPUTE_CAP",
+                                                         "CUDA_HOME",
+                                                         "CUDA_PATH",
+                                                         "CUDA_PATH_V13_1",
+                                                         "CUDNN_HOME",
+                                                         "CUDNN_PATH",
+                                                         "HOME",
+                                                         "INCLUDE",
+                                                         "LIB",
+                                                         "LIBPATH",
+                                                         "LINK",
+                                                         "NO_COLOR",
+                                                         "NVCC",
+                                                         "P1A_CANARY_DIR",
+                                                         "Path",
+                                                         "PATHEXT",
+                                                         "RUST_LLM_ALLOW_CUDA_13",
+                                                         "RUST_LOG",
+                                                         "RUSTC",
+                                                         "RUSTC_WORKSPACE_WRAPPER",
+                                                         "RUSTC_WRAPPER",
+                                                         "RUSTDOC",
+                                                         "RUSTFLAGS",
+                                                         "RUSTUP_HOME",
+                                                         "SCCACHE_CACHE_SIZE",
+                                                         "SCCACHE_DIR",
+                                                         "SystemRoot",
+                                                         "TEMP",
+                                                         "TMP",
+                                                         "UCRTVersion",
+                                                         "UniversalCRTSdkDir",
+                                                         "USERPROFILE",
+                                                         "VCINSTALLDIR",
+                                                         "VCToolsInstallDir",
+                                                         "VCToolsVersion",
+                                                         "VSCMD_ARG_app_plat",
+                                                         "VSCMD_ARG_HOST_ARCH",
+                                                         "VSCMD_ARG_no_logo",
+                                                         "VSCMD_ARG_STARTDIR",
+                                                         "VSCMD_ARG_TGT_ARCH",
+                                                         "VSCMD_VER",
+                                                         "VSINSTALLDIR",
+                                                         "windir",
+                                                         "WindowsSdkBinPath",
+                                                         "WindowsSdkDir",
+                                                         "WindowsSdkVerBinPath",
+                                                         "WindowsSDKVersion"
+                                                     ],
+                         "configuration_sha256":  "bbda8d992d297ab9a5b06ced6a6d0904955e252325648c4364d77914a98b0442",
+                         "exit_code":  0,
+                         "duration_ms":  196,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C14.stdout.txt",
+                                        "sha256":  "f3d231c7dd6a476cff1161103157a067124e2d51429e02b4c7c06a3293f67d15",
+                                        "bytes":  15
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C14.stderr.txt",
+                                        "sha256":  "a4cadfad357ec2cc7fbfbc7699cab2eaf17a552c7d3c5bde4f564419cfc03f4a",
+                                        "bytes":  770
+                                    }
+                     },
+                     {
+                         "id":  "C15",
+                         "argv":  [
+                                      "lib.exe",
+                                      "/nologo",
+                                      "/OUT:${TEMP}\\native_probe.lib",
+                                      "${TEMP}\\native_probe.obj"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+                                                         "_CL_",
+                                                         "_LINK_",
+                                                         "AR_x86_64_pc_windows_msvc",
+                                                         "CARGO_BUILD_TARGET",
+                                                         "CARGO_ENCODED_RUSTFLAGS",
+                                                         "CARGO_HOME",
+                                                         "CARGO_INCREMENTAL",
+                                                         "CARGO_NET_OFFLINE",
+                                                         "CARGO_TARGET_DIR",
+                                                         "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER",
+                                                         "CARGO_TERM_COLOR",
+                                                         "CARGO_TERM_VERBOSE",
+                                                         "CC_x86_64_pc_windows_msvc",
+                                                         "CL",
+                                                         "ComSpec",
+                                                         "CUDA_COMPUTE_CAP",
+                                                         "CUDA_HOME",
+                                                         "CUDA_PATH",
+                                                         "CUDA_PATH_V13_1",
+                                                         "CUDNN_HOME",
+                                                         "CUDNN_PATH",
+                                                         "HOME",
+                                                         "INCLUDE",
+                                                         "LIB",
+                                                         "LIBPATH",
+                                                         "LINK",
+                                                         "NO_COLOR",
+                                                         "NVCC",
+                                                         "P1A_CANARY_DIR",
+                                                         "Path",
+                                                         "PATHEXT",
+                                                         "RUST_LLM_ALLOW_CUDA_13",
+                                                         "RUST_LOG",
+                                                         "RUSTC",
+                                                         "RUSTC_WORKSPACE_WRAPPER",
+                                                         "RUSTC_WRAPPER",
+                                                         "RUSTDOC",
+                                                         "RUSTFLAGS",
+                                                         "RUSTUP_HOME",
+                                                         "SCCACHE_CACHE_SIZE",
+                                                         "SCCACHE_DIR",
+                                                         "SystemRoot",
+                                                         "TEMP",
+                                                         "TMP",
+                                                         "UCRTVersion",
+                                                         "UniversalCRTSdkDir",
+                                                         "USERPROFILE",
+                                                         "VCINSTALLDIR",
+                                                         "VCToolsInstallDir",
+                                                         "VCToolsVersion",
+                                                         "VSCMD_ARG_app_plat",
+                                                         "VSCMD_ARG_HOST_ARCH",
+                                                         "VSCMD_ARG_no_logo",
+                                                         "VSCMD_ARG_STARTDIR",
+                                                         "VSCMD_ARG_TGT_ARCH",
+                                                         "VSCMD_VER",
+                                                         "VSINSTALLDIR",
+                                                         "windir",
+                                                         "WindowsSdkBinPath",
+                                                         "WindowsSdkDir",
+                                                         "WindowsSdkVerBinPath",
+                                                         "WindowsSDKVersion"
+                                                     ],
+                         "configuration_sha256":  "c7893dc7a581a6edca629eaf4198f45b98821368e5cd8a6435216a8d41c97e78",
+                         "exit_code":  0,
+                         "duration_ms":  39,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C15.stdout.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C15.stderr.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0
+                                    }
+                     },
+                     {
+                         "id":  "C16",
+                         "argv":  [
+                                      "rustc.exe",
+                                      "--edition=2024",
+                                      "--target",
+                                      "x86_64-pc-windows-msvc",
+                                      "${TEMP}\\native_probe.rs",
+                                      "-Lnative=${TEMP}",
+                                      "-lstatic=native_probe",
+                                      "-ldylib=kernel32",
+                                      "-o",
+                                      "${TEMP}\\native_probe.exe"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+                                                         "_CL_",
+                                                         "_LINK_",
+                                                         "AR_x86_64_pc_windows_msvc",
+                                                         "CARGO_BUILD_TARGET",
+                                                         "CARGO_ENCODED_RUSTFLAGS",
+                                                         "CARGO_HOME",
+                                                         "CARGO_INCREMENTAL",
+                                                         "CARGO_NET_OFFLINE",
+                                                         "CARGO_TARGET_DIR",
+                                                         "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER",
+                                                         "CARGO_TERM_COLOR",
+                                                         "CARGO_TERM_VERBOSE",
+                                                         "CC_x86_64_pc_windows_msvc",
+                                                         "CL",
+                                                         "ComSpec",
+                                                         "CUDA_COMPUTE_CAP",
+                                                         "CUDA_HOME",
+                                                         "CUDA_PATH",
+                                                         "CUDA_PATH_V13_1",
+                                                         "CUDNN_HOME",
+                                                         "CUDNN_PATH",
+                                                         "HOME",
+                                                         "INCLUDE",
+                                                         "LIB",
+                                                         "LIBPATH",
+                                                         "LINK",
+                                                         "NO_COLOR",
+                                                         "NVCC",
+                                                         "P1A_CANARY_DIR",
+                                                         "Path",
+                                                         "PATHEXT",
+                                                         "RUST_LLM_ALLOW_CUDA_13",
+                                                         "RUST_LOG",
+                                                         "RUSTC",
+                                                         "RUSTC_WORKSPACE_WRAPPER",
+                                                         "RUSTC_WRAPPER",
+                                                         "RUSTDOC",
+                                                         "RUSTFLAGS",
+                                                         "RUSTUP_HOME",
+                                                         "SCCACHE_CACHE_SIZE",
+                                                         "SCCACHE_DIR",
+                                                         "SystemRoot",
+                                                         "TEMP",
+                                                         "TMP",
+                                                         "UCRTVersion",
+                                                         "UniversalCRTSdkDir",
+                                                         "USERPROFILE",
+                                                         "VCINSTALLDIR",
+                                                         "VCToolsInstallDir",
+                                                         "VCToolsVersion",
+                                                         "VSCMD_ARG_app_plat",
+                                                         "VSCMD_ARG_HOST_ARCH",
+                                                         "VSCMD_ARG_no_logo",
+                                                         "VSCMD_ARG_STARTDIR",
+                                                         "VSCMD_ARG_TGT_ARCH",
+                                                         "VSCMD_VER",
+                                                         "VSINSTALLDIR",
+                                                         "windir",
+                                                         "WindowsSdkBinPath",
+                                                         "WindowsSdkDir",
+                                                         "WindowsSdkVerBinPath",
+                                                         "WindowsSDKVersion"
+                                                     ],
+                         "configuration_sha256":  "4e72669c06cb8fec7772f23aac709dedb8ffacab161a3a60e88ad1284f7fca53",
+                         "exit_code":  0,
+                         "duration_ms":  150,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C16.stdout.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C16.stderr.txt",
+                                        "sha256":  "3c3aab9a5384530b820008cc3db8d84f814a305879a604989d7aae3861a30851",
+                                        "bytes":  49
+                                    }
+                     },
+                     {
+                         "id":  "C17",
+                         "argv":  [
+                                      "native_probe.exe"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+                                                         "_CL_",
+                                                         "_LINK_",
+                                                         "AR_x86_64_pc_windows_msvc",
+                                                         "CARGO_BUILD_TARGET",
+                                                         "CARGO_ENCODED_RUSTFLAGS",
+                                                         "CARGO_HOME",
+                                                         "CARGO_INCREMENTAL",
+                                                         "CARGO_NET_OFFLINE",
+                                                         "CARGO_TARGET_DIR",
+                                                         "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER",
+                                                         "CARGO_TERM_COLOR",
+                                                         "CARGO_TERM_VERBOSE",
+                                                         "CC_x86_64_pc_windows_msvc",
+                                                         "CL",
+                                                         "ComSpec",
+                                                         "CUDA_COMPUTE_CAP",
+                                                         "CUDA_HOME",
+                                                         "CUDA_PATH",
+                                                         "CUDA_PATH_V13_1",
+                                                         "CUDNN_HOME",
+                                                         "CUDNN_PATH",
+                                                         "HOME",
+                                                         "INCLUDE",
+                                                         "LIB",
+                                                         "LIBPATH",
+                                                         "LINK",
+                                                         "NO_COLOR",
+                                                         "NVCC",
+                                                         "P1A_CANARY_DIR",
+                                                         "Path",
+                                                         "PATHEXT",
+                                                         "RUST_LLM_ALLOW_CUDA_13",
+                                                         "RUST_LOG",
+                                                         "RUSTC",
+                                                         "RUSTC_WORKSPACE_WRAPPER",
+                                                         "RUSTC_WRAPPER",
+                                                         "RUSTDOC",
+                                                         "RUSTFLAGS",
+                                                         "RUSTUP_HOME",
+                                                         "SCCACHE_CACHE_SIZE",
+                                                         "SCCACHE_DIR",
+                                                         "SystemRoot",
+                                                         "TEMP",
+                                                         "TMP",
+                                                         "UCRTVersion",
+                                                         "UniversalCRTSdkDir",
+                                                         "USERPROFILE",
+                                                         "VCINSTALLDIR",
+                                                         "VCToolsInstallDir",
+                                                         "VCToolsVersion",
+                                                         "VSCMD_ARG_app_plat",
+                                                         "VSCMD_ARG_HOST_ARCH",
+                                                         "VSCMD_ARG_no_logo",
+                                                         "VSCMD_ARG_STARTDIR",
+                                                         "VSCMD_ARG_TGT_ARCH",
+                                                         "VSCMD_VER",
+                                                         "VSINSTALLDIR",
+                                                         "windir",
+                                                         "WindowsSdkBinPath",
+                                                         "WindowsSdkDir",
+                                                         "WindowsSdkVerBinPath",
+                                                         "WindowsSDKVersion"
+                                                     ],
+                         "configuration_sha256":  "5e8db6f19a1e06f279a62065f7d5cf5eb29b9d3fe991e1a5bc2f5c9394c4cfcb",
+                         "exit_code":  0,
+                         "duration_ms":  44,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C17.stdout.txt",
+                                        "sha256":  "b6a750ad19871bbb90749d0be9f3248c75cf9e0e5a1ebc2efa9bda4b0b9ad3e8",
+                                        "bytes":  22
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C17.stderr.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0
+                                    }
+                     },
+                     {
+                         "id":  "C18",
+                         "argv":  [
+                                      "dumpbin.exe",
+                                      "/DEPENDENTS",
+                                      "${TEMP}\\native_probe.exe"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+                                                         "_CL_",
+                                                         "_LINK_",
+                                                         "AR_x86_64_pc_windows_msvc",
+                                                         "CARGO_BUILD_TARGET",
+                                                         "CARGO_ENCODED_RUSTFLAGS",
+                                                         "CARGO_HOME",
+                                                         "CARGO_INCREMENTAL",
+                                                         "CARGO_NET_OFFLINE",
+                                                         "CARGO_TARGET_DIR",
+                                                         "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER",
+                                                         "CARGO_TERM_COLOR",
+                                                         "CARGO_TERM_VERBOSE",
+                                                         "CC_x86_64_pc_windows_msvc",
+                                                         "CL",
+                                                         "ComSpec",
+                                                         "CUDA_COMPUTE_CAP",
+                                                         "CUDA_HOME",
+                                                         "CUDA_PATH",
+                                                         "CUDA_PATH_V13_1",
+                                                         "CUDNN_HOME",
+                                                         "CUDNN_PATH",
+                                                         "HOME",
+                                                         "INCLUDE",
+                                                         "LIB",
+                                                         "LIBPATH",
+                                                         "LINK",
+                                                         "NO_COLOR",
+                                                         "NVCC",
+                                                         "P1A_CANARY_DIR",
+                                                         "Path",
+                                                         "PATHEXT",
+                                                         "RUST_LLM_ALLOW_CUDA_13",
+                                                         "RUST_LOG",
+                                                         "RUSTC",
+                                                         "RUSTC_WORKSPACE_WRAPPER",
+                                                         "RUSTC_WRAPPER",
+                                                         "RUSTDOC",
+                                                         "RUSTFLAGS",
+                                                         "RUSTUP_HOME",
+                                                         "SCCACHE_CACHE_SIZE",
+                                                         "SCCACHE_DIR",
+                                                         "SystemRoot",
+                                                         "TEMP",
+                                                         "TMP",
+                                                         "UCRTVersion",
+                                                         "UniversalCRTSdkDir",
+                                                         "USERPROFILE",
+                                                         "VCINSTALLDIR",
+                                                         "VCToolsInstallDir",
+                                                         "VCToolsVersion",
+                                                         "VSCMD_ARG_app_plat",
+                                                         "VSCMD_ARG_HOST_ARCH",
+                                                         "VSCMD_ARG_no_logo",
+                                                         "VSCMD_ARG_STARTDIR",
+                                                         "VSCMD_ARG_TGT_ARCH",
+                                                         "VSCMD_VER",
+                                                         "VSINSTALLDIR",
+                                                         "windir",
+                                                         "WindowsSdkBinPath",
+                                                         "WindowsSdkDir",
+                                                         "WindowsSdkVerBinPath",
+                                                         "WindowsSDKVersion"
+                                                     ],
+                         "configuration_sha256":  "88b522e97197d4240fdb11f1c27a27ea2deb672b47453a7220a36a151ee91432",
+                         "exit_code":  0,
+                         "duration_ms":  23,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C18.stdout.txt",
+                                        "sha256":  "e2dc9f1515f037048b2bb458c39cd1205de8f18796d578ca91ad24ca2a3c1a54",
+                                        "bytes":  601
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C18.stderr.txt",
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                        "bytes":  0
+                                    }
+                     },
+                     {
+                         "id":  "C19",
+                         "argv":  [
+                                      "cargo.exe",
+                                      "metadata",
+                                      "--locked",
+                                      "--offline",
+                                      "--format-version",
+                                      "1",
+                                      "--features",
+                                      "cpu-reference",
+                                      "--filter-platform",
+                                      "x86_64-pc-windows-msvc"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+                                                         "_CL_",
+                                                         "_LINK_",
+                                                         "AR_x86_64_pc_windows_msvc",
+                                                         "CARGO_BUILD_TARGET",
+                                                         "CARGO_ENCODED_RUSTFLAGS",
+                                                         "CARGO_HOME",
+                                                         "CARGO_INCREMENTAL",
+                                                         "CARGO_NET_OFFLINE",
+                                                         "CARGO_TARGET_DIR",
+                                                         "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER",
+                                                         "CARGO_TERM_COLOR",
+                                                         "CARGO_TERM_VERBOSE",
+                                                         "CC_x86_64_pc_windows_msvc",
+                                                         "CL",
+                                                         "ComSpec",
+                                                         "CUDA_COMPUTE_CAP",
+                                                         "CUDA_HOME",
+                                                         "CUDA_PATH",
+                                                         "CUDA_PATH_V13_1",
+                                                         "CUDNN_HOME",
+                                                         "CUDNN_PATH",
+                                                         "HOME",
+                                                         "INCLUDE",
+                                                         "LIB",
+                                                         "LIBPATH",
+                                                         "LINK",
+                                                         "NO_COLOR",
+                                                         "NVCC",
+                                                         "P1A_CANARY_DIR",
+                                                         "Path",
+                                                         "PATHEXT",
+                                                         "RUST_LLM_ALLOW_CUDA_13",
+                                                         "RUST_LOG",
+                                                         "RUSTC",
+                                                         "RUSTC_WORKSPACE_WRAPPER",
+                                                         "RUSTC_WRAPPER",
+                                                         "RUSTDOC",
+                                                         "RUSTFLAGS",
+                                                         "RUSTUP_HOME",
+                                                         "SCCACHE_CACHE_SIZE",
+                                                         "SCCACHE_DIR",
+                                                         "SystemRoot",
+                                                         "TEMP",
+                                                         "TMP",
+                                                         "UCRTVersion",
+                                                         "UniversalCRTSdkDir",
+                                                         "USERPROFILE",
+                                                         "VCINSTALLDIR",
+                                                         "VCToolsInstallDir",
+                                                         "VCToolsVersion",
+                                                         "VSCMD_ARG_app_plat",
+                                                         "VSCMD_ARG_HOST_ARCH",
+                                                         "VSCMD_ARG_no_logo",
+                                                         "VSCMD_ARG_STARTDIR",
+                                                         "VSCMD_ARG_TGT_ARCH",
+                                                         "VSCMD_VER",
+                                                         "VSINSTALLDIR",
+                                                         "windir",
+                                                         "WindowsSdkBinPath",
+                                                         "WindowsSdkDir",
+                                                         "WindowsSdkVerBinPath",
+                                                         "WindowsSDKVersion"
+                                                     ],
+                         "configuration_sha256":  "c148992d8dda672a9541b974785505bc79727a0514855b2727c129369404db5c",
+                         "exit_code":  0,
+                         "duration_ms":  564,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C19.stdout.txt",
+                                        "sha256":  "93ae577b39df489ecc8c8d75c457598b0999a32ad2ef19edd55151ddbb95042d",
+                                        "bytes":  112
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C19.stderr.txt",
+                                        "sha256":  "802afe2722850e8f29536f7a989bbff5b5cb8b174c5c5fd9ebd0c9ab0940f961",
+                                        "bytes":  108
+                                    }
+                     },
+                     {
+                         "id":  "C20",
+                         "argv":  [
+                                      "cargo.exe",
+                                      "tree",
+                                      "--locked",
+                                      "--offline",
+                                      "--features",
+                                      "cpu-reference",
+                                      "--target",
+                                      "x86_64-pc-windows-msvc",
+                                      "-e",
+                                      "features"
+                                  ],
+                         "cwd":  "${REPO}",
+                         "environment_delta_names":  [
+                                                         "_CL_",
+                                                         "_LINK_",
+                                                         "AR_x86_64_pc_windows_msvc",
+                                                         "CARGO_BUILD_TARGET",
+                                                         "CARGO_ENCODED_RUSTFLAGS",
+                                                         "CARGO_HOME",
+                                                         "CARGO_INCREMENTAL",
+                                                         "CARGO_NET_OFFLINE",
+                                                         "CARGO_TARGET_DIR",
+                                                         "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER",
+                                                         "CARGO_TERM_COLOR",
+                                                         "CARGO_TERM_VERBOSE",
+                                                         "CC_x86_64_pc_windows_msvc",
+                                                         "CL",
+                                                         "ComSpec",
+                                                         "CUDA_COMPUTE_CAP",
+                                                         "CUDA_HOME",
+                                                         "CUDA_PATH",
+                                                         "CUDA_PATH_V13_1",
+                                                         "CUDNN_HOME",
+                                                         "CUDNN_PATH",
+                                                         "HOME",
+                                                         "INCLUDE",
+                                                         "LIB",
+                                                         "LIBPATH",
+                                                         "LINK",
+                                                         "NO_COLOR",
+                                                         "NVCC",
+                                                         "P1A_CANARY_DIR",
+                                                         "Path",
+                                                         "PATHEXT",
+                                                         "RUST_LLM_ALLOW_CUDA_13",
+                                                         "RUST_LOG",
+                                                         "RUSTC",
+                                                         "RUSTC_WORKSPACE_WRAPPER",
+                                                         "RUSTC_WRAPPER",
+                                                         "RUSTDOC",
+                                                         "RUSTFLAGS",
+                                                         "RUSTUP_HOME",
+                                                         "SCCACHE_CACHE_SIZE",
+                                                         "SCCACHE_DIR",
+                                                         "SystemRoot",
+                                                         "TEMP",
+                                                         "TMP",
+                                                         "UCRTVersion",
+                                                         "UniversalCRTSdkDir",
+                                                         "USERPROFILE",
+                                                         "VCINSTALLDIR",
+                                                         "VCToolsInstallDir",
+                                                         "VCToolsVersion",
+                                                         "VSCMD_ARG_app_plat",
+                                                         "VSCMD_ARG_HOST_ARCH",
+                                                         "VSCMD_ARG_no_logo",
+                                                         "VSCMD_ARG_STARTDIR",
+                                                         "VSCMD_ARG_TGT_ARCH",
+                                                         "VSCMD_VER",
+                                                         "VSINSTALLDIR",
+                                                         "windir",
+                                                         "WindowsSdkBinPath",
+                                                         "WindowsSdkDir",
+                                                         "WindowsSdkVerBinPath",
+                                                         "WindowsSDKVersion"
+                                                     ],
+                         "configuration_sha256":  "47dd695bb73b5ec0ed0cc7db07b092eccfbd8928926510a74cedd5a325663eee",
+                         "exit_code":  0,
+                         "duration_ms":  547,
+                         "status":  "PASS",
+                         "stdout":  {
+                                        "path":  "commands/C20.stdout.txt",
+                                        "sha256":  "11ae5c2e3b63793210cdd91e29d370a3fb92d793ef1f958ccb9983264cc949e5",
+                                        "bytes":  111
+                                    },
+                         "stderr":  {
+                                        "path":  "commands/C20.stderr.txt",
+                                        "sha256":  "802afe2722850e8f29536f7a989bbff5b5cb8b174c5c5fd9ebd0c9ab0940f961",
+                                        "bytes":  108
+                                    }
+                     }
+                 ],
+    "gates":  {
+                  "p0":  {
+                             "status":  "PASS",
+                             "detail":  "pinned P0 receipt, ancestry, sealed bytes, approvals, and run seal verified"
+                         },
+                  "input_stability":  {
+                                          "status":  "NOT_RUN",
+                                          "detail":  "not reached"
+                                      },
+                  "toolchain":  {
+                                    "status":  "PASS",
+                                    "detail":  "Rust/MSVC host, VS2022 x64 compiler/linker, and Windows SDK resolved"
+                                },
+                  "native_probe":  {
+                                       "status":  "PASS",
+                                       "detail":  "C, archive, Rust link/run, and PE import probe passed"
+                                   },
+                  "cpu_graph":  {
+                                    "status":  "FAIL",
+                                    "detail":  "activated CPU dependency graph contains CUDA packages or features"
+                                },
+                  "clean_build":  {
+                                      "status":  "NOT_RUN",
+                                      "detail":  "not reached"
+                                  },
+                  "quality_gate":  {
+                                       "status":  "NOT_RUN",
+                                       "detail":  "not reached"
+                                   },
+                  "python_isolation":  {
+                                           "status":  "NOT_RUN",
+                                           "detail":  "not reached"
+                                       },
+                  "cuda_isolation":  {
+                                         "status":  "NOT_RUN",
+                                         "detail":  "not reached"
+                                     },
+                  "redaction":  {
+                                    "status":  "PASS",
+                                    "detail":  "run artifacts contain no absolute paths, host/user identity, credentials, or secret-shaped values"
+                                },
+                  "cleanup":  {
+                                  "status":  "PASS",
+                                  "detail":  "temporary root removed; repository files, target, inputs, and parent environment unchanged"
+                              }
+              },
+    "errors":  [
+                   {
+                       "code":  "CPU_GRAPH_CONTAINS_CUDA",
+                       "category":  5,
+                       "message":  "activated CPU dependency graph contains CUDA packages or features",
+                       "remediation":  "Correct the reported prerequisite or command failure, then run the exact P1A command again."
+                   }
+               ],
+    "cleanup":  {
+                    "attempted":  true,
+                    "temporary_root_removed":  true
+                },
+    "seal":  {
+                 "path":  "SHA256SUMS",
+                 "sha256":  "773104bcf87d50d5e71d742a10cbea1d7845bb28cb6b3d523ea25dcef326dba9",
+                 "entries":  43,
+                 "coverage_rule":  "all_run_files_except_root_evidence_and_seal"
+             }
+}

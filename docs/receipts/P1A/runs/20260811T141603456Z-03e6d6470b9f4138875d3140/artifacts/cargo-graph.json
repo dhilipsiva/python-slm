@@ -1,0 +1,23 @@
+{
+    "schema":  "python-slm-cargo-graph-v1",
+    "target":  "x86_64-pc-windows-msvc",
+    "feature":  "cpu-reference",
+    "metadata_command_id":  "C19",
+    "tree_command_id":  "C20",
+    "resolved_package_count":  578,
+    "metadata_cuda_named_nodes":  [
+                                      "feature:burn-backend/cubecl-cuda",
+                                      "feature:cubecl/cubecl-cuda",
+                                      "feature:cubecl/cuda",
+                                      "feature:cubecl-cpp/cuda",
+                                      "feature:cudarc/cuda-version-from-build-system",
+                                      "feature:cudarc/nvrtc",
+                                      "package:burn-cuda",
+                                      "package:cubecl-cuda",
+                                      "package:cudarc"
+                                  ],
+    "forbidden_matches":  [
+
+                          ],
+    "status":  "PASS"
+}

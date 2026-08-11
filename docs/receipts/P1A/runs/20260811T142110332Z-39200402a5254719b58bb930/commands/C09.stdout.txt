@@ -1,0 +1,8 @@
+cargo 1.96.0 (30a34c682 2026-05-25)
+release: 1.96.0
+commit-hash: 30a34c6821b57de0aaec83a901aca39f88f6778c
+commit-date: 2026-05-25
+host: x86_64-pc-windows-msvc
+libgit2: 1.9.2 (sys:0.20.4 vendored)
+libcurl: 8.19.0-DEV (sys:0.4.87+curl-8.19.0 vendored ssl:Schannel)
+os: Windows 10.0.26200 (Windows 11 Professional) [64-bit]

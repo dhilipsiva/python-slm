@@ -1,0 +1,11 @@
+{
+    "status":  "FAIL",
+    "errors":  [
+                   {
+                       "code":  "UNEXPECTED_VERIFIER_FAILURE",
+                       "category":  1,
+                       "message":  "invalid child environment name: 3DVPATH",
+                       "remediation":  "Correct the reported prerequisite or command failure, then run the exact P1A command again."
+                   }
+               ]
+}

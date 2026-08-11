@@ -1,0 +1,14 @@
+{
+    "schema":  "python-slm-failure-summary-v1",
+    "phase_id":  "P1A",
+    "run_id":  "20260811T135205572Z-b4054fbd19f3447cbc6cb13e",
+    "status":  "FAIL",
+    "errors":  [
+                   {
+                       "code":  "UNEXPECTED_VERIFIER_FAILURE",
+                       "category":  1,
+                       "message":  "Cannot process argument transformation on parameter \u0027FilePath\u0027. Cannot convert value to type System.String.",
+                       "remediation":  "Correct the reported prerequisite or verifier failure, then run the exact P1A command again."
+                   }
+               ]
+}

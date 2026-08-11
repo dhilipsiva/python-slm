@@ -1,0 +1,514 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://python-slm.local/schemas/python-slm-phase-evidence-v1.schema.json",
+  "title": "python-slm immutable phase-run evidence v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "phase_id",
+    "run_id",
+    "mode",
+    "status",
+    "started_at",
+    "finished_at",
+    "duration_ms",
+    "invocation",
+    "source_identity_sha256",
+    "p0_dependency",
+    "environment",
+    "commands",
+    "gates",
+    "errors",
+    "cleanup",
+    "seal"
+  ],
+  "properties": {
+    "schema": { "const": "python-slm-phase-evidence-v1" },
+    "phase_id": { "enum": ["P1A", "P1B"] },
+    "run_id": { "$ref": "#/definitions/runId" },
+    "mode": { "enum": ["Cpu", "Cuda"] },
+    "status": { "enum": ["PASS", "FAIL"] },
+    "started_at": { "$ref": "#/definitions/utcDateTime" },
+    "finished_at": { "$ref": "#/definitions/utcDateTime" },
+    "duration_ms": { "type": "integer", "minimum": 0 },
+    "invocation": {
+      "oneOf": [
+        { "$ref": "#/definitions/cpuInvocation" },
+        { "$ref": "#/definitions/cudaInvocation" }
+      ]
+    },
+    "source_identity_sha256": { "$ref": "#/definitions/sha256" },
+    "p0_dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "receipt_commit",
+        "receipt_sha256",
+        "contract_sha256",
+        "decision_ledger_sha256"
+      ],
+      "properties": {
+        "status": { "enum": ["PASS", "FAIL"] },
+        "receipt_commit": { "$ref": "#/definitions/gitSha" },
+        "receipt_sha256": { "$ref": "#/definitions/sha256" },
+        "contract_sha256": { "$ref": "#/definitions/sha256" },
+        "decision_ledger_sha256": { "$ref": "#/definitions/sha256" }
+      }
+    },
+    "environment": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/definitions/environmentFileRef" }
+      ]
+    },
+    "commands": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/command" }
+    },
+    "gates": { "$ref": "#/definitions/gates" },
+    "errors": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/error" }
+    },
+    "cleanup": { "$ref": "#/definitions/cleanup" },
+    "seal": {
+      "oneOf": [
+        { "$ref": "#/definitions/runSeal" },
+        { "$ref": "#/definitions/legacyFailureRunSeal" }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "status": { "const": "PASS" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "phase_id": { "const": "P1A" },
+          "mode": { "const": "Cpu" },
+          "invocation": { "$ref": "#/definitions/cpuInvocation" },
+          "p0_dependency": {
+            "allOf": [
+              { "$ref": "#/definitions/passingP0Dependency" }
+            ]
+          },
+          "environment": { "$ref": "#/definitions/environmentFileRef" },
+          "commands": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/definitions/passingCommand" }
+          },
+          "gates": { "$ref": "#/definitions/passingGates" },
+          "errors": { "type": "array", "maxItems": 0 },
+          "cleanup": { "$ref": "#/definitions/passingCleanup" },
+          "seal": { "$ref": "#/definitions/runSeal" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "phase_id": { "const": "P1A" } },
+        "required": ["phase_id"]
+      },
+      "then": {
+        "properties": {
+          "mode": { "const": "Cpu" },
+          "invocation": { "$ref": "#/definitions/cpuInvocation" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "phase_id": { "const": "P1B" } },
+        "required": ["phase_id"]
+      },
+      "then": {
+        "properties": {
+          "mode": { "const": "Cuda" },
+          "status": { "const": "FAIL" },
+          "invocation": { "$ref": "#/definitions/cudaInvocation" },
+          "environment": { "type": "null" },
+          "errors": {
+            "type": "array",
+            "minItems": 1,
+            "contains": {
+              "type": "object",
+              "properties": {
+                "code": { "const": "MODE_NOT_IMPLEMENTED" }
+              },
+              "required": ["code"]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "status": { "const": "FAIL" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "errors": { "type": "array", "minItems": 1 }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "seal": {
+            "type": "object",
+            "properties": {
+              "coverage_rule": {
+                "const": "all_run_files_except_root_evidence_and_seal"
+              }
+            },
+            "required": ["coverage_rule"]
+          }
+        },
+        "required": ["seal"]
+      },
+      "then": {
+        "properties": {
+          "status": { "const": "FAIL" },
+          "run_id": {
+            "enum": [
+              "20260811T135205572Z-b4054fbd19f3447cbc6cb13e",
+              "20260811T135349352Z-b7b1c0230b47473ba22ce6c0",
+              "20260811T135551718Z-bac8f20fcdc54147811a1266",
+              "20260811T135746406Z-aef03b68c7fb4bb5b6b75e17",
+              "20260811T135924951Z-21d92bf2c9f14bdb8c57bbc2",
+              "20260811T140125365Z-bcbbe06ec66245b4941cc2b9",
+              "20260811T140306815Z-3af3710134354c378097aa9a",
+              "20260811T140631147Z-fc46ebcc30184ee09fca08bd"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "runSeal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "entries", "coverage_rule"],
+      "properties": {
+        "path": { "const": "SHA256SUMS" },
+        "entries": { "type": "integer", "minimum": 1 },
+        "coverage_rule": { "const": "all_run_files_except_seal" }
+      }
+    },
+    "legacyFailureRunSeal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "entries", "coverage_rule"],
+      "properties": {
+        "path": { "const": "SHA256SUMS" },
+        "sha256": { "$ref": "#/definitions/sha256" },
+        "entries": { "type": "integer", "minimum": 1 },
+        "coverage_rule": { "const": "all_run_files_except_root_evidence_and_seal" }
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "gitSha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "runId": {
+      "type": "string",
+      "pattern": "^[0-9]{8}T[0-9]{9}Z-[0-9a-f]{24}$"
+    },
+    "utcDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "cpuInvocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["argv", "cwd"],
+      "properties": {
+        "argv": {
+          "const": [
+            "powershell",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            "scripts/verify-env.ps1",
+            "-Mode",
+            "Cpu",
+            "-OutputRoot",
+            "docs/receipts/P1A"
+          ]
+        },
+        "cwd": { "const": "${REPO}" }
+      }
+    },
+    "cudaInvocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["argv", "cwd"],
+      "properties": {
+        "argv": {
+          "const": [
+            "powershell",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            "scripts/verify-env.ps1",
+            "-Mode",
+            "Cuda",
+            "-OutputRoot",
+            "docs/receipts/P1B"
+          ]
+        },
+        "cwd": { "const": "${REPO}" }
+      }
+    },
+    "relativePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.{1,2}(?:/|$))[A-Za-z0-9_-][A-Za-z0-9._-]*(?:/[A-Za-z0-9_-][A-Za-z0-9._-]*)*$"
+    },
+    "recordedString": {
+      "type": "string",
+      "pattern": "^(?!.*(?:[A-Za-z]:[\\\\/]|\\\\\\\\))[^\\r\\n]*$"
+    },
+    "nonEmptyRecordedString": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!.*(?:[A-Za-z]:[\\\\/]|\\\\\\\\))[^\\r\\n]+$"
+    },
+    "environmentName": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_()]*$"
+    },
+    "fileRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "bytes"],
+      "properties": {
+        "path": { "$ref": "#/definitions/relativePath" },
+        "sha256": { "$ref": "#/definitions/sha256" },
+        "bytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "environmentFileRef": {
+      "allOf": [
+        { "$ref": "#/definitions/fileRef" },
+        {
+          "properties": {
+            "path": { "const": "artifacts/environment.json" }
+          }
+        }
+      ]
+    },
+    "stdoutFileRef": {
+      "allOf": [
+        { "$ref": "#/definitions/fileRef" },
+        {
+          "properties": {
+            "path": {
+              "type": "string",
+              "pattern": "^commands/C[0-9]{2,4}\\.stdout\\.txt$"
+            }
+          }
+        }
+      ]
+    },
+    "stderrFileRef": {
+      "allOf": [
+        { "$ref": "#/definitions/fileRef" },
+        {
+          "properties": {
+            "path": {
+              "type": "string",
+              "pattern": "^commands/C[0-9]{2,4}\\.stderr\\.txt$"
+            }
+          }
+        }
+      ]
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "detail"],
+      "properties": {
+        "status": { "enum": ["PASS", "FAIL", "NOT_RUN"] },
+        "detail": { "$ref": "#/definitions/nonEmptyRecordedString" }
+      }
+    },
+    "passingGate": {
+      "allOf": [
+        { "$ref": "#/definitions/gate" },
+        {
+          "properties": { "status": { "const": "PASS" } }
+        }
+      ]
+    },
+    "gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "p0",
+        "input_stability",
+        "toolchain",
+        "native_probe",
+        "cpu_graph",
+        "clean_build",
+        "quality_gate",
+        "python_isolation",
+        "cuda_isolation",
+        "redaction",
+        "cleanup"
+      ],
+      "properties": {
+        "p0": { "$ref": "#/definitions/gate" },
+        "input_stability": { "$ref": "#/definitions/gate" },
+        "toolchain": { "$ref": "#/definitions/gate" },
+        "native_probe": { "$ref": "#/definitions/gate" },
+        "cpu_graph": { "$ref": "#/definitions/gate" },
+        "clean_build": { "$ref": "#/definitions/gate" },
+        "quality_gate": { "$ref": "#/definitions/gate" },
+        "python_isolation": { "$ref": "#/definitions/gate" },
+        "cuda_isolation": { "$ref": "#/definitions/gate" },
+        "redaction": { "$ref": "#/definitions/gate" },
+        "cleanup": { "$ref": "#/definitions/gate" }
+      }
+    },
+    "passingGates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "p0",
+        "input_stability",
+        "toolchain",
+        "native_probe",
+        "cpu_graph",
+        "clean_build",
+        "quality_gate",
+        "python_isolation",
+        "cuda_isolation",
+        "redaction",
+        "cleanup"
+      ],
+      "properties": {
+        "p0": { "$ref": "#/definitions/passingGate" },
+        "input_stability": { "$ref": "#/definitions/passingGate" },
+        "toolchain": { "$ref": "#/definitions/passingGate" },
+        "native_probe": { "$ref": "#/definitions/passingGate" },
+        "cpu_graph": { "$ref": "#/definitions/passingGate" },
+        "clean_build": { "$ref": "#/definitions/passingGate" },
+        "quality_gate": { "$ref": "#/definitions/passingGate" },
+        "python_isolation": { "$ref": "#/definitions/passingGate" },
+        "cuda_isolation": { "$ref": "#/definitions/passingGate" },
+        "redaction": { "$ref": "#/definitions/passingGate" },
+        "cleanup": { "$ref": "#/definitions/passingGate" }
+      }
+    },
+    "command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "argv",
+        "cwd",
+        "environment_delta_names",
+        "configuration_sha256",
+        "exit_code",
+        "duration_ms",
+        "status",
+        "stdout",
+        "stderr"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^C[0-9]{2,4}$" },
+        "argv": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/nonEmptyRecordedString" }
+        },
+        "cwd": { "const": "${REPO}" },
+        "environment_delta_names": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/environmentName" }
+        },
+        "configuration_sha256": { "$ref": "#/definitions/sha256" },
+        "exit_code": { "type": "integer" },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "status": { "enum": ["PASS", "FAIL"] },
+        "stdout": { "$ref": "#/definitions/stdoutFileRef" },
+        "stderr": { "$ref": "#/definitions/stderrFileRef" }
+      }
+    },
+    "passingCommand": {
+      "allOf": [
+        { "$ref": "#/definitions/command" },
+        {
+          "properties": {
+            "status": { "const": "PASS" },
+            "exit_code": { "const": 0 }
+          }
+        }
+      ]
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "category", "message", "remediation"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+        "category": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "message": { "$ref": "#/definitions/nonEmptyRecordedString" },
+        "remediation": { "$ref": "#/definitions/nonEmptyRecordedString" }
+      }
+    },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attempted", "temporary_root_removed"],
+      "properties": {
+        "attempted": { "type": "boolean" },
+        "temporary_root_removed": { "type": "boolean" }
+      }
+    },
+    "passingCleanup": {
+      "allOf": [
+        { "$ref": "#/definitions/cleanup" },
+        {
+          "properties": {
+            "attempted": { "const": true },
+            "temporary_root_removed": { "const": true }
+          }
+        }
+      ]
+    },
+    "passingP0Dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "receipt_commit",
+        "receipt_sha256",
+        "contract_sha256",
+        "decision_ledger_sha256"
+      ],
+      "properties": {
+        "status": { "const": "PASS" },
+        "receipt_commit": { "$ref": "#/definitions/gitSha" },
+        "receipt_sha256": { "$ref": "#/definitions/sha256" },
+        "contract_sha256": { "$ref": "#/definitions/sha256" },
+        "decision_ledger_sha256": { "$ref": "#/definitions/sha256" }
+      }
+    }
+  }
+}
