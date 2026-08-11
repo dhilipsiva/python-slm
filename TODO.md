@@ -192,7 +192,7 @@ or frozen-decision change reopens P0 and blocks P1A/P3. Suggested commit:
 
 ## Phase 1A — Verify and Pin the CPU Environment
 
-- [ ] P1A complete
+- [x] P1A complete
 
 Dependencies: P0.
 

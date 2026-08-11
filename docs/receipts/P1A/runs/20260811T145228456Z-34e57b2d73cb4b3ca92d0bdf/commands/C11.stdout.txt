@@ -1,0 +1,1 @@
+VS2022 candidates discovered; raw installation paths intentionally omitted.

@@ -1,0 +1,100 @@
+{
+    "schema":  "python-slm-phase-evidence-v1",
+    "phase_id":  "P1A",
+    "run_id":  "20260811T145228456Z-34e57b2d73cb4b3ca92d0bdf",
+    "mode":  "Cpu",
+    "status":  "FAIL",
+    "started_at":  "2026-08-11T14:52:28.4560000Z",
+    "finished_at":  "2026-08-11T14:55:50.3814569Z",
+    "duration_ms":  201925,
+    "invocation":  {
+                       "argv":  [
+                                    "powershell",
+                                    "-NoProfile",
+                                    "-ExecutionPolicy",
+                                    "Bypass",
+                                    "-File",
+                                    "scripts/verify-env.ps1",
+                                    "-Mode",
+                                    "Cpu",
+                                    "-OutputRoot",
+                                    "docs/receipts/P1A"
+                                ],
+                       "cwd":  "${REPO}"
+                   },
+    "source_identity_sha256":  "1d710d0c8df4fc784a06fc562d7413dd2b799be2532a4a55bd4e28eac1ad0c59",
+    "p0_dependency":  {
+                          "status":  "PASS",
+                          "receipt_commit":  "86fb1e4cc68efeb651e5362c4aca85c2827d8e4d",
+                          "receipt_sha256":  "f08c6a41658ff287e238d6a96c4f2c874975964202c3eeced2bc0bc21f308904",
+                          "contract_sha256":  "fc2c60b52fdd7c524e0da06bb03972a4d523c21ad5536cba536185435bd44ad4",
+                          "decision_ledger_sha256":  "8349d8a3e06d96d6921889de5534715e7b2f7439caf7e06558a97652a8890c8d"
+                      },
+    "environment":  null,
+    "commands":  [
+
+                 ],
+    "gates":  {
+                  "p0":  {
+                             "status":  "NOT_RUN",
+                             "detail":  "not reached"
+                         },
+                  "input_stability":  {
+                                          "status":  "NOT_RUN",
+                                          "detail":  "not reached"
+                                      },
+                  "toolchain":  {
+                                    "status":  "NOT_RUN",
+                                    "detail":  "not reached"
+                                },
+                  "native_probe":  {
+                                       "status":  "NOT_RUN",
+                                       "detail":  "not reached"
+                                   },
+                  "cpu_graph":  {
+                                    "status":  "NOT_RUN",
+                                    "detail":  "not reached"
+                                },
+                  "clean_build":  {
+                                      "status":  "NOT_RUN",
+                                      "detail":  "not reached"
+                                  },
+                  "quality_gate":  {
+                                       "status":  "NOT_RUN",
+                                       "detail":  "not reached"
+                                   },
+                  "python_isolation":  {
+                                           "status":  "NOT_RUN",
+                                           "detail":  "not reached"
+                                       },
+                  "cuda_isolation":  {
+                                         "status":  "NOT_RUN",
+                                         "detail":  "not reached"
+                                     },
+                  "redaction":  {
+                                    "status":  "NOT_RUN",
+                                    "detail":  "not reached"
+                                },
+                  "cleanup":  {
+                                  "status":  "FAIL",
+                                  "detail":  "External termination prevented verifier-owned cleanup confirmation."
+                              }
+              },
+    "errors":  [
+                   {
+                       "code":  "EXTERNAL_ABORT",
+                       "category":  5,
+                       "message":  "The verifier process ended before terminal evidence publication.",
+                       "remediation":  "Preserve this failed attempt and use the previously selected validated P1A acceptance."
+                   }
+               ],
+    "cleanup":  {
+                    "attempted":  false,
+                    "temporary_root_removed":  false
+                },
+    "seal":  {
+                 "path":  "SHA256SUMS",
+                 "entries":  50,
+                 "coverage_rule":  "all_run_files_except_seal"
+             }
+}

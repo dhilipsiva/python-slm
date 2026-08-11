@@ -1,0 +1,14 @@
+{
+    "schema":  "python-slm-failure-summary-v1",
+    "phase_id":  "P1A",
+    "run_id":  "20260811T145228456Z-34e57b2d73cb4b3ca92d0bdf",
+    "status":  "FAIL",
+    "errors":  [
+                   {
+                       "code":  "EXTERNAL_ABORT",
+                       "category":  5,
+                       "message":  "The verifier process ended before terminal evidence publication.",
+                       "remediation":  "Preserve this failed attempt and use the previously selected validated P1A acceptance."
+                   }
+               ]
+}
