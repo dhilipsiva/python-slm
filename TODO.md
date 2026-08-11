@@ -3,26 +3,35 @@
 Dependencies, not phase numbers, define admissible order. Never start a phase before its
 dependencies pass. The GPU/backend track (P1B–P2), data track (P3–P9A), and CPU model
 track (P3–P9B) may run in parallel where dependencies permit. The existing Rust code is
-reference evidence, not code to copy. The target architecture is
-`docs/ARCHITECTURE.md`.
+reference evidence, not code to copy. `AGENTS.md` governs work,
+`docs/rebuild-contract.md` records Phase 0 product decisions pending its signed receipt,
+and `docs/ARCHITECTURE.md` defines the target design. A conflict is a stop condition.
 
 ## Operating Rules
 
-- Start every phase by reading `AGENTS.md`, `docs/ARCHITECTURE.md`, this file, and
-  `git status`. Preserve unrelated work.
+- Start every phase by reading `AGENTS.md`, `docs/rebuild-contract.md`,
+  `docs/ARCHITECTURE.md`, this file, `git status`, and every dependency's authoritative
+  acceptance record plus its referenced immutable run. Preserve unrelated work.
 - Do not run `cargo new`, `git init`, create a nested repository, broadly stage files,
   auto-commit, or tag. Use the existing repository.
 - Implement only the active phase. Do not hide failed gates with fallbacks, relaxed
   assertions, ignored errors, or claims based on unexecuted commands.
 - Normal tests are offline, deterministic, bounded, and credential-free. No Python
   executable or Python package is part of the build or pipeline.
-- Record each phase's commands, exit codes, relevant measurements, and unresolved facts
-  in `docs/receipts/<phase-id>.md`, for example `P1A.md`, `P6A.md`, `P7A.md`, `P9A.md`,
-  or `P9B.md`. Mark a phase complete only after its PASS gate succeeds.
-- A PASS list is not evidence without an exact VERIFY command. Each receipt records the
-  command, working directory, relevant environment/configuration hashes, exit code,
-  stdout/stderr or artifact hash, and status. Receipts never contain credentials, raw
-  source, PII, or secrets.
+- Every attempt writes create-new
+  `docs/receipts/<phase-id>/runs/<run-id>/evidence.json` using schema
+  `python-slm-phase-evidence-v1`, with exact command transcripts and hashes. Failed and
+  superseded runs remain immutable and are never selected. A reviewed passing run gets a
+  create-new `acceptances/<sequence>.json` record; the root `evidence.json` is an atomically
+  replaceable `python-slm-phase-evidence-pointer-v1` pointer containing that acceptance
+  path and hash. A dependency passes only when the pointer, selected acceptance, referenced
+  immutable run, `PASS` status, and every required named approval all validate. P0 is the
+  sole exception: its human approval authority is `docs/receipts/P0.md`. Machine evidence,
+  checklist prose, silence, or an agent audit never substitutes for human approval.
+- Each receipt records the command, working directory, relevant environment/configuration
+  hashes, exit code, stdout/stderr or artifact hash, and status. A phase remains blocked
+  unless its exact invocation appears in the normative global table below or its card.
+  Receipts never contain credentials, raw source, PII, or secrets.
 - A suggested commit is optional and occurs only after human review.
 
 Until Phase 3 replaces the command contract, the CPU quality gate is:
@@ -36,9 +45,51 @@ cargo test --locked --features cpu-reference
 From P3 onward, every phase runs `scripts/quality-gate.ps1` plus a named targeted
 test/benchmark command for that phase and records both in its receipt.
 
+The literal verification entry points are fixed below. P1/P2 create their named scripts;
+P3 creates `scripts/quality-gate.ps1` and rejected-by-default `scripts/verify-phase.ps1`.
+Each implementation phase installs its own case. The preceding implementation owner must
+install no-code cases before freeze: P6 installs P6A, P7 installs P7A, P8 installs P9A,
+and P13 installs P14-P16. The driver records every child argv and exit code.
+
+```powershell
+# P1A / P1B
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-env.ps1 -Mode Cpu -OutputRoot docs\receipts\P1A
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-env.ps1 -Mode Cuda -OutputRoot docs\receipts\P1B
+
+# P2
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\qualify-backend.ps1 -OutputRoot docs\receipts\P2
+
+# P3
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\quality-gate.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P3 -OutputRoot docs\receipts\P3
+
+# P4-P16: run quality-gate.ps1 first, then the exact phase command.
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P4 -OutputRoot docs\receipts\P4
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P5 -OutputRoot docs\receipts\P5
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P6 -OutputRoot docs\receipts\P6
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P6A -OutputRoot docs\receipts\P6A
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P7 -OutputRoot docs\receipts\P7
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P7A -OutputRoot docs\receipts\P7A
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P8 -OutputRoot docs\receipts\P8
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P9A -OutputRoot docs\receipts\P9A
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P9B -OutputRoot docs\receipts\P9B
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P10 -OutputRoot docs\receipts\P10
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P11 -OutputRoot docs\receipts\P11
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P12 -OutputRoot docs\receipts\P12
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P13 -OutputRoot docs\receipts\P13
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P14 -OutputRoot docs\receipts\P14
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P15 -OutputRoot docs\receipts\P15
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P16 -OutputRoot docs\receipts\P16
+```
+
 ## Phase 0 — Freeze the Rebuild Contract
 
 - [ ] P0 complete
+
+Status: `AWAITING_REVIEW`. Sealed machine evidence passed, but technical and
+data-governance approvals are both `PENDING`. Keep this checkbox unchecked until
+`docs/receipts/P0.md` is `PASS`, both top-level approval summaries say `APPROVED`, and
+both owner sign-off blocks explicitly say `APPROVE`.
 
 Dependencies: none.
 
@@ -55,9 +106,10 @@ Prompt:
 > `<s>=1`, `</s>=2`, `<unk>=3`) and injection/boundary policy; tokenizer-sample
 > decimal-byte budget and per-repository caps; corpus encoding, accepted Python dialect,
 > min/max bytes, generated-marker scope, license allow/deny/unknown rules, and PII/secret
-> reject-versus-transform policy; train/validation/test split and
+> reject/quarantine/no-redaction policy; train/validation/test split and
 > benchmark-decontamination policy; dedup-only normalization, lexical-token
-> 5-gram semantics, MinHash seed/signature width, LSH layout, labeled-suite corpus/version,
+> 5-gram semantics, MinHash coefficient construction/signature width, LSH layout,
+> labeled-suite corpus/version,
 > and minimum recall/precision; RoPE pairing/position and causal-mask
 > conventions; initialization and parameter naming; optimizer decay groups; cosine
 > floor/end behavior; global valid targets per optimizer update; final partial-update
@@ -73,9 +125,54 @@ PASS:
 
 - Every listed decision is explicit and consistent with `docs/ARCHITECTURE.md`.
 - Reference commands and outputs are captured; unknowns are labeled, not guessed.
-- The diff contains only the contract and receipt.
+- The authoritative capture ran from its recorded frozen source commit and changed only
+  the contract/receipt evidence paths allowed by that capture. Later documentation
+  reconciliation is a separate reviewed commit and does not alter sealed bytes.
+- Both top-level approval summaries say `APPROVED`, both named owner decisions explicitly
+  say `APPROVE`, and the authoritative receipt is `PASS`. The owner must first resolve the
+  contract's `APPROVED` status wording versus the receipt-only approval workflow; an agent
+  must not infer or perform that transition.
 
-STOP/loop: unresolved product decisions stay in P0. Suggested commit:
+VERIFY:
+
+```powershell
+$ErrorActionPreference = 'Stop'
+$baseline = 'b1ebb455cdae94bbb9fc54f246cdf2758eedf1d1'
+$sealed = @('docs/rebuild-contract.md', 'docs/receipts/P0/capture.ps1', 'docs/receipts/P0/evidence.json', 'docs/receipts/P0/runs/20260811T074740Z-d5008e94')
+git diff --exit-code $baseline -- $sealed
+if ($LASTEXITCODE -ne 0) { throw 'sealed Phase 0 bytes changed' }
+$sealedStatus = @(git status --porcelain=v1 --untracked-files=all -- $sealed)
+if ($LASTEXITCODE -ne 0 -or $sealedStatus.Count -ne 0) { throw 'sealed Phase 0 paths are dirty or contain additions' }
+$run = Resolve-Path docs\receipts\P0\runs\20260811T074740Z-d5008e94
+Get-Content "$run\SHA256SUMS" | ForEach-Object { $expected, $relative = $_ -split '  ', 2; if ((Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $run $relative)).Hash.ToLowerInvariant() -ne $expected) { throw "seal mismatch: $relative" } }
+$receipt = Get-Content -Raw docs\receipts\P0.md
+$statusLines = [regex]::Matches($receipt, '(?m)^Status:[^\r\n]*$')
+if ($statusLines.Count -ne 1 -or $statusLines[0].Value -notmatch '^Status:[ \t]+\*\*PASS\*\*[ \t]*$') { throw 'P0 receipt has no unique PASS status' }
+foreach ($summaryName in @('Technical approval', 'Data-governance approval')) {
+    $summaryPattern = '(?m)^' + [regex]::Escape($summaryName) + ':[^\r\n]*$'
+    $summaryLines = [regex]::Matches($receipt, $summaryPattern)
+    $approvedPattern = '^' + [regex]::Escape($summaryName) + ':[ \t]+\*\*APPROVED\*\*[ \t]*$'
+    if ($summaryLines.Count -ne 1 -or $summaryLines[0].Value -notmatch $approvedPattern) { throw "missing or contradictory P0 summary: $summaryName" }
+}
+foreach ($sectionName in @('Technical approval', 'Data-governance approval')) {
+    $sectionPattern = '(?ms)^###[ \t]+' + [regex]::Escape($sectionName) + '[ \t]*\r?\n(?<body>.*?)(?=^###[ \t]+|\z)'
+    $sections = [regex]::Matches($receipt, $sectionPattern)
+    if ($sections.Count -ne 1) { throw "missing or duplicate P0 section: $sectionName" }
+    $body = $sections[0].Groups['body'].Value
+    $decisions = [regex]::Matches($body, '(?m)^Decision:[^\r\n]*$')
+    if ($decisions.Count -ne 1 -or $decisions[0].Value -notmatch '^Decision:[ \t]+\x60APPROVE\x60[ \t]*$' -or $body -match '(?i)\b(?:PENDING|REJECT)\b') { throw "ambiguous or non-approving P0 decision: $sectionName" }
+    foreach ($pattern in @('(?m)^Owner name:[ \t]+\S[^\r\n]*$', '(?m)^Review reference/signature:[ \t]+\S[^\r\n]*$', '(?m)^UTC timestamp:[ \t]+\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z[ \t]*$')) {
+        if ([regex]::Matches($body, $pattern).Count -ne 1) { throw "incomplete or duplicate P0 sign-off field in $sectionName" }
+    }
+}
+```
+
+The sealed capture remains authoritative for its frozen contract bytes and reference
+observations. This architecture/TODO reconciliation is a separate change set; technical
+review must include its resulting commit, which must not rewrite any sealed byte.
+
+STOP/loop: unresolved product decisions or either missing approval stay in P0 and block
+P1A/P3. Never infer approval. Suggested commit:
 `docs: freeze clean-rebuild contract`.
 
 ## Phase 1A — Verify and Pin the CPU Environment
@@ -169,14 +266,22 @@ Dependencies: P0, P1A. P2 may proceed in parallel and is required by P10.
 Prompt:
 
 > Recreate the implementation in this repository without copying the reference source.
-> Keep one Cargo package initially. Establish typed, versioned configuration and the
-> module/CLI boundaries specified in `docs/ARCHITECTURE.md`: config, data, tokenizer,
-> storage, model, backend, train, and independently restartable binaries. Feature-gate
-> CUDA and native probes so the default CPU build needs no toolkit. Define a backend
+> Keep one Cargo package and one installed `python-slm` executable initially. Expose
+> independently restartable `plan`, `curate`, `train-tokenizer`, `tokenize`, `inspect`,
+> `bench`, and `train` subcommands through internal config, data, tokenizer, storage,
+> model, backend, and train modules. The
+> the contract's historical phrase "independently restartable binaries" means these
+> independently invocable subcommands, never multiple installed executables.
+> Implement `CLI-001`, `CONFIG-001`, and `ERROR-001`:
+> explicit versioned JSON production configurations, unknown-field rejection, no hidden
+> production defaults, one terminal success JSON object, typed JSONL handled errors, and
+> fixed exit categories 0 through 5. Feature-gate CUDA and native probes so the default
+> CPU build needs no toolkit. Define a backend
 > interface without selecting or importing a GPU framework; P10 consumes P2's ADR.
 > Replace old code in small, reviewable diffs; preserve research documents and baseline
-> receipts. Create a stable `scripts/quality-gate.ps1`. Do not leave executable `todo!()`,
-> `unimplemented!()`, or silent stub success paths.
+> receipts. Create stable `scripts/quality-gate.ps1` and rejected-by-default
+> `scripts/verify-phase.ps1` entry points that record child argv/exit status. Do not leave
+> executable `todo!()`, `unimplemented!()`, or silent stub success paths.
 
 PASS:
 
@@ -184,8 +289,9 @@ PASS:
   temporary directory; never delete an existing target directory. CPU builds do not
   discover or link CUDA.
 - If P2 is complete, its selected-backend compile gate also passes; otherwise that gate
-  remains a recorded P10 prerequisite. `--help` exposes stage commands and unfinished
-  stages fail closed with explicit status.
+  remains a recorded P10 prerequisite. `--help` exposes all seven subcommands, handled
+  success/error streams and exit categories pass fixtures, and unfinished stages fail
+  closed with explicit status.
 - The canonical quality-gate commands are documented for all later phases.
 
 STOP/loop: unexplained reference-code carryover or a CPU build requiring CUDA fails P3.
@@ -199,9 +305,12 @@ Dependencies: P3.
 
 Prompt:
 
-> Define a bounded `DocumentSource` contract carrying source/repository IDs, source
-> snapshot, original encoding, license/provenance, removal-list version, raw hash, and
-> content bytes. Implement separate adapters for genuinely content-bearing Parquet and
+> Define a bounded `DocumentSource` contract carrying the exact `SOURCE-002` stable
+> `source_id` and always-present `repository_group_id`, adapter namespace, provider record
+> identity, source snapshot, original encoding, license/provenance, removal-list version,
+> raw hash, and content bytes. Provider IDs must be unique in their contract namespace;
+> use the frozen conservative fallback grouping when no repository identity exists.
+> Implement separate adapters for genuinely content-bearing Parquet and
 > authorized Stack-v2 metadata plus Software Heritage content retrieval. Add HTTPS,
 > checksums, size limits, timeout, retry/backoff, bounded concurrency, resumable cache,
 > and environment-only credentials. Build deterministic local HTTP/Parquet/SWH fixtures;
@@ -209,7 +318,11 @@ Prompt:
 > forward credentials across origins, reject local/link-local targets outside explicit
 > fixture mode, enforce approved HTTPS hosts/destinations, cap compressed and decompressed
 > bytes, and make cache keys/path joins traversal-safe. Emit acquisition manifests and
-> reason-coded failures.
+> reason-coded failures. Acquire and hash every authoritative `GOV-003` removal manifest,
+> preserve provider ordering/freshness metadata, and fail closed when a required authority
+> is missing, unverifiable, or unorderable. Each adapter must map removal entries to the
+> exact `SOURCE-002` identity namespace and reject matching documents before P5; an
+> ambiguous or unresolvable mandatory removal entry fails closed rather than passing data.
 
 PASS:
 
@@ -217,6 +330,9 @@ PASS:
   bomb, hostile redirect, cross-origin credential forwarding, absolute/`..` IDs,
   malformed metadata, encoding metadata, and credential redaction.
 - Provenance survives a source round trip and removal snapshots are versioned.
+- Fixtures prove source-ID determinism, non-unique-provider-ID rejection, fallback grouping,
+  removal-manifest ordering/hash verification, exact membership rejection, ambiguous-entry
+  failure, and stale/superseding-snapshot behavior.
 
 STOP/loop: fixture-complete adapters may pass P4 without credentials. The authorized
 live-source gate is deferred to P6A and cannot be self-approved. Use an explicitly
@@ -231,29 +347,38 @@ Dependencies: P4.
 
 Prompt:
 
-> Implement the P0 encoding policy deterministically, retaining the raw hash and
-> recording any Rust-native transcode. Use one pinned-version Tree-sitter Python parser
-> per Rayon worker. Add configurable minimum/maximum bytes, parser resource bounds,
-> `root.has_error()` rejection, Tree-sitter comment-node byte ratio, header-scoped
-> generated markers, and metadata policy. Equal to 50% comment bytes is accepted; greater
-> than 50% is rejected. Docstrings are not comments. Apply the P0-fixed PII/secret policy.
-> Preserve original bytes in the governed raw layer. Any permitted deterministic
-> transformation creates separate curated bytes, pre/post hashes, a policy version, and
-> a transformation record; never claim transformed text is original or log scrubbed
-> values. Re-run CST validation after transformation and reject a transform that changes
-> the configured Python-validity outcome. Define stable all-reasons ordering or explicit
-> first-failure precedence.
+> Implement `SOURCE-002/003` exactly: strict UTF-8/ASCII Python 3, recorded leading-BOM
+> removal only, fixed canonical size `100..=1,000,000`, pinned
+> `tree-sitter-python 0.25.0`, parser bounds, `root.has_error()` rejection, exact
+> Tree-sitter comment-node byte accounting, and independent generated-marker scans over
+> each comment intersection with `[0,8192)`. Equality at 50% comment bytes passes;
+> strictly greater fails; docstrings are not comments. Before detector implementation,
+> obtain named human review of an ADR that freezes and hashes `sensitive-rules-v1`, with
+> exact patterns, validators, entropy rules, reserved domains, precedence, and quarantine
+> behavior. Apply `GOV-002`: reject confirmed sensitive documents, quarantine uncertain
+> cases, preserve restricted raw evidence, never expose values in logs/receipts, and never
+> rewrite tokenizer-visible source in v1. Implement `GOV-001` with an SPDX-expression
+> parser—not substring matching—and the exact `permissive-v1` allowlist. An OR expression
+> passes only when a complete branch passes; every term in an AND branch must pass. Reject
+> missing, unknown, conflicting, copyleft, exception-bearing, `LicenseRef`, malformed, and
+> otherwise unapproved expressions while retaining the original expression and provenance.
+> Define stable all-reasons ordering or explicit first-failure precedence.
 
 PASS:
 
-- Boundary/property fixtures cover encodings, 99/100 bytes, exactly/over 50%, malformed
-  trees, docstrings, marker location/case, huge files, time budgets, PII, and secrets.
+- Boundary/property fixtures cover encoding cookies/BOM conflicts, 99/100,
+  1,000,000/1,000,001 bytes, exactly/over 50%, malformed trees, docstrings, marker
+  location/case, time budgets, PII, and secrets.
 - Repeated runs produce identical accepted IDs, bytes, reasons, and hashes.
 - CPU memory remains within the configured bound under adversarial batches.
 - No PII/secret fixture value appears in logs, errors, or receipts.
+- License fixtures cover every allowlisted identifier, nested parentheses, OR/AND,
+  malformed/unknown/missing expressions, `LicenseRef`, exceptions, conflicts, and
+  representative copyleft terms; exact `GOV-001` outcomes and reason codes pass.
 
-STOP/loop: ambiguous encoding or scrub policy returns to P0 rather than becoming an
-implicit heuristic. Suggested commit: `feat(data): add deterministic source policy`.
+STOP/loop: missing human review of `sensitive-rules-v1`, ambiguous encoding, or ambiguous
+sensitive-data behavior blocks P5 rather than becoming an implicit heuristic. Suggested
+commit: `feat(data): add deterministic source policy`.
 
 ## Phase 6 — Scalable Exact/Near Deduplication
 
@@ -263,28 +388,35 @@ Dependencies: P5.
 
 Prompt:
 
-> Implement exact-content deduplication, then the P0-frozen dedup-only normalization and
-> lexical-token 5-grams. Build deterministic 256-component seeded MinHash signatures and
-> LSH candidate retrieval using the frozen seed/layout. Apply exact source-shingle
-> Jaccard only to candidates; reject when similarity is strictly greater than 0.85.
-> Cluster matches and choose a deterministic representative using documented quality and
-> stable-ID tie-breaks.
+> Before implementing, benchmarking, or tuning LSH, materialize the exact 10,000-pair
+> `dedup-threshold-v1` generator, strata, seed, exhaustive truth, and manifest required by
+> `DEDUP-003`; obtain human review and seal its source/artifact hashes. Then implement
+> exact curated-hash dedup, `DEDUP-001` lexical traversal/encoding and transitive clusters,
+> and `DEDUP-002`'s 256 fixed affine MinHash components, 32-by-8 LSH keys, short-document
+> shingle, and exact candidate Jaccard. Reject strictly above 0.85; equality passes.
 > Partition or persist production indexes; never perform global O(N²) comparison or keep
-> every document/shingle set in RAM. Keep normalization used for dedup separate from
-> tokenizer text. Duplicate clusters retain every source/provenance/license record;
-> representative selection chooses training bytes only.
+> every document/shingle set in RAM. Duplicate clusters retain every provenance/license
+> record while the deterministic representative supplies training bytes. Also implement
+> and fixture-qualify `DECONTAM-001` and `SPLIT-001`: import the pinned benchmark registry
+> without Python, apply exact/Jaccard/protected-span exclusions, then assign repository/
+> duplicate connected components deterministically to 98/1/1 splits.
 
 PASS:
 
 - Fixtures built from rational set intersections clearly below, exactly at, just above,
   and well above 0.85 behave as specified.
 - Results and representative choices are invariant across thread counts and input order.
-- A labeled clone suite reports LSH recall/precision; a 100K-document benchmark proves
-  bounded memory and no all-pairs path.
-- Measured recall and precision meet the P0-frozen minima for the recorded suite version;
-  otherwise P6 remains open.
+- The sealed suite reports end-to-end recall at least `0.995`, final precision exactly
+  `1.0`, and candidate amplification; a 100K-document benchmark proves bounded memory and
+  no all-pairs path.
+- The receipt names the human reviewer and records sealed generator/source, exhaustive
+  truth, pair-manifest, and suite hashes created before LSH work began.
+- Decontamination and split fixtures reproduce fixture import/extraction hashes, protected
+  matches, component isolation, and bucket boundaries without invoking Python. Actual
+  EvalPlus asset/decoded hashes remain a P6A gate.
 
-STOP/loop: exact checks do not justify claiming removal of pairs LSH never retrieved.
+STOP/loop: missing human review/sealed suite identities, or a recall/precision failure,
+keeps P6 open. Exact checks do not justify claiming removal of pairs LSH never retrieved.
 Record measured recall. Suggested commit: `feat(data): add deterministic LSH dedup`.
 
 ## Phase 6A — Materialize Governed Documents and Splits
@@ -295,15 +427,15 @@ Dependencies: P4, P5, P6.
 
 Prompt:
 
-> Resolve the destination to an explicit ignored path, verify free space/quota, and bound
-> caches before bulk work; never recursively clean an output root or commit raw/generated
-> artifacts. Run synthetic, authorized 1,000-document, larger bounded, then production
-> source snapshots through acquisition, decoding/policy, and deduplication without changing
-> code. Persist immutable governed-document and duplicate-cluster manifests with every
-> provenance/license/removal record. Apply the P0 repository/cluster split algorithm and
-> benchmark-decontamination registry before tokenizer sampling. Record counts, hashes,
-> rejection reasons, dedup recall, resource peaks, and policy versions. Obtain named human
-> governance approval; an agent cannot self-approve source rights or transformations.
+> Without changing code, resolve the destination to an explicit ignored path, verify free
+> space/quota, and bound caches before bulk work; never recursively clean an output root or
+> commit raw/generated artifacts. Run synthetic, authorized 1,000-document, larger bounded,
+> then production snapshots through the P4-P6 qualified engines. Pin EvalPlus v0.3.1,
+> HumanEval+ asset v0.1.10, and the real MBPP+ asset v0.2.0; verify imported and decoded
+> hashes before decontamination. Persist immutable governed-document, duplicate-cluster,
+> split, benchmark-registry, license/provenance, and removal manifests. Record counts,
+> rejection reasons, dedup metrics, resource peaks, and policy versions. Obtain named human
+> governance approval; an agent cannot self-approve source rights or sensitive-data policy.
 
 PASS:
 
@@ -312,6 +444,8 @@ PASS:
   the recorded algorithm, seed, and registry hash.
 - Named governance approval covers the immutable snapshot, and the training split has
   enough approved bytes for the P0 tokenizer budget.
+- Every EvalPlus asset/import hash and `GOV-003` removal authority verifies from a fresh
+  process, and the removal recheck is current for materialization.
 
 STOP/loop: missing access, approval, provenance, removal freshness, scrub policy, disk,
 or approved bytes blocks the production tokenizer. Suggested commit:
@@ -325,11 +459,13 @@ Dependencies: P6.
 
 Prompt:
 
-> Implement deterministic sample selection with a configurable decimal-byte budget,
-> stable ranking/order, per-repository caps, and exclusion of validation/test and
-> decontamination matches. Implement Rust-native byte-level BPE training with no case
+> Implement exact `TOKSAMPLE-001` selection over whole deduplicated, decontaminated train
+> documents: domain-separated SHA-256 rank, stable order, 10,000,000-byte repository-group
+> cap, 2,000,000,000-byte global cap, and skip-non-fitting-then-continue behavior. Implement
+> Rust-native byte-level BPE training with no case
 > folding, Unicode normalization, or whitespace stripping; explicitly seed the complete
-> 256-byte alphabet; use fixed special IDs and EOS policy; and emit versioned artifact
+> 256-byte alphabet, minimum merge frequency two, and source encoding that bypasses
+> special-token matching; use fixed special IDs and EOS policy; and emit versioned artifact
 > metadata. Qualify the engine on a sufficiently varied immutable synthetic training
 > split. Add byte-roundtrip, repeated-build hash, whitespace/indentation, arbitrary-byte
 > policy, unknown-token, max-ID, and pathological repeated-pair overflow tests. Do not
@@ -337,7 +473,8 @@ Prompt:
 
 PASS:
 
-- Vocab size is 32,000; maximum ID is at most 31,999; all special IDs match the contract.
+- Vocab size is 32,000 contiguous IDs and maximum ID is exactly 31,999; all special IDs
+  match the contract.
 - Two clean fixture runs over the same ordered manifest produce byte-identical artifacts.
 - Supported source bytes round-trip exactly with zero unknown IDs; unsupported input fails
   explicitly before tokenization.
@@ -353,11 +490,14 @@ Dependencies: P6A, P7.
 
 Prompt:
 
-> Without changing code, select only from the immutable governed training split using the
-> P0 byte budget (production target: up to 2,000,000,000 decimal bytes; never duplicate
-> input to fill it), stable order, and per-repository caps. Train twice from clean outputs,
-> verify both complete hash chains, and publish the production tokenizer/sample receipt.
-> Validation/test and benchmark-decontamination matches are ineligible.
+> Without changing code, select only from the immutable governed training split using
+> exact `TOKSAMPLE-001`: whole documents in domain-separated SHA-256 rank order, at most
+> 10,000,000 decimal bytes per repository group and 2,000,000,000 globally, skipping a
+> non-fitting document and continuing without splitting or duplication. The qualified
+> sample must contain `1,999,000,000..=2,000,000,000` bytes. Train on separate documents
+> in rank order with no inserted specials. Train twice from clean outputs, verify both
+> complete hash chains, and publish the production tokenizer/sample receipt. Validation,
+> test, and benchmark-decontamination matches are ineligible.
 
 PASS:
 
@@ -388,8 +528,12 @@ Prompt:
 > absolute paths, parent traversal, and symlink/reparse-point escapes in manifest paths.
 > Map immutable files read-only and on Windows deny write/delete sharing, or document and
 > test an equally strong invariant. Bulk-gather contiguous spans and explicitly decode
-> little-endian values. Generate 2,049 stored IDs for each 2,048-token input/target pair;
-> never wrap corpus tail to head or cross forbidden document/split boundaries.
+> little-endian values. Represent each 2,048-target sample as a 2,049-ID logical view over
+> global offsets; never duplicate stored anchors. Samples may cross physical shards and
+> EOS/document transitions, but never split boundaries or corpus-end wrap. Implement the
+> exact `SPAN-001` planner on synthetic manifests: 976,562 complete spans shuffled by the
+> specified ChaCha12/rejection-sampled descending Fisher-Yates algorithm, followed by the
+> unshuffled final 1,024-target partial span. Preserve token order within every span.
 
 PASS:
 
@@ -399,6 +543,8 @@ PASS:
 - Readers reject incomplete generations and enforce the backing-file immutability
   invariant documented by the architecture.
 - Bulk-loader benchmark avoids per-token file lookup and records host throughput.
+- Golden `SPAN-001` fixtures prove the exact seed operands/order, no duplicate or omitted
+  complete span, the partial span last, deterministic replay, and corpus-end no-wrap.
 
 STOP/loop: unsafe casts require documented alignment, lifetime, mutation, and endian
 proof; explicit decoding is the default. Suggested commit:
@@ -415,18 +561,28 @@ Prompt:
 > Consume the immutable P6A curated training and held-out splits; do not rerun acquisition,
 > filtering, deduplication, or splitting. Resolve explicit ignored destinations, verify
 > free space/quota plus safety margin, bound caches, and never recursively clean an output
-> root or commit raw/token artifacts. Run a bounded sample, then materialize enough stored
-> IDs to expose exactly 2,000,000,000 valid predicted targets under the P0 policy. Treat
-> stored-ID count as a measured artifact output, not a preselected target. Preserve and
-> verify the entire source→split→tokenizer→shard hash chain. Record host resource peaks,
-> tokenization wall time, boundary exclusions, unused tails, and held-out artifacts.
+> root or commit raw/token artifacts. Run a bounded sample, then order/pack complete train
+> documents exactly as `ACCOUNT-001`. Stop after completing the first document whose EOS
+> reaches at least 2,000,000,001 IDs; contract the first 2,000,000,001 IDs, retain only
+> that document's remainder as stored unused tail, and count all later approved documents
+> and bytes as unmaterialized. Preserve and verify the complete source→split→tokenizer→shard
+> hash chain. Generate the production `SPAN-001` order manifest from the raw decision-ledger
+> and corpus-manifest hashes using P8's qualified implementation; record its seed operands,
+> ordered offsets, final partial-span descriptor, and artifact hash. Materialize and hash
+> the exact 1,000,000-target `EVAL-001` validation index manifest. Record host resource
+> peaks, tokenization wall time, every role-ledger counter, and held-out artifacts.
 
 PASS:
 
 - Every manifest/hash verifies from a fresh process; no partial artifact is accepted.
-- Valid predicted targets equal 2,000,000,000; stored-ID, boundary-exclusion, and
-  unused-tail counts reconcile exactly to manifests and P0 accounting rules.
+- The prefix has 2,000,000,001 IDs and exposes exactly 2,000,000,000 consumed real inputs
+  and valid targets with zero boundary exclusions. Stored unused tail, unmaterialized
+  documents/bytes, and the final 1,024 runtime PAD/masked positions reconcile exactly.
 - Tokenized train/held-out artifacts trace to the approved P6A split and tokenizer hashes.
+- The `SPAN-001` manifest contains every complete span exactly once in qualified order,
+  keeps the 1,024-target partial span last, and verifies from its recorded seed operands.
+- The deterministic validation-sample index contains exactly 1,000,000 targets and
+  verifies from its recorded split-manifest hash.
 
 STOP/loop: disk, hash-chain, boundary, or count failure blocks the production run and
 returns to the owning phase. Suggested commit:
@@ -446,8 +602,11 @@ Prompt:
 > `d_ff=2432` and must equal 135,285,504 parameters; retain the named `d_ff=2048`
 > 124,668,672 preset. Map query head `q` to KV head `q/3`; do not use concatenation that
 > produces interleaved ordering. Use a backend-independent scalar/f64 oracle. Freeze
-> tensor layout, RoPE pairing, causal-mask convention, parameter names, dropout, and
-> initialization from P0. Implement an analytical per-component parameter counter
+> tensor layout, adjacent-pair RoPE with reset only at packed-sample start, inclusive
+> causal masking across EOS, and the stable `PARAM-001` names. Materialize and hash
+> canonical initialized parameter artifacts for both presets using `INIT-001`'s exact
+> parameter order, pinned `rand_chacha 0.10.0`/`rand_distr 0.6.0`, domain-separated seed, f32 normal
+> sampling, and BF16 conversion. Implement an analytical per-component parameter counter
 > independent of any backend registry and require exact agreement. Implement shifted
 > next-token loss on tiny shapes; do not select a GPU framework when P2 is incomplete.
 
@@ -456,6 +615,7 @@ PASS:
 - Exact count, shape, causal-prefix invariance, RoPE scalar parity, GQA mapping,
   RMSNorm, SwiGLU, and finite-difference gradient checks on tiny shapes pass.
 - The reference is deterministic and suitable as the oracle for optimized kernels.
+- Both initialized artifacts reproduce byte-for-byte and their hashes are recorded.
 - Full production shapes are not used in ordinary CPU tests.
 
 STOP/loop: a range such as “135M ±5%” is not an acceptable count gate. Suggested
@@ -469,7 +629,9 @@ Dependencies: P2, P9B.
 
 Prompt:
 
-> Port the validated model to the selected backend. Progress from unfused reference GQA
+> Port the validated model to the selected backend and load P9B's canonical initialized
+> parameter artifact by its recorded hash; backend-native reinitialization is forbidden.
+> Progress from unfused reference GQA
 > to the framework's memory-efficient path; add an isolated SM120 custom operation only
 > if profiling proves it necessary. The production path must support causal 12Q/4KV BF16
 > forward and backward without materializing repeated K/V. Add chunked or fused LM-head
@@ -490,6 +652,7 @@ Prompt:
 PASS:
 
 - Forward loss and gradients meet the predeclared BF16 tolerances against P9B.
+- The backend loads the exact P9B initialization artifact/hash and parameter-name mapping.
 - Causal and GQA semantics pass adversarial tests; optimized code does not repeat K/V.
 - At least one full-layer and fused-loss path runs on SM120 without quadratic attention
   or full-logit retention.
@@ -534,10 +697,14 @@ Dependencies: P8, P10, P11.
 
 Prompt:
 
-> Implement BF16 pre-training with explicit FP32-sensitive reductions/state and a
-> versioned configurable preset defaulting to AdamW (`beta1=.9`, `beta2=.95`, `eps=1e-8`,
-> decay `.1`), P0 decay exemptions/clipping policy, and 1,000-optimizer-step warmup to
-> `2.5e-3` followed by cosine decay to the P0-fixed floor/end. Distinguish stored IDs,
+> Initialize the trainer only from P9B's canonical parameter artifact and verified hash;
+> backend-native reinitialization is forbidden. Implement the named canonical BF16
+> training preset with explicit FP32-sensitive
+> reductions/state and exact `OPT-001` AdamW equations, bias correction, epsilon placement,
+> decay groups, global-L2 clipping, and master-weight cast. Preserve exactly 65,536 valid
+> targets per full update, 30,517 full updates, one final 37,888-target update, and 30,518
+> updates total. Implement `SCHED-001`: 1,000-update linear warmup to `2.5e-3`, then cosine
+> decay so update 30,518 uses exactly `2.5e-4`. Distinguish stored IDs,
 > consumed input IDs, valid predicted targets, padding/boundary exclusions, microsteps,
 > optimizer steps, and zero overshoot. Normalize accumulated loss/gradients by the actual
 > valid-predicted-target count; define the final partial update; if scaling, unscale before
@@ -545,11 +712,16 @@ Prompt:
 > scheduler and zero gradients once at the completed optimizer update. Save atomic
 > generation checkpoints with
 > model, master/moment state, scheduler, scaler if used, host/device RNG, data order/cursor,
-> counters, and all config/artifact hashes, only at completed optimizer boundaries unless
-> accumulated gradients are also serialized. Do not run the full corpus. Evaluation
-> consumes immutable held-out spans, does not advance training cursor/RNG/scheduler,
-> restores mode and state, records loss/perplexity, and includes enabled cadence/time in
-> SLA projections. Before measurement, record full-step numerical and performance gates
+> counters, and all config/artifact hashes. Consume a verified `SPAN-001` manifest
+> directly—P8's synthetic fixture in this phase and P9A's production artifact in later
+> qualification—never regenerate or reorder it in the backend, and checkpoint its identity
+> and exact next-span cursor. Version 1 forbids mid-update checkpoints.
+> Implement `EVAL-001`'s fixed 1,000,000-target sample and cadence plus `CKPT-001`'s same
+> post-update thresholds, completion checkpoint, atomic publication, and retention policy.
+> Evaluation consumes immutable held-out spans, does not advance training cursor/RNG/
+> scheduler, restores mode and state, records loss/perplexity, and includes its time in SLA
+> projections. Do not run the full corpus. Before measurement, record full-step numerical
+> and performance gates
 > in the ADR. Measure synchronized representative full training steps, including optimizer
 > work, and finalize the backend ADR only if numerical parity, p50/p95 latency, throughput,
 > and peak VRAM meet those gates.
@@ -557,9 +729,13 @@ Prompt:
 PASS:
 
 - Scalar AdamW/schedule/accumulation references and boundary tests pass.
+- Trainer initialization reproduces the P9B artifact hash before the first update.
+- Tests cover updates 1, 1,000, 30,518; the 37,888-target final normalization; threshold
+  evaluation/checkpoint coincidences; retention; and zero overshoot.
 - A fixed tiny corpus overfits without non-finite values.
 - Interrupted/resumed execution matches uninterrupted execution within a declared BF16
-  tolerance and refuses mismatched artifacts/configuration.
+  tolerance, resumes the next exact `SPAN-001` entry without repeat/skip, and refuses
+  mismatched span manifests, artifacts, or configuration.
 - Held-out evaluation repeats from the same checkpoint/sample order without changing the
   subsequent training state.
 - Crash-injection tests ignore incomplete/corrupt checkpoint generations and reload the
@@ -593,7 +769,8 @@ Prompt:
 
 PASS:
 
-- Fresh-clone CPU CI passes locked fmt/check/Clippy/tests without CUDA.
+- An authorized fresh clone of the exact commit, or a clean content-addressed export of
+  the exact tree, passes locked fmt/check/Clippy/tests without CUDA.
 - The local GPU qualification script—or an already authorized GPU CI job—publishes parity
   JSON and a complete environment/reproducibility manifest.
 - Data-side artifacts (accepted IDs/reasons, tokenizer, indexes, and shards) repeat
@@ -613,9 +790,10 @@ Dependencies: P12, P13.
 Prompt:
 
 > In a release build on the target host, autotune microbatches 2, 4, 8, 16, and 32 at
-> context 2,048. Adjust gradient accumulation independently to preserve the selected
-> valid predicted-target batch. Run each OOM-prone candidate in a fresh child process with
-> an explicit timeout and result artifact; record failure and stop increasing that family.
+> context 2,048. Adjust gradient accumulation independently to preserve exactly 65,536
+> valid predicted targets per full update. Run each OOM-prone candidate in a fresh child
+> process with an explicit timeout and result artifact; record failure and stop increasing
+> that family.
 > Synchronize timings, discard JIT/autotune warmup from numerator and denominator, compute
 > throughput from actual valid predicted targets consumed rather than nominal `B*L`, and
 > maximize steady-state targets/s below the VRAM safety ceiling rather than maximizing
@@ -645,12 +823,16 @@ Dependencies: P9A, P14.
 
 Prompt:
 
-> Freeze code, dependencies, corpus, tokenizer, model, and training configuration. Before
+> Freeze code, dependencies, corpus, tokenizer, model, training configuration, approved
+> full-contract hash, decision-ledger hash, and P9B initialization-artifact hash. Before
 > running, verify all immutable hashes, exclusive GPU availability, target-host power,
 > sleep/update state, sufficient disk for all checkpoint generations plus safety margin,
-> and that no superseding mandatory removal snapshot exists. Report blockers but do not
-> mutate OS policy without explicit authorization. Qualify at 1M valid predicted targets,
-> 100M valid predicted targets, 30 minutes, and then 60 minutes. At each rung run a
+> and that every `GOV-003` authority was rechecked within the preceding 24 hours with no
+> superseding mandatory removal snapshot. Report blockers but do not
+> mutate OS policy without explicit authorization. Observe the 1M and 100M target
+> thresholds at the first completed optimizer boundary that crosses each threshold; do not
+> invent exact partial updates. Run 30-minute and then 60-minute trials, ending each only at
+> a completed optimizer boundary. At each rung run a
 > restart-correctness trial and a separate uninterrupted performance trial; only the
 > uninterrupted trial supplies throughput, while measured checkpoint/restart overhead is
 > added separately. Archive
@@ -663,6 +845,8 @@ Prompt:
 PASS:
 
 - All rungs finish without correctness, resume, OOM, or thermal-stability failure.
+- Every rung preserves completed-boundary checkpoint semantics and the frozen contract,
+  ledger, initialization, corpus, tokenizer, code, and configuration identities.
 - Synchronized steady-state throughput is at least 75K valid predicted targets/s for
   30–60 minutes.
 - Measured whole-run projection, including overhead, is below 28,800 seconds.
@@ -681,9 +865,11 @@ Dependencies: P15.
 
 Prompt:
 
-> Run the frozen training command against the immutable governed corpus. After corpus
-> preparation, start the SLA clock immediately before the trainer opens the frozen
-> artifacts and stop it only after the final checkpoint is durable. Finalize the receipt
+> Recheck every `GOV-003` authority within 24 hours before launch and stop on a superseding
+> mandatory removal. Run the frozen training command against the immutable governed
+> corpus. After corpus preparation, start the SLA clock immediately before the trainer
+> opens the frozen artifacts and stop it only after the final checkpoint is durable.
+> Finalize the receipt
 > immediately using that captured elapsed time. Process exactly the contracted number of
 > valid predicted training targets, handling final
 > alignment and masks explicitly. Monitor
@@ -691,10 +877,12 @@ Prompt:
 > without interrupting the run. After completion, load a copied mid-run checkpoint and
 > the final checkpoint in fresh processes. Do not deliberately interrupt the timed final
 > run; any recovery downtime that occurs remains inside the continuous SLA clock.
-> Archive the frozen source-tree hash, Git commit and status, `Cargo.lock` hash,
-> Rust/MSVC/CUDA/driver/GPU manifest, selected backend/kernel IDs,
-> tokenizer/corpus/split/config hashes, counters, benchmark JSON, complete logs,
-> checkpoint hashes, wall time, peak VRAM, and measured loss diagnostics.
+> Publish the complete `PROV-001` schema: approved full-contract and decision-ledger hashes;
+> frozen source tree; Git commit/dirty status; `Cargo.lock`; source/removal approval
+> references and hashes; Rust/MSVC/CUDA/driver/GPU/SM; backend/kernel build and
+> configuration identities; tokenizer/source/corpus/split/configuration hashes;
+> telemetry/log/benchmark hashes; every role-ledger counter; evaluation/checkpoint counts;
+> peak VRAM; loss/evaluation diagnostics; elapsed time; and final checkpoint hash.
 
 PASS:
 
@@ -702,6 +890,10 @@ PASS:
 - Exactly 2,000,000,000 valid predicted targets, zero overshoot, hashes,
   checkpoints, and fresh-process reload all verify.
 - The receipt distinguishes measured facts from interpretation and records any deviation.
+- The `PROV-001` role ledger records and reconciles 2,000,000,001 prefix IDs, stored
+  unused tail, unmaterialized documents/bytes, 2,000,000,000 consumed real inputs, 1,024
+  runtime PAD inputs, 2,000,000,000 valid targets, 1,024 masked padding targets, zero
+  boundary exclusions, 30,518 optimizer updates, and all evaluation/checkpoint counters.
 
 STOP/loop: do not invent an arbitrary real-corpus loss-halving criterion or report a
 projection as completion. On non-finite values, OOM, artifact mismatch, or an impossible

@@ -1,5 +1,13 @@
 # Feasibility and implementation boundary
 
+> **Historical, non-normative analysis.** This file explains why the legacy reference is
+> insufficient; it does not select the rebuild architecture or freeze policy. Use
+> [`docs/rebuild-contract.md`](docs/rebuild-contract.md) for product decisions,
+> [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the target design, and
+> [`TODO.md`](TODO.md) for ordered qualification gates. Where this analysis prescribes a
+> fixed microbatch, pinned transfer, adapter, index, flag, or backend, the normative
+> documents control.
+
 ## Conclusion
 
 A zero-Python Windows/MSVC data and reference-training pipeline is feasible. The

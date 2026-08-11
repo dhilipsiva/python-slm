@@ -1,5 +1,13 @@
 # Zero-Python Rust Llama pre-training reference
 
+> **Rebuild notice:** this file documents the legacy behavioral oracle, not the target
+> implementation. Normative rebuild decisions live in
+> [`docs/rebuild-contract.md`](docs/rebuild-contract.md), the target design is
+> [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), and ordered gates are in
+> [`TODO.md`](TODO.md). Phase 0 remains awaiting technical and data-governance owner
+> approval. Commands, flags, schemas, artifacts, backend choices, and defaults below are
+> historical unless a normative document explicitly retains them.
+
 This repository implements the correctness side of a Windows/MSVC pipeline:
 
 - bounded asynchronous HTTPS downloads of content-bearing Parquet shards;
@@ -16,13 +24,15 @@ It does **not** claim that the supplied framework kernels train two billion toke
 in eight hours. Burn 0.21's CUDA backend has a fused attention *forward* path, but
 its autodiff wrapper sends attention through the conventional quadratic graph.
 The gate therefore rejects a production run unless the operator explicitly asks
-for the correctness path. See [RESEARCH.md](RESEARCH.md) for the required kernel work.
+for the correctness path. See [RESEARCH.md](RESEARCH.md) for historical feasibility
+analysis; use the architecture and contract for target requirements.
 
 ## Exact model size
 
-The requested shape is not 135M parameters. With an untied output projection it is
-exactly **124,668,672** parameters; tied embeddings produce 100,092,672. Keeping
-GQA and changing only `d_ff` from 2,048 to 2,432 produces **135,285,504**.
+The legacy default shape has exactly **124,668,672** parameters with an untied output
+projection; tied embeddings produce 100,092,672. The rebuild's canonical
+`gqa-135m-v1` preset keeps GQA and changes `d_ff` from 2,048 to 2,432, producing exactly
+**135,285,504** parameters. The 124M shape remains reference-only.
 Using 12 KV heads (ordinary MHA) with the original widths would instead produce
 134,105,856, so the stated 135M budget likely predates the switch to four KV heads.
 
