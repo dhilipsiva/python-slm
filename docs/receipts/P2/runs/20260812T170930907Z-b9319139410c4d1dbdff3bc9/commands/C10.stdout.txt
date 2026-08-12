@@ -1,0 +1,1112 @@
+p2-candle v0.0.0 (${REPO}/experiments/p2-backends/candle)|cuda
+candle-core v0.11.0|cuda,cudarc
+zip v8.6.0|
+memchr feature "default"
+memchr v2.8.3|alloc,default,std
+memchr feature "std"
+memchr v2.8.3|alloc,default,std
+memchr feature "alloc"
+memchr v2.8.3|alloc,default,std
+crc32fast feature "default"
+crc32fast v1.5.0|default,std
+cfg-if feature "default"
+cfg-if v1.0.4|
+crc32fast feature "std"
+crc32fast v1.5.0|default,std (*)
+indexmap feature "default"
+indexmap v2.14.0|default,std
+equivalent v1.0.2|
+hashbrown v0.17.1|
+indexmap feature "std"
+indexmap v2.14.0|default,std (*)
+typed-path feature "default"
+typed-path v0.12.3|default,std
+typed-path feature "std"
+typed-path v0.12.3|default,std
+byteorder feature "default"
+byteorder v1.5.0|default,std
+byteorder feature "std"
+byteorder v1.5.0|default,std
+candle-kernels feature "default"
+candle-kernels v0.11.0|
+cudaforge feature "default"
+cudaforge v0.1.6|default
+anyhow feature "default"
+anyhow v1.0.104|default,std
+anyhow feature "std"
+anyhow v1.0.104|default,std
+fs2 feature "default"
+fs2 v0.4.3|
+winapi feature "default"
+winapi v0.3.9|fileapi,handleapi,processthreadsapi,std,winbase,winerror
+winapi feature "fileapi"
+winapi v0.3.9|fileapi,handleapi,processthreadsapi,std,winbase,winerror
+winapi feature "handleapi"
+winapi v0.3.9|fileapi,handleapi,processthreadsapi,std,winbase,winerror
+winapi feature "processthreadsapi"
+winapi v0.3.9|fileapi,handleapi,processthreadsapi,std,winbase,winerror
+winapi feature "std"
+winapi v0.3.9|fileapi,handleapi,processthreadsapi,std,winbase,winerror
+winapi feature "winbase"
+winapi v0.3.9|fileapi,handleapi,processthreadsapi,std,winbase,winerror
+winapi feature "winerror"
+winapi v0.3.9|fileapi,handleapi,processthreadsapi,std,winbase,winerror
+glob feature "default"
+glob v0.3.4|
+num_cpus feature "default"
+num_cpus v1.17.0|
+rayon feature "default"
+rayon v1.12.0|
+either v1.17.0|default,std
+rayon-core feature "default"
+rayon-core v1.13.0|
+crossbeam-deque feature "default"
+crossbeam-deque v0.8.7|default,std
+crossbeam-epoch v0.9.20|alloc,std
+crossbeam-utils v0.8.22|default,std
+crossbeam-utils v0.8.22|default,std
+crossbeam-deque feature "std"
+crossbeam-deque v0.8.7|default,std (*)
+crossbeam-epoch feature "std"
+crossbeam-epoch v0.9.20|alloc,std (*)
+crossbeam-epoch feature "alloc"
+crossbeam-epoch v0.9.20|alloc,std (*)
+crossbeam-utils feature "std"
+crossbeam-utils v0.8.22|default,std
+crossbeam-utils feature "std" (*)
+crossbeam-utils feature "default"
+crossbeam-utils v0.8.22|default,std
+crossbeam-utils feature "std" (*)
+serde feature "default"
+serde v1.0.229|default,derive,serde_derive,std
+serde_core feature "result"
+serde_core v1.0.229|result,std
+serde_derive feature "default"
+serde_derive v1.0.229 (proc-macro)|default
+proc-macro2 feature "proc-macro"
+proc-macro2 v1.0.107|default,proc-macro
+unicode-ident feature "default"
+unicode-ident v1.0.24|
+quote feature "proc-macro"
+quote v1.0.47|default,proc-macro
+proc-macro2 v1.0.107|default,proc-macro (*)
+proc-macro2 feature "proc-macro" (*)
+syn feature "clone-impls"
+syn v3.0.3|clone-impls,default,derive,parsing,printing,proc-macro
+proc-macro2 v1.0.107|default,proc-macro (*)
+quote v1.0.47|default,proc-macro (*)
+unicode-ident feature "default" (*)
+syn feature "derive"
+syn v3.0.3|clone-impls,default,derive,parsing,printing,proc-macro (*)
+syn feature "parsing"
+syn v3.0.3|clone-impls,default,derive,parsing,printing,proc-macro (*)
+syn feature "printing"
+syn v3.0.3|clone-impls,default,derive,parsing,printing,proc-macro (*)
+syn feature "proc-macro"
+syn v3.0.3|clone-impls,default,derive,parsing,printing,proc-macro (*)
+proc-macro2 feature "proc-macro" (*)
+quote feature "proc-macro" (*)
+serde feature "std"
+serde v1.0.229|default,derive,serde_derive,std (*)
+serde_core feature "std"
+serde_core v1.0.229|result,std
+serde feature "derive"
+serde v1.0.229|default,derive,serde_derive,std (*)
+serde feature "serde_derive"
+serde v1.0.229|default,derive,serde_derive,std (*)
+serde_json feature "default"
+serde_json v1.0.151|default,std
+memchr v2.8.3|alloc,std
+serde_core v1.0.229|result,std
+itoa feature "default"
+itoa v1.0.18|
+zmij feature "default"
+zmij v1.0.23|
+serde_json feature "std"
+serde_json v1.0.151|default,std (*)
+serde_core feature "std" (*)
+memchr feature "std"
+memchr v2.8.3|alloc,std
+memchr feature "alloc"
+memchr v2.8.3|alloc,std
+sha2 feature "default"
+sha2 v0.10.9|default,std
+cfg-if feature "default"
+cfg-if v1.0.4|
+cpufeatures feature "default"
+cpufeatures v0.2.17|
+digest feature "default"
+digest v0.10.7|alloc,block-buffer,core-api,default,std
+block-buffer feature "default"
+block-buffer v0.10.4|
+generic-array feature "default"
+generic-array v0.14.7|more_lengths
+typenum feature "default"
+typenum v1.20.1|
+version_check feature "default"
+version_check v0.9.5|
+crypto-common feature "default"
+crypto-common v0.1.7|std
+generic-array feature "default" (*)
+generic-array feature "more_lengths"
+generic-array v0.14.7|more_lengths (*)
+typenum feature "default" (*)
+digest feature "core-api"
+digest v0.10.7|alloc,block-buffer,core-api,default,std (*)
+digest feature "block-buffer"
+digest v0.10.7|alloc,block-buffer,core-api,default,std (*)
+sha2 feature "std"
+sha2 v0.10.9|default,std (*)
+digest feature "std"
+digest v0.10.7|alloc,block-buffer,core-api,default,std (*)
+digest feature "alloc"
+digest v0.10.7|alloc,block-buffer,core-api,default,std (*)
+crypto-common feature "std"
+crypto-common v0.1.7|std (*)
+thiserror feature "default"
+thiserror v2.0.20|default,std
+thiserror-impl feature "default"
+thiserror-impl v2.0.20 (proc-macro)|
+proc-macro2 feature "default"
+proc-macro2 v1.0.107|default,proc-macro (*)
+proc-macro2 feature "proc-macro" (*)
+quote feature "default"
+quote v1.0.47|default,proc-macro (*)
+quote feature "proc-macro" (*)
+syn feature "default"
+syn v3.0.3|clone-impls,default,derive,parsing,printing,proc-macro (*)
+syn feature "clone-impls" (*)
+syn feature "derive" (*)
+syn feature "parsing" (*)
+syn feature "printing" (*)
+syn feature "proc-macro" (*)
+thiserror feature "std"
+thiserror v2.0.20|default,std (*)
+walkdir feature "default"
+walkdir v2.5.0|
+same-file feature "default"
+same-file v1.0.6|
+winapi-util feature "default"
+winapi-util v0.1.11|
+windows-sys feature "Win32_Foundation"
+windows-sys v0.61.2|Win32,Win32_Foundation,Win32_Storage,Win32_Storage_FileSystem,Win32_System,Win32_System_Console,Win32_System_SystemInformation,default
+windows-link v0.2.1|
+windows-sys feature "Win32"
+windows-sys v0.61.2|Win32,Win32_Foundation,Win32_Storage,Win32_Storage_FileSystem,Win32_System,Win32_System_Console,Win32_System_SystemInformation,default (*)
+windows-sys feature "Win32_Foundation" (*)
+windows-sys feature "Win32_Storage_FileSystem"
+windows-sys v0.61.2|Win32,Win32_Foundation,Win32_Storage,Win32_Storage_FileSystem,Win32_System,Win32_System_Console,Win32_System_SystemInformation,default (*)
+windows-sys feature "Win32_Storage"
+windows-sys v0.61.2|Win32,Win32_Foundation,Win32_Storage,Win32_Storage_FileSystem,Win32_System,Win32_System_Console,Win32_System_SystemInformation,default (*)
+windows-sys feature "Win32" (*)
+windows-sys feature "Win32_System_Console"
+windows-sys v0.61.2|Win32,Win32_Foundation,Win32_Storage,Win32_Storage_FileSystem,Win32_System,Win32_System_Console,Win32_System_SystemInformation,default (*)
+windows-sys feature "Win32_System"
+windows-sys v0.61.2|Win32,Win32_Foundation,Win32_Storage,Win32_Storage_FileSystem,Win32_System,Win32_System_Console,Win32_System_SystemInformation,default (*)
+windows-sys feature "Win32" (*)
+windows-sys feature "Win32_System_SystemInformation"
+windows-sys v0.61.2|Win32,Win32_Foundation,Win32_Storage,Win32_Storage_FileSystem,Win32_System,Win32_System_Console,Win32_System_SystemInformation,default (*)
+windows-sys feature "Win32_System" (*)
+windows-sys feature "default"
+windows-sys v0.61.2|Win32,Win32_Foundation,Win32_Storage,Win32_Storage_FileSystem,Win32_System,Win32_System_Console,Win32_System_SystemInformation,default (*)
+winapi-util feature "default" (*)
+which feature "default"
+which v7.0.3|
+either feature "default"
+either v1.17.0|default,std
+either feature "std"
+either v1.17.0|default,std
+env_home feature "default"
+env_home v0.1.0|
+winsafe feature "default"
+winsafe v0.0.19|kernel
+winsafe feature "kernel"
+winsafe v0.0.19|kernel
+cudarc feature "cublas"
+cudarc v0.19.8|cublas,cublaslt,cuda-version-from-build-system,curand,driver,dynamic-linking,f16,f8,nvrtc,std
+float8 feature "default"
+float8 v0.7.0|default,num-traits,rand_distr,std
+half v2.7.1|alloc,bytemuck,default,num-traits,rand_distr,std,use-intrinsics,zerocopy
+rand_distr v0.5.1|alloc,default,std
+rand v0.9.5|alloc,default,os_rng,small_rng,std,std_rng,thread_rng
+rand_chacha v0.9.0|std
+ppv-lite86 feature "simd"
+ppv-lite86 v0.2.21|simd,std
+zerocopy feature "default"
+zerocopy v0.8.56|derive,simd,zerocopy-derive
+zerocopy-derive feature "default"
+zerocopy-derive v0.8.56 (proc-macro)|
+proc-macro2 feature "default" (*)
+quote feature "default" (*)
+syn feature "default"
+syn v2.0.119|clone-impls,default,derive,extra-traits,fold,full,parsing,printing,proc-macro,visit
+proc-macro2 v1.0.107|default,proc-macro (*)
+quote v1.0.47|default,proc-macro (*)
+unicode-ident feature "default" (*)
+syn feature "clone-impls"
+syn v2.0.119|clone-impls,default,derive,extra-traits,fold,full,parsing,printing,proc-macro,visit (*)
+syn feature "derive"
+syn v2.0.119|clone-impls,default,derive,extra-traits,fold,full,parsing,printing,proc-macro,visit (*)
+syn feature "parsing"
+syn v2.0.119|clone-impls,default,derive,extra-traits,fold,full,parsing,printing,proc-macro,visit (*)
+syn feature "printing"
+syn v2.0.119|clone-impls,default,derive,extra-traits,fold,full,parsing,printing,proc-macro,visit (*)
+syn feature "proc-macro"
+syn v2.0.119|clone-impls,default,derive,extra-traits,fold,full,parsing,printing,proc-macro,visit (*)
+proc-macro2 feature "proc-macro" (*)
+quote feature "proc-macro" (*)
+syn feature "full"
+syn v2.0.119|clone-impls,default,derive,extra-traits,fold,full,parsing,printing,proc-macro,visit (*)
+zerocopy feature "simd"
+zerocopy v0.8.56|derive,simd,zerocopy-derive (*)
+rand_core feature "default"
+rand_core v0.9.5|os_rng,std
+getrandom feature "default"
+getrandom v0.3.4|std
+cfg-if feature "default" (*)
+rand_core v0.9.5|os_rng,std (*)
+num-traits feature "libm"
+num-traits v0.2.19|default,i128,libm,std
+libm feature "default"
+libm v0.2.16|arch,default
+libm feature "arch"
+libm v0.2.16|arch,default
+autocfg feature "default"
+autocfg v1.5.1|
+bytemuck feature "derive"
+bytemuck v1.25.2|aarch64_simd,bytemuck_derive,derive,wasm_simd
+bytemuck_derive feature "default"
+bytemuck_derive v1.12.0 (proc-macro)|
+proc-macro2 feature "default" (*)
+quote feature "default" (*)
+syn feature "default" (*)
+bytemuck feature "bytemuck_derive"
+bytemuck v1.25.2|aarch64_simd,bytemuck_derive,derive,wasm_simd (*)
+cfg-if feature "default" (*)
+num-traits feature "libm" (*)
+rand feature "thread_rng"
+rand v0.9.5|alloc,default,os_rng,small_rng,std,std_rng,thread_rng (*)
+rand feature "os_rng"
+rand v0.9.5|alloc,default,os_rng,small_rng,std,std_rng,thread_rng (*)
+rand_core feature "os_rng"
+rand_core v0.9.5|os_rng,std (*)
+rand feature "std"
+rand v0.9.5|alloc,default,os_rng,small_rng,std,std_rng,thread_rng (*)
+rand feature "alloc"
+rand v0.9.5|alloc,default,os_rng,small_rng,std,std_rng,thread_rng (*)
+rand_chacha feature "std"
+rand_chacha v0.9.0|std (*)
+ppv-lite86 feature "std"
+ppv-lite86 v0.2.21|simd,std (*)
+rand_core feature "std"
+rand_core v0.9.5|os_rng,std (*)
+getrandom feature "std"
+getrandom v0.3.4|std (*)
+rand_core feature "std" (*)
+rand feature "std_rng"
+rand v0.9.5|alloc,default,os_rng,small_rng,std,std_rng,thread_rng (*)
+zerocopy feature "derive"
+zerocopy v0.8.56|derive,simd,zerocopy-derive (*)
+zerocopy feature "zerocopy-derive"
+zerocopy v0.8.56|derive,simd,zerocopy-derive (*)
+zerocopy feature "simd" (*)
+rand_distr v0.5.1|alloc,default,std (*)
+num-traits feature "libm" (*)
+rand feature "std" (*)
+rand feature "std_rng" (*)
+rand feature "thread_rng" (*)
+float8 feature "std"
+float8 v0.7.0|default,num-traits,rand_distr,std (*)
+half feature "std"
+half v2.7.1|alloc,bytemuck,default,num-traits,rand_distr,std,use-intrinsics,zerocopy (*)
+half feature "alloc"
+half v2.7.1|alloc,bytemuck,default,num-traits,rand_distr,std,use-intrinsics,zerocopy (*)
+half feature "num-traits"
+half v2.7.1|alloc,bytemuck,default,num-traits,rand_distr,std,use-intrinsics,zerocopy (*)
+half feature "rand_distr"
+half v2.7.1|alloc,bytemuck,default,num-traits,rand_distr,std,use-intrinsics,zerocopy (*)
+libloading feature "default"
+libloading v0.9.0|default,std
+windows-link feature "default"
+windows-link v0.2.1|
+libloading feature "std"
+libloading v0.9.0|default,std (*)
+cudarc feature "driver"
+cudarc v0.19.8|cublas,cublaslt,cuda-version-from-build-system,curand,driver,dynamic-linking,f16,f8,nvrtc,std (*)
+cudarc feature "cublaslt"
+cudarc v0.19.8|cublas,cublaslt,cuda-version-from-build-system,curand,driver,dynamic-linking,f16,f8,nvrtc,std (*)
+cudarc feature "driver" (*)
+cudarc feature "cuda-version-from-build-system"
+cudarc v0.19.8|cublas,cublaslt,cuda-version-from-build-system,curand,driver,dynamic-linking,f16,f8,nvrtc,std (*)
+cudarc feature "curand"
+cudarc v0.19.8|cublas,cublaslt,cuda-version-from-build-system,curand,driver,dynamic-linking,f16,f8,nvrtc,std (*)
+cudarc feature "driver" (*)
+cudarc feature "driver" (*)
+cudarc feature "dynamic-linking"
+cudarc v0.19.8|cublas,cublaslt,cuda-version-from-build-system,curand,driver,dynamic-linking,f16,f8,nvrtc,std (*)
+cudarc feature "f16"
+cudarc v0.19.8|cublas,cublaslt,cuda-version-from-build-system,curand,driver,dynamic-linking,f16,f8,nvrtc,std (*)
+cudarc feature "f8"
+cudarc v0.19.8|cublas,cublaslt,cuda-version-from-build-system,curand,driver,dynamic-linking,f16,f8,nvrtc,std (*)
+cudarc feature "nvrtc"
+cudarc v0.19.8|cublas,cublaslt,cuda-version-from-build-system,curand,driver,dynamic-linking,f16,f8,nvrtc,std (*)
+cudarc feature "std"
+cudarc v0.19.8|cublas,cublaslt,cuda-version-from-build-system,curand,driver,dynamic-linking,f16,f8,nvrtc,std (*)
+float8 feature "default" (*)
+float8 feature "num-traits"
+float8 v0.7.0|default,num-traits,rand_distr,std (*)
+float8 feature "rand_distr"
+float8 v0.7.0|default,num-traits,rand_distr,std (*)
+float8 feature "std" (*)
+half feature "default"
+half v2.7.1|alloc,bytemuck,default,num-traits,rand_distr,std,use-intrinsics,zerocopy (*)
+half feature "std" (*)
+half feature "num-traits" (*)
+half feature "rand_distr" (*)
+half feature "use-intrinsics"
+half v2.7.1|alloc,bytemuck,default,num-traits,rand_distr,std,use-intrinsics,zerocopy (*)
+half feature "zerocopy"
+half v2.7.1|alloc,bytemuck,default,num-traits,rand_distr,std,use-intrinsics,zerocopy (*)
+num-traits feature "default"
+num-traits v0.2.19|default,i128,libm,std (*)
+num-traits feature "std"
+num-traits v0.2.19|default,i128,libm,std (*)
+libm feature "default" (*)
+rand feature "default"
+rand v0.9.5|alloc,default,os_rng,small_rng,std,std_rng,thread_rng (*)
+rand feature "os_rng" (*)
+rand feature "small_rng"
+rand v0.9.5|alloc,default,os_rng,small_rng,std,std_rng,thread_rng (*)
+rand feature "std" (*)
+rand feature "std_rng" (*)
+rand feature "thread_rng" (*)
+zerocopy feature "default" (*)
+rand_distr feature "default"
+rand_distr v0.5.1|alloc,default,std (*)
+rand_distr feature "std"
+rand_distr v0.5.1|alloc,default,std (*)
+rand feature "std" (*)
+rand_distr feature "alloc"
+rand_distr v0.5.1|alloc,default,std (*)
+rand feature "alloc" (*)
+gemm feature "default"
+gemm v0.19.0|default,f16,gemm-f16,rayon,std,wasm-simd128-enable
+gemm-c32 v0.19.0|rayon,std
+gemm-common v0.19.0|f16,half,rayon,std,sysctl,wasm-simd128-enable
+num-complex v0.4.6|bytemuck
+bytemuck feature "default"
+bytemuck v1.25.2|aarch64_simd,bytemuck_derive,derive,wasm_simd (*)
+num-traits feature "i128"
+num-traits v0.2.19|default,i128,libm,std (*)
+num-traits v0.2.19|default,i128,libm,std (*)
+pulp v0.22.3|std
+libm v0.2.16|arch,default
+pulp-wasm-simd-flag v0.1.1|
+raw-cpuid v11.6.0|
+bitflags feature "default"
+bitflags v2.13.1|
+bytemuck feature "aarch64_simd"
+bytemuck v1.25.2|aarch64_simd,bytemuck_derive,derive,wasm_simd (*)
+bytemuck feature "default" (*)
+bytemuck feature "wasm_simd"
+bytemuck v1.25.2|aarch64_simd,bytemuck_derive,derive,wasm_simd (*)
+cfg-if feature "default" (*)
+num-complex feature "bytemuck"
+num-complex v0.4.6|bytemuck (*)
+paste feature "default"
+paste v1.0.15 (proc-macro)|
+reborrow feature "default"
+reborrow v0.5.5|default
+version_check feature "default" (*)
+raw-cpuid v11.6.0| (*)
+half feature "bytemuck"
+half v2.7.1|alloc,bytemuck,default,num-traits,rand_distr,std,use-intrinsics,zerocopy (*)
+half feature "num-traits" (*)
+bytemuck feature "default" (*)
+libm feature "default" (*)
+dyn-stack feature "alloc"
+dyn-stack v0.13.2|alloc,std
+bytemuck feature "default" (*)
+dyn-stack-macros feature "default"
+dyn-stack-macros v0.1.3 (proc-macro)|
+once_cell feature "alloc"
+once_cell v1.21.4|alloc,default,race,std
+once_cell feature "race"
+once_cell v1.21.4|alloc,default,race,std
+once_cell feature "race" (*)
+paste feature "default" (*)
+rayon feature "default"
+rayon v1.12.0|
+either v1.17.0|default,std,use_std
+rayon-core feature "default"
+rayon-core v1.13.0|
+crossbeam-deque feature "default"
+crossbeam-deque v0.8.7|default,std
+crossbeam-epoch v0.9.20|alloc,std
+crossbeam-utils v0.8.22|default,std
+crossbeam-utils v0.8.22|default,std
+crossbeam-deque feature "std"
+crossbeam-deque v0.8.7|default,std (*)
+crossbeam-epoch feature "std"
+crossbeam-epoch v0.9.20|alloc,std (*)
+crossbeam-epoch feature "alloc"
+crossbeam-epoch v0.9.20|alloc,std (*)
+crossbeam-utils feature "std"
+crossbeam-utils v0.8.22|default,std
+crossbeam-utils feature "std" (*)
+crossbeam-utils feature "default"
+crossbeam-utils v0.8.22|default,std
+crossbeam-utils feature "std" (*)
+seq-macro feature "default"
+seq-macro v0.3.6 (proc-macro)|
+num-complex v0.4.6|bytemuck (*)
+num-traits v0.2.19|default,i128,libm,std (*)
+raw-cpuid v11.6.0| (*)
+dyn-stack feature "alloc" (*)
+paste feature "default" (*)
+seq-macro feature "default" (*)
+gemm-c64 v0.19.0|rayon,std
+gemm-common v0.19.0|f16,half,rayon,std,sysctl,wasm-simd128-enable (*)
+num-complex v0.4.6|bytemuck (*)
+num-traits v0.2.19|default,i128,libm,std (*)
+raw-cpuid v11.6.0| (*)
+dyn-stack feature "alloc" (*)
+paste feature "default" (*)
+seq-macro feature "default" (*)
+gemm-common v0.19.0|f16,half,rayon,std,sysctl,wasm-simd128-enable (*)
+gemm-f16 v0.19.0|rayon,std
+gemm-f32 v0.19.0|rayon,std
+gemm-common v0.19.0|f16,half,rayon,std,sysctl,wasm-simd128-enable (*)
+num-complex v0.4.6|bytemuck (*)
+num-traits v0.2.19|default,i128,libm,std (*)
+raw-cpuid v11.6.0| (*)
+dyn-stack feature "alloc" (*)
+paste feature "default" (*)
+seq-macro feature "default" (*)
+num-complex v0.4.6|bytemuck (*)
+num-traits v0.2.19|default,i128,libm,std (*)
+raw-cpuid v11.6.0| (*)
+half feature "bytemuck" (*)
+half feature "num-traits" (*)
+dyn-stack feature "alloc" (*)
+gemm-common feature "f16"
+gemm-common v0.19.0|f16,half,rayon,std,sysctl,wasm-simd128-enable (*)
+gemm-common feature "half"
+gemm-common v0.19.0|f16,half,rayon,std,sysctl,wasm-simd128-enable (*)
+paste feature "default" (*)
+rayon feature "default" (*)
+seq-macro feature "default" (*)
+gemm-f32 v0.19.0|rayon,std (*)
+gemm-f64 v0.19.0|rayon,std
+gemm-common v0.19.0|f16,half,rayon,std,sysctl,wasm-simd128-enable (*)
+num-complex v0.4.6|bytemuck (*)
+num-traits v0.2.19|default,i128,libm,std (*)
+raw-cpuid v11.6.0| (*)
+dyn-stack feature "alloc" (*)
+paste feature "default" (*)
+seq-macro feature "default" (*)
+num-complex v0.4.6|bytemuck (*)
+num-traits v0.2.19|default,i128,libm,std (*)
+raw-cpuid v11.6.0| (*)
+dyn-stack feature "alloc" (*)
+paste feature "default" (*)
+seq-macro feature "default" (*)
+gemm feature "f16"
+gemm v0.19.0|default,f16,gemm-f16,rayon,std,wasm-simd128-enable (*)
+gemm feature "gemm-f16"
+gemm v0.19.0|default,f16,gemm-f16,rayon,std,wasm-simd128-enable (*)
+gemm-common feature "f16" (*)
+gemm feature "rayon"
+gemm v0.19.0|default,f16,gemm-f16,rayon,std,wasm-simd128-enable (*)
+gemm feature "std"
+gemm v0.19.0|default,f16,gemm-f16,rayon,std,wasm-simd128-enable (*)
+dyn-stack feature "std"
+dyn-stack v0.13.2|alloc,std (*)
+gemm-c32 feature "std"
+gemm-c32 v0.19.0|rayon,std (*)
+dyn-stack feature "std" (*)
+gemm-common feature "std"
+gemm-common v0.19.0|f16,half,rayon,std,sysctl,wasm-simd128-enable (*)
+dyn-stack feature "std" (*)
+gemm-common feature "sysctl"
+gemm-common v0.19.0|f16,half,rayon,std,sysctl,wasm-simd128-enable (*)
+once_cell feature "std"
+once_cell v1.21.4|alloc,default,race,std
+once_cell feature "alloc" (*)
+pulp feature "std"
+pulp v0.22.3|std (*)
+gemm-common feature "std" (*)
+gemm-c64 feature "std"
+gemm-c64 v0.19.0|rayon,std (*)
+dyn-stack feature "std" (*)
+gemm-common feature "std" (*)
+gemm-f16 feature "std"
+gemm-f16 v0.19.0|rayon,std (*)
+dyn-stack feature "std" (*)
+gemm-common feature "std" (*)
+gemm-f32 feature "std"
+gemm-f32 v0.19.0|rayon,std (*)
+dyn-stack feature "std" (*)
+gemm-common feature "std" (*)
+gemm-f32 feature "std" (*)
+gemm-f64 feature "std"
+gemm-f64 v0.19.0|rayon,std (*)
+dyn-stack feature "std" (*)
+gemm-common feature "std" (*)
+gemm-c32 feature "rayon"
+gemm-c32 v0.19.0|rayon,std (*)
+gemm-c32 feature "std" (*)
+gemm-common feature "rayon"
+gemm-common v0.19.0|f16,half,rayon,std,sysctl,wasm-simd128-enable (*)
+gemm-common feature "std" (*)
+gemm-common feature "rayon" (*)
+gemm-c64 feature "rayon"
+gemm-c64 v0.19.0|rayon,std (*)
+gemm-common feature "rayon" (*)
+gemm-c64 feature "std" (*)
+gemm-f16 feature "rayon"
+gemm-f16 v0.19.0|rayon,std (*)
+gemm-common feature "rayon" (*)
+gemm-f16 feature "std" (*)
+gemm-f32 feature "rayon"
+gemm-f32 v0.19.0|rayon,std (*)
+gemm-common feature "rayon" (*)
+gemm-f32 feature "std" (*)
+gemm-f32 feature "rayon" (*)
+gemm-f64 feature "rayon"
+gemm-f64 v0.19.0|rayon,std (*)
+gemm-common feature "rayon" (*)
+gemm-f64 feature "std" (*)
+gemm feature "std" (*)
+gemm feature "wasm-simd128-enable"
+gemm v0.19.0|default,f16,gemm-f16,rayon,std,wasm-simd128-enable (*)
+gemm-common feature "wasm-simd128-enable"
+gemm-common v0.19.0|f16,half,rayon,std,sysctl,wasm-simd128-enable (*)
+rayon feature "default" (*)
+libc feature "default"
+libc v0.2.189|default,std
+libc feature "std"
+libc v0.2.189|default,std
+memmap2 feature "default"
+memmap2 v0.9.11|stable_deref_trait
+stable_deref_trait feature "default"
+stable_deref_trait v1.2.1|alloc,default,std
+stable_deref_trait feature "std"
+stable_deref_trait v1.2.1|alloc,default,std
+stable_deref_trait feature "alloc"
+stable_deref_trait v1.2.1|alloc,default,std
+memmap2 feature "stable_deref_trait"
+memmap2 v0.9.11|stable_deref_trait (*)
+num_cpus feature "default"
+num_cpus v1.17.0|
+safetensors feature "default"
+safetensors v0.8.0|default,std
+hashbrown feature "default"
+hashbrown v0.16.1|allocator-api2,default,default-hasher,equivalent,inline-more,raw-entry,serde
+equivalent v1.0.2|
+foldhash v0.2.0|
+serde_core v1.0.229|alloc,result,std
+allocator-api2 feature "alloc"
+allocator-api2 v0.2.21|alloc
+hashbrown feature "allocator-api2"
+hashbrown v0.16.1|allocator-api2,default,default-hasher,equivalent,inline-more,raw-entry,serde (*)
+hashbrown feature "default-hasher"
+hashbrown v0.16.1|allocator-api2,default,default-hasher,equivalent,inline-more,raw-entry,serde (*)
+hashbrown feature "equivalent"
+hashbrown v0.16.1|allocator-api2,default,default-hasher,equivalent,inline-more,raw-entry,serde (*)
+hashbrown feature "inline-more"
+hashbrown v0.16.1|allocator-api2,default,default-hasher,equivalent,inline-more,raw-entry,serde (*)
+hashbrown feature "raw-entry"
+hashbrown v0.16.1|allocator-api2,default,default-hasher,equivalent,inline-more,raw-entry,serde (*)
+hashbrown feature "serde"
+hashbrown v0.16.1|allocator-api2,default,default-hasher,equivalent,inline-more,raw-entry,serde (*)
+serde feature "alloc"
+serde v1.0.229|alloc,default,derive,serde_derive,std
+serde_derive feature "default" (*)
+serde_core feature "result"
+serde_core v1.0.229|alloc,result,std
+serde_core feature "alloc"
+serde_core v1.0.229|alloc,result,std
+serde feature "derive"
+serde v1.0.229|alloc,default,derive,serde_derive,std (*)
+serde feature "serde_derive"
+serde v1.0.229|alloc,default,derive,serde_derive,std (*)
+serde_json feature "alloc"
+serde_json v1.0.151|alloc,default,std
+memchr v2.8.3|alloc,default,std
+serde_core v1.0.229|alloc,result,std
+itoa feature "default"
+itoa v1.0.18|
+zmij feature "default"
+zmij v1.0.23|
+serde_core feature "alloc" (*)
+tempfile feature "default"
+tempfile v3.27.0|default,getrandom
+getrandom v0.4.3|
+cfg-if feature "default" (*)
+once_cell feature "std" (*)
+fastrand feature "default"
+fastrand v2.5.0|alloc,default,std
+fastrand feature "std"
+fastrand v2.5.0|alloc,default,std
+fastrand feature "alloc"
+fastrand v2.5.0|alloc,default,std
+windows-sys feature "Win32_Foundation"
+windows-sys v0.61.2|Win32,Win32_Foundation,Win32_Storage,Win32_Storage_FileSystem,default
+windows-link v0.2.1|
+windows-sys feature "Win32"
+windows-sys v0.61.2|Win32,Win32_Foundation,Win32_Storage,Win32_Storage_FileSystem,default (*)
+windows-sys feature "Win32_Foundation" (*)
+windows-sys feature "Win32_Storage_FileSystem"
+windows-sys v0.61.2|Win32,Win32_Foundation,Win32_Storage,Win32_Storage_FileSystem,default (*)
+windows-sys feature "Win32_Storage"
+windows-sys v0.61.2|Win32,Win32_Foundation,Win32_Storage,Win32_Storage_FileSystem,default (*)
+windows-sys feature "Win32" (*)
+windows-sys feature "default"
+windows-sys v0.61.2|Win32,Win32_Foundation,Win32_Storage,Win32_Storage_FileSystem,default (*)
+tempfile feature "getrandom"
+tempfile v3.27.0|default,getrandom (*)
+safetensors feature "std"
+safetensors v0.8.0|default,std (*)
+serde feature "default"
+serde v1.0.229|alloc,default,derive,serde_derive,std (*)
+serde feature "std"
+serde v1.0.229|alloc,default,derive,serde_derive,std (*)
+serde_core feature "std"
+serde_core v1.0.229|alloc,result,std
+serde_json feature "default"
+serde_json v1.0.151|alloc,default,std (*)
+serde_json feature "std"
+serde_json v1.0.151|alloc,default,std (*)
+serde_core feature "std" (*)
+memchr feature "std" (*)
+thiserror feature "default"
+thiserror v2.0.20|default,std
+thiserror-impl feature "default" (*)
+thiserror feature "std"
+thiserror v2.0.20|default,std (*)
+tokenizers feature "onig"
+tokenizers v0.22.2|onig
+esaxx-rs v0.1.10|
+onig v6.5.3|
+onig_sys v69.9.3|
+cc feature "default"
+cc v1.4.2|
+find-msvc-tools feature "default"
+find-msvc-tools v0.1.10|
+shlex feature "default"
+shlex v2.0.1|default,std
+shlex feature "std"
+shlex v2.0.1|default,std
+pkg-config feature "default"
+pkg-config v0.3.33|
+once_cell feature "default"
+once_cell v1.21.4|alloc,default,race,std
+once_cell feature "std" (*)
+bitflags feature "default" (*)
+libc feature "default" (*)
+rand feature "default" (*)
+getrandom feature "default" (*)
+paste feature "default" (*)
+rayon feature "default" (*)
+serde feature "default" (*)
+serde feature "derive" (*)
+serde_json feature "default" (*)
+thiserror feature "default" (*)
+ahash feature "default"
+ahash v0.8.12|default,getrandom,runtime-rng,serde,std
+cfg-if feature "default" (*)
+zerocopy feature "simd" (*)
+getrandom feature "default" (*)
+once_cell feature "alloc" (*)
+serde feature "default" (*)
+version_check feature "default" (*)
+ahash feature "runtime-rng"
+ahash v0.8.12|default,getrandom,runtime-rng,serde,std (*)
+ahash feature "getrandom"
+ahash v0.8.12|default,getrandom,runtime-rng,serde,std (*)
+ahash feature "std"
+ahash v0.8.12|default,getrandom,runtime-rng,serde,std (*)
+ahash feature "serde"
+ahash v0.8.12|default,getrandom,runtime-rng,serde,std (*)
+aho-corasick feature "default"
+aho-corasick v1.1.5|default,perf-literal,std
+memchr v2.8.3|alloc,default,std
+aho-corasick feature "perf-literal"
+aho-corasick v1.1.5|default,perf-literal,std (*)
+aho-corasick feature "std"
+aho-corasick v1.1.5|default,perf-literal,std (*)
+memchr feature "std" (*)
+compact_str feature "default"
+compact_str v0.9.1|default,serde,std
+cfg-if feature "default" (*)
+serde feature "alloc" (*)
+serde feature "derive" (*)
+itoa feature "default" (*)
+castaway feature "alloc"
+castaway v0.2.4|alloc
+rustversion feature "default"
+rustversion v1.0.23 (proc-macro)|
+rustversion feature "default" (*)
+ryu feature "default"
+ryu v1.0.23|
+static_assertions feature "default"
+static_assertions v1.1.0|
+compact_str feature "std"
+compact_str v0.9.1|default,serde,std (*)
+compact_str feature "serde"
+compact_str v0.9.1|default,serde,std (*)
+dary_heap feature "default"
+dary_heap v0.3.9|serde
+serde feature "alloc" (*)
+dary_heap feature "serde"
+dary_heap v0.3.9|serde (*)
+derive_builder feature "default"
+derive_builder v0.20.2|default,std
+derive_builder_macro feature "default"
+derive_builder_macro v0.20.2 (proc-macro)|lib_has_std
+syn feature "default" (*)
+syn feature "extra-traits"
+syn v2.0.119|clone-impls,default,derive,extra-traits,fold,full,parsing,printing,proc-macro,visit (*)
+syn feature "full" (*)
+derive_builder_core feature "default"
+derive_builder_core v0.20.2|lib_has_std
+proc-macro2 feature "default" (*)
+quote feature "default" (*)
+syn feature "default" (*)
+syn feature "extra-traits" (*)
+syn feature "full" (*)
+darling feature "default"
+darling v0.20.11|default,suggestions
+darling_core feature "default"
+darling_core v0.20.11|strsim,suggestions
+proc-macro2 feature "default" (*)
+quote feature "default" (*)
+syn feature "default" (*)
+syn feature "extra-traits" (*)
+syn feature "full" (*)
+fnv feature "default"
+fnv v1.0.7|default,std
+fnv feature "std"
+fnv v1.0.7|default,std
+ident_case feature "default"
+ident_case v1.0.1|
+strsim feature "default"
+strsim v0.11.1|
+darling_macro feature "default"
+darling_macro v0.20.11 (proc-macro)|
+quote feature "default" (*)
+syn feature "default" (*)
+darling_core feature "default" (*)
+darling feature "suggestions"
+darling v0.20.11|default,suggestions (*)
+darling_core feature "suggestions"
+darling_core v0.20.11|strsim,suggestions (*)
+darling_core feature "strsim"
+darling_core v0.20.11|strsim,suggestions (*)
+derive_builder feature "std"
+derive_builder v0.20.2|default,std (*)
+derive_builder_macro feature "lib_has_std"
+derive_builder_macro v0.20.2 (proc-macro)|lib_has_std (*)
+derive_builder_core feature "lib_has_std"
+derive_builder_core v0.20.2|lib_has_std (*)
+itertools feature "default"
+itertools v0.14.0|default,use_alloc,use_std
+either v1.17.0|default,std,use_std
+itertools feature "use_std"
+itertools v0.14.0|default,use_alloc,use_std (*)
+either feature "use_std"
+either v1.17.0|default,std,use_std
+either feature "std"
+either v1.17.0|default,std,use_std
+itertools feature "use_alloc"
+itertools v0.14.0|default,use_alloc,use_std (*)
+log feature "default"
+log v0.4.33|
+macro_rules_attribute feature "default"
+macro_rules_attribute v0.2.3|default
+macro_rules_attribute-proc_macro feature "default"
+macro_rules_attribute-proc_macro v0.2.3 (proc-macro)|
+pastey feature "default"
+pastey v0.2.3 (proc-macro)|
+monostate feature "default"
+monostate v0.1.18|
+serde_core v1.0.229|alloc,result,std
+monostate-impl feature "default"
+monostate-impl v0.1.18 (proc-macro)|
+proc-macro2 feature "default" (*)
+quote feature "default" (*)
+syn feature "parsing" (*)
+syn feature "proc-macro" (*)
+rayon-cond feature "default"
+rayon-cond v0.4.0|
+rayon feature "default" (*)
+either feature "default"
+either v1.17.0|default,std,use_std
+either feature "std" (*)
+itertools feature "default" (*)
+regex feature "default"
+regex v1.13.1|default,perf,perf-backtrack,perf-cache,perf-dfa,perf-inline,perf-literal,perf-onepass,std,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment
+aho-corasick v1.1.5|default,perf-literal,std (*)
+memchr v2.8.3|alloc,default,std
+regex-syntax v0.8.11|default,std,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment
+regex-automata feature "alloc"
+regex-automata v0.4.18|alloc,dfa-onepass,hybrid,meta,nfa-backtrack,nfa-pikevm,nfa-thompson,perf-inline,perf-literal,perf-literal-multisubstring,perf-literal-substring,std,syntax,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment,unicode-word-boundary
+aho-corasick v1.1.5|default,perf-literal,std (*)
+memchr v2.8.3|alloc,default,std
+regex-syntax v0.8.11|default,std,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment
+regex-automata feature "meta"
+regex-automata v0.4.18|alloc,dfa-onepass,hybrid,meta,nfa-backtrack,nfa-pikevm,nfa-thompson,perf-inline,perf-literal,perf-literal-multisubstring,perf-literal-substring,std,syntax,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment,unicode-word-boundary (*)
+regex-automata feature "nfa-pikevm"
+regex-automata v0.4.18|alloc,dfa-onepass,hybrid,meta,nfa-backtrack,nfa-pikevm,nfa-thompson,perf-inline,perf-literal,perf-literal-multisubstring,perf-literal-substring,std,syntax,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment,unicode-word-boundary (*)
+regex-automata feature "nfa-thompson"
+regex-automata v0.4.18|alloc,dfa-onepass,hybrid,meta,nfa-backtrack,nfa-pikevm,nfa-thompson,perf-inline,perf-literal,perf-literal-multisubstring,perf-literal-substring,std,syntax,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment,unicode-word-boundary (*)
+regex-automata feature "alloc" (*)
+regex-automata feature "syntax"
+regex-automata v0.4.18|alloc,dfa-onepass,hybrid,meta,nfa-backtrack,nfa-pikevm,nfa-thompson,perf-inline,perf-literal,perf-literal-multisubstring,perf-literal-substring,std,syntax,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment,unicode-word-boundary (*)
+regex-automata feature "alloc" (*)
+regex-automata feature "nfa-pikevm" (*)
+regex-automata feature "syntax" (*)
+regex feature "perf"
+regex v1.13.1|default,perf,perf-backtrack,perf-cache,perf-dfa,perf-inline,perf-literal,perf-onepass,std,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment (*)
+regex feature "perf-backtrack"
+regex v1.13.1|default,perf,perf-backtrack,perf-cache,perf-dfa,perf-inline,perf-literal,perf-onepass,std,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment (*)
+regex-automata feature "nfa-backtrack"
+regex-automata v0.4.18|alloc,dfa-onepass,hybrid,meta,nfa-backtrack,nfa-pikevm,nfa-thompson,perf-inline,perf-literal,perf-literal-multisubstring,perf-literal-substring,std,syntax,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment,unicode-word-boundary (*)
+regex-automata feature "nfa-thompson" (*)
+regex feature "perf-cache"
+regex v1.13.1|default,perf,perf-backtrack,perf-cache,perf-dfa,perf-inline,perf-literal,perf-onepass,std,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment (*)
+regex feature "perf-dfa"
+regex v1.13.1|default,perf,perf-backtrack,perf-cache,perf-dfa,perf-inline,perf-literal,perf-onepass,std,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment (*)
+regex-automata feature "hybrid"
+regex-automata v0.4.18|alloc,dfa-onepass,hybrid,meta,nfa-backtrack,nfa-pikevm,nfa-thompson,perf-inline,perf-literal,perf-literal-multisubstring,perf-literal-substring,std,syntax,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment,unicode-word-boundary (*)
+regex-automata feature "alloc" (*)
+regex-automata feature "nfa-thompson" (*)
+regex feature "perf-inline"
+regex v1.13.1|default,perf,perf-backtrack,perf-cache,perf-dfa,perf-inline,perf-literal,perf-onepass,std,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment (*)
+regex-automata feature "perf-inline"
+regex-automata v0.4.18|alloc,dfa-onepass,hybrid,meta,nfa-backtrack,nfa-pikevm,nfa-thompson,perf-inline,perf-literal,perf-literal-multisubstring,perf-literal-substring,std,syntax,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment,unicode-word-boundary (*)
+regex feature "perf-literal"
+regex v1.13.1|default,perf,perf-backtrack,perf-cache,perf-dfa,perf-inline,perf-literal,perf-onepass,std,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment (*)
+regex-automata feature "perf-literal"
+regex-automata v0.4.18|alloc,dfa-onepass,hybrid,meta,nfa-backtrack,nfa-pikevm,nfa-thompson,perf-inline,perf-literal,perf-literal-multisubstring,perf-literal-substring,std,syntax,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment,unicode-word-boundary (*)
+regex-automata feature "perf-literal-multisubstring"
+regex-automata v0.4.18|alloc,dfa-onepass,hybrid,meta,nfa-backtrack,nfa-pikevm,nfa-thompson,perf-inline,perf-literal,perf-literal-multisubstring,perf-literal-substring,std,syntax,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment,unicode-word-boundary (*)
+regex-automata feature "perf-literal-substring"
+regex-automata v0.4.18|alloc,dfa-onepass,hybrid,meta,nfa-backtrack,nfa-pikevm,nfa-thompson,perf-inline,perf-literal,perf-literal-multisubstring,perf-literal-substring,std,syntax,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment,unicode-word-boundary (*)
+aho-corasick feature "perf-literal" (*)
+regex feature "perf-onepass"
+regex v1.13.1|default,perf,perf-backtrack,perf-cache,perf-dfa,perf-inline,perf-literal,perf-onepass,std,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment (*)
+regex-automata feature "dfa-onepass"
+regex-automata v0.4.18|alloc,dfa-onepass,hybrid,meta,nfa-backtrack,nfa-pikevm,nfa-thompson,perf-inline,perf-literal,perf-literal-multisubstring,perf-literal-substring,std,syntax,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment,unicode-word-boundary (*)
+regex-automata feature "nfa-thompson" (*)
+regex feature "std"
+regex v1.13.1|default,perf,perf-backtrack,perf-cache,perf-dfa,perf-inline,perf-literal,perf-onepass,std,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment (*)
+memchr feature "std" (*)
+aho-corasick feature "std" (*)
+regex-automata feature "std"
+regex-automata v0.4.18|alloc,dfa-onepass,hybrid,meta,nfa-backtrack,nfa-pikevm,nfa-thompson,perf-inline,perf-literal,perf-literal-multisubstring,perf-literal-substring,std,syntax,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment,unicode-word-boundary (*)
+memchr feature "std" (*)
+aho-corasick feature "std" (*)
+regex-automata feature "alloc" (*)
+regex-syntax feature "std"
+regex-syntax v0.8.11|default,std,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment
+regex-syntax feature "std" (*)
+regex feature "unicode"
+regex v1.13.1|default,perf,perf-backtrack,perf-cache,perf-dfa,perf-inline,perf-literal,perf-onepass,std,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment (*)
+regex feature "unicode-age"
+regex v1.13.1|default,perf,perf-backtrack,perf-cache,perf-dfa,perf-inline,perf-literal,perf-onepass,std,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment (*)
+regex-automata feature "unicode-age"
+regex-automata v0.4.18|alloc,dfa-onepass,hybrid,meta,nfa-backtrack,nfa-pikevm,nfa-thompson,perf-inline,perf-literal,perf-literal-multisubstring,perf-literal-substring,std,syntax,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment,unicode-word-boundary (*)
+regex-syntax feature "unicode-age"
+regex-syntax v0.8.11|default,std,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment
+regex-syntax feature "unicode-age" (*)
+regex feature "unicode-bool"
+regex v1.13.1|default,perf,perf-backtrack,perf-cache,perf-dfa,perf-inline,perf-literal,perf-onepass,std,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment (*)
+regex-automata feature "unicode-bool"
+regex-automata v0.4.18|alloc,dfa-onepass,hybrid,meta,nfa-backtrack,nfa-pikevm,nfa-thompson,perf-inline,perf-literal,perf-literal-multisubstring,perf-literal-substring,std,syntax,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment,unicode-word-boundary (*)
+regex-syntax feature "unicode-bool"
+regex-syntax v0.8.11|default,std,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment
+regex-syntax feature "unicode-bool" (*)
+regex feature "unicode-case"
+regex v1.13.1|default,perf,perf-backtrack,perf-cache,perf-dfa,perf-inline,perf-literal,perf-onepass,std,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment (*)
+regex-automata feature "unicode-case"
+regex-automata v0.4.18|alloc,dfa-onepass,hybrid,meta,nfa-backtrack,nfa-pikevm,nfa-thompson,perf-inline,perf-literal,perf-literal-multisubstring,perf-literal-substring,std,syntax,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment,unicode-word-boundary (*)
+regex-syntax feature "unicode-case"
+regex-syntax v0.8.11|default,std,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment
+regex-syntax feature "unicode-case" (*)
+regex feature "unicode-gencat"
+regex v1.13.1|default,perf,perf-backtrack,perf-cache,perf-dfa,perf-inline,perf-literal,perf-onepass,std,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment (*)
+regex-automata feature "unicode-gencat"
+regex-automata v0.4.18|alloc,dfa-onepass,hybrid,meta,nfa-backtrack,nfa-pikevm,nfa-thompson,perf-inline,perf-literal,perf-literal-multisubstring,perf-literal-substring,std,syntax,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment,unicode-word-boundary (*)
+regex-syntax feature "unicode-gencat"
+regex-syntax v0.8.11|default,std,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment
+regex-syntax feature "unicode-gencat" (*)
+regex feature "unicode-perl"
+regex v1.13.1|default,perf,perf-backtrack,perf-cache,perf-dfa,perf-inline,perf-literal,perf-onepass,std,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment (*)
+regex-automata feature "unicode-perl"
+regex-automata v0.4.18|alloc,dfa-onepass,hybrid,meta,nfa-backtrack,nfa-pikevm,nfa-thompson,perf-inline,perf-literal,perf-literal-multisubstring,perf-literal-substring,std,syntax,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment,unicode-word-boundary (*)
+regex-syntax feature "unicode-perl"
+regex-syntax v0.8.11|default,std,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment
+regex-automata feature "unicode-word-boundary"
+regex-automata v0.4.18|alloc,dfa-onepass,hybrid,meta,nfa-backtrack,nfa-pikevm,nfa-thompson,perf-inline,perf-literal,perf-literal-multisubstring,perf-literal-substring,std,syntax,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment,unicode-word-boundary (*)
+regex-syntax feature "unicode-perl" (*)
+regex feature "unicode-script"
+regex v1.13.1|default,perf,perf-backtrack,perf-cache,perf-dfa,perf-inline,perf-literal,perf-onepass,std,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment (*)
+regex-automata feature "unicode-script"
+regex-automata v0.4.18|alloc,dfa-onepass,hybrid,meta,nfa-backtrack,nfa-pikevm,nfa-thompson,perf-inline,perf-literal,perf-literal-multisubstring,perf-literal-substring,std,syntax,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment,unicode-word-boundary (*)
+regex-syntax feature "unicode-script"
+regex-syntax v0.8.11|default,std,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment
+regex-syntax feature "unicode-script" (*)
+regex feature "unicode-segment"
+regex v1.13.1|default,perf,perf-backtrack,perf-cache,perf-dfa,perf-inline,perf-literal,perf-onepass,std,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment (*)
+regex-automata feature "unicode-segment"
+regex-automata v0.4.18|alloc,dfa-onepass,hybrid,meta,nfa-backtrack,nfa-pikevm,nfa-thompson,perf-inline,perf-literal,perf-literal-multisubstring,perf-literal-substring,std,syntax,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment,unicode-word-boundary (*)
+regex-syntax feature "unicode-segment"
+regex-syntax v0.8.11|default,std,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment
+regex-syntax feature "unicode-segment" (*)
+regex-automata feature "unicode"
+regex-automata v0.4.18|alloc,dfa-onepass,hybrid,meta,nfa-backtrack,nfa-pikevm,nfa-thompson,perf-inline,perf-literal,perf-literal-multisubstring,perf-literal-substring,std,syntax,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment,unicode-word-boundary (*)
+regex-automata feature "unicode-age" (*)
+regex-automata feature "unicode-bool" (*)
+regex-automata feature "unicode-case" (*)
+regex-automata feature "unicode-gencat" (*)
+regex-automata feature "unicode-perl" (*)
+regex-automata feature "unicode-script" (*)
+regex-automata feature "unicode-segment" (*)
+regex-automata feature "unicode-word-boundary" (*)
+regex-syntax feature "unicode"
+regex-syntax v0.8.11|default,std,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment
+regex-syntax feature "unicode-age" (*)
+regex-syntax feature "unicode-bool" (*)
+regex-syntax feature "unicode-case" (*)
+regex-syntax feature "unicode-gencat" (*)
+regex-syntax feature "unicode-perl" (*)
+regex-syntax feature "unicode-script" (*)
+regex-syntax feature "unicode-segment" (*)
+regex-syntax feature "unicode" (*)
+regex-syntax feature "default"
+regex-syntax v0.8.11|default,std,unicode,unicode-age,unicode-bool,unicode-case,unicode-gencat,unicode-perl,unicode-script,unicode-segment
+regex-syntax feature "std" (*)
+regex-syntax feature "unicode" (*)
+regex-syntax feature "default" (*)
+spm_precompiled feature "default"
+spm_precompiled v0.1.4|
+serde feature "default" (*)
+serde feature "derive" (*)
+base64 feature "default"
+base64 v0.13.1|default,std
+base64 feature "std"
+base64 v0.13.1|default,std
+nom feature "default"
+nom v7.1.3|alloc,default,std
+memchr v2.8.3|alloc,default,std
+minimal-lexical v0.2.1|std
+nom feature "std"
+nom v7.1.3|alloc,default,std (*)
+memchr feature "std" (*)
+nom feature "alloc"
+nom v7.1.3|alloc,default,std (*)
+minimal-lexical feature "std"
+minimal-lexical v0.2.1|std
+unicode-segmentation feature "default"
+unicode-segmentation v1.13.3|
+unicode-segmentation feature "default" (*)
+unicode-normalization-alignments feature "default"
+unicode-normalization-alignments v0.1.12|
+smallvec feature "default"
+smallvec v1.15.2|
+unicode_categories feature "default"
+unicode_categories v0.1.1|
+yoke feature "default"
+yoke v0.8.3|alloc,default,derive,zerofrom
+stable_deref_trait v1.2.1|alloc,default,std
+yoke-derive v0.8.2 (proc-macro)|
+proc-macro2 feature "default" (*)
+quote feature "default" (*)
+syn feature "default" (*)
+syn feature "fold"
+syn v2.0.119|clone-impls,default,derive,extra-traits,fold,full,parsing,printing,proc-macro,visit (*)
+synstructure feature "default"
+synstructure v0.13.2|default,proc-macro
+proc-macro2 v1.0.107|default,proc-macro (*)
+quote v1.0.47|default,proc-macro (*)
+syn feature "clone-impls" (*)
+syn feature "derive" (*)
+syn feature "extra-traits" (*)
+syn feature "parsing" (*)
+syn feature "printing" (*)
+syn feature "visit"
+syn v2.0.119|clone-impls,default,derive,extra-traits,fold,full,parsing,printing,proc-macro,visit (*)
+synstructure feature "proc-macro"
+synstructure v0.13.2|default,proc-macro (*)
+proc-macro2 feature "proc-macro" (*)
+quote feature "proc-macro" (*)
+syn feature "proc-macro" (*)
+zerofrom v0.1.8|alloc,derive
+zerofrom-derive v0.1.7 (proc-macro)|
+proc-macro2 feature "default" (*)
+quote feature "default" (*)
+syn feature "default" (*)
+syn feature "fold" (*)
+synstructure feature "default" (*)
+yoke feature "alloc"
+yoke v0.8.3|alloc,default,derive,zerofrom (*)
+stable_deref_trait feature "alloc" (*)
+yoke feature "zerofrom"
+yoke v0.8.3|alloc,default,derive,zerofrom (*)
+zerofrom feature "alloc"
+zerofrom v0.1.8|alloc,derive (*)
+yoke feature "zerofrom" (*)
+yoke feature "derive"
+yoke v0.8.3|alloc,default,derive,zerofrom (*)
+yoke feature "zerofrom" (*)
+zerofrom feature "derive"
+zerofrom v0.1.8|alloc,derive (*)
+half feature "std" (*)
+serde_json feature "default" (*)
+p2-backend-common feature "default"
+p2-backend-common v0.0.0 (${REPO}/experiments/p2-backends/common)|
+half feature "std" (*)
+serde feature "default" (*)
+serde feature "derive" (*)
+serde_json feature "default" (*)
+thiserror feature "default" (*)
+hex feature "default"
+hex v0.4.3|alloc,default,std
+hex feature "std"
+hex v0.4.3|alloc,default,std
+hex feature "alloc"
+hex v0.4.3|alloc,default,std
+sha2 feature "default"
+sha2 v0.10.9|default,std
+cfg-if feature "default" (*)
+cpufeatures feature "default"
+cpufeatures v0.2.17|
+digest feature "default"
+digest v0.10.7|alloc,block-buffer,core-api,default,std
+block-buffer feature "default"
+block-buffer v0.10.4|
+generic-array feature "default"
+generic-array v0.14.7|more_lengths
+typenum feature "default"
+typenum v1.20.1|
+version_check feature "default" (*)
+crypto-common feature "default"
+crypto-common v0.1.7|std
+generic-array feature "default" (*)
+generic-array feature "more_lengths"
+generic-array v0.14.7|more_lengths (*)
+typenum feature "default" (*)
+digest feature "core-api"
+digest v0.10.7|alloc,block-buffer,core-api,default,std (*)
+digest feature "block-buffer"
+digest v0.10.7|alloc,block-buffer,core-api,default,std (*)
+sha2 feature "std"
+sha2 v0.10.9|default,std (*)
+digest feature "std"
+digest v0.10.7|alloc,block-buffer,core-api,default,std (*)
+digest feature "alloc"
+digest v0.10.7|alloc,block-buffer,core-api,default,std (*)
+crypto-common feature "std"
+crypto-common v0.1.7|std (*)

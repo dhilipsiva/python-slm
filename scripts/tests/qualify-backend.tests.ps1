@@ -110,6 +110,10 @@ try {
         Assert-P2Test ((Get-P2NearestRankPercentile -Values @(1, 9, 3, 7, 5) -Percentile 0.5) -eq 5) 'p50 mismatch'
         Assert-P2Test ((Get-P2NearestRankPercentile -Values @(1, 9, 3, 7, 5) -Percentile 0.95) -eq 9) 'p95 mismatch'
     }
+    Invoke-P2Test 'empty process argv renders as an empty command line' {
+        $rendered=&$module { ConvertTo-P2CommandLine -Arguments @() }
+        Assert-P2Test ($rendered -ceq '') 'empty process argv was rejected or rendered nonempty'
+    }
     Invoke-P2Test 'selection applies the greater-than-five-percent band' {
         $a = [pscustomobject]@{ candidate_id = 'burn-cubecl'; status = 'PASS'; comparison = [pscustomobject]@{
                 geomean_fwbw_p50_ns = 100; geomean_fwbw_p95_ns = 120; observed_peak_bytes = 1000; locked_dependency_count = 10 } }
@@ -318,12 +322,32 @@ $m=Import-Module -Name $ModulePath -Force -PassThru
             Assert-P2Test (-not$result.timed_out-and$result.process_tree_terminated-and-not$result.unexpected_descendants) "clean process exit $iteration was classified as a descendant"
         }
     }
+    Invoke-P2Test 'bounded transient child drains without a false persistent-descendant result' {
+        $script='$null=Start-Process -FilePath $env:ComSpec -ArgumentList @(''/d'',''/c'',''ping -n 4 127.0.0.1 >nul'') -WindowStyle Hidden -PassThru; exit 0'
+        $result=Invoke-P2Process -FilePath (Get-Command powershell.exe).Source `
+            -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-Command',$script) `
+            -WorkingDirectory $repositoryRoot -TimeoutSeconds 15
+        Assert-P2Test (-not$result.timed_out-and$result.process_tree_terminated-and-not$result.unexpected_descendants) 'bounded transient child was classified as persistent'
+    }
     Invoke-P2Test 'persistent descendant is detected and terminated after the drain window' {
         $script='$null=Start-Process -FilePath $env:ComSpec -ArgumentList @(''/d'',''/c'',''ping -n 20 127.0.0.1 >nul'') -WindowStyle Hidden -PassThru; exit 0'
         $result=Invoke-P2Process -FilePath (Get-Command powershell.exe).Source `
             -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-Command',$script) `
             -WorkingDirectory $repositoryRoot -TimeoutSeconds 15
         Assert-P2Test (-not$result.timed_out-and$result.unexpected_descendants-and$result.process_tree_terminated) 'persistent descendant escaped Job detection/termination'
+    }
+    Invoke-P2Test 'qualified MSVC vctip cleanup classification is path and process exact' {
+        $toolsRoot='C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207'
+        $valid=[pscustomobject]@{pid=42;name='vctip';path=(Join-Path $toolsRoot 'bin\Hostx64\x64\vctip.exe')}
+        $accepted=&$module {param($record,$root) Test-P2QualifiedVctipProcessSet -Processes @($record) -Environment @{VCToolsInstallDir=$root}} $valid $toolsRoot
+        Assert-P2Test $accepted 'qualified vctip process was rejected'
+        foreach($invalid in @(
+                [pscustomobject]@{pid=42;name='powershell';path=$valid.path},
+                [pscustomobject]@{pid=42;name='vctip';path='C:\Windows\System32\vctip.exe'},
+                [pscustomobject]@{pid=42;name='vctip';path=$null})) {
+            $accepted=&$module {param($record,$root) Test-P2QualifiedVctipProcessSet -Processes @($record) -Environment @{VCToolsInstallDir=$root}} $invalid $toolsRoot
+            Assert-P2Test (-not$accepted) 'non-qualified vctip cleanup record was accepted'
+        }
     }
     Invoke-P2Test 'invocation projection is empty-safe and rejects malformed wrappers' {
         $empty=&$module { ConvertTo-P2InvocationProjection -Invocations @() }
@@ -335,6 +359,14 @@ $m=Import-Module -Name $ModulePath -Force -PassThru
         $invalid=[pscustomobject]@{result=$valid.result;reference=$valid.reference};$threw=$false
         try{$null=&$module {param($value)ConvertTo-P2InvocationProjection -Invocations @($value)} $invalid}catch{$threw=$true}
         Assert-P2Test $threw 'malformed invocation wrapper was accepted'
+    }
+    Invoke-P2Test 'failed candidate aggregation accepts canonical empty benchmark evidence' {
+        $runtime=&$module { Merge-P2RuntimeProvenance -Records @() }
+        Assert-P2Test ($runtime.all_allowed-and@($runtime.loaded_modules).Count-eq0-and@($runtime.qualified_roots).Count-eq0) 'empty runtime provenance merge failed'
+        $failure=[pscustomobject]@{code='CANDIDATE_RESULT_FAILED';category=5;message='candidate failed before benchmarks';command_id='C18'}
+        $aggregate=&$module {param($runtime,$failure) New-P2CandidateAggregate -CandidateId burn-cubecl -CpuSmoke $null -Allocation $null -Correctness $null `
+            -BenchmarkRounds @() -NvmlMeasurements @() -Summary $null -RuntimeProvenance $runtime -Failures @($failure)} $runtime $failure
+        Assert-P2Test ($aggregate.status-ceq'FAIL'-and@($aggregate.benchmark_rounds).Count-eq0-and@($aggregate.nvml_measurements).Count-eq0-and@($aggregate.failures).Count-eq1) 'empty failed candidate aggregate was rejected or malformed'
     }
     Invoke-P2Test 'policy emitter matches renamed warmup contract and closed schema IDs' {
         $policy=New-P2Policy

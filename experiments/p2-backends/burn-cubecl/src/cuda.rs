@@ -9,6 +9,7 @@ use burn::{
     prelude::Backend,
     tensor::{FloatDType, Tensor, TensorData, backend::AutodiffBackend},
 };
+use cudarc::driver::CudaContext;
 use half::bf16;
 use p2_backend_common::{
     AllocationResult, CandidateArgs, CandidateMode, CandidateResult, MemoryResult, ResultStatus,
@@ -30,17 +31,21 @@ pub fn run(args: &CandidateArgs, result: &mut CandidateResult) -> Result<(), Str
     let fixture = load(&args.fixture_dir, args.workload).map_err(|error| error.to_string())?;
     result.fixture_hashes = Some(fixture.hashes());
     let context_started = Instant::now();
+    // CubeCL and cudarc both retain device 0's primary context.  Keep an
+    // explicit safe context handle for the device-memory checkpoints so every
+    // cuMemGetInfo call binds that context to the calling thread first.
+    let memory_probe = CudaContext::new(0).map_err(display)?;
     let device = CudaDevice::new(0);
     Gpu::sync(&device).map_err(display)?;
     let context_ns = duration_ns(context_started.elapsed());
-    let memory_context = free_bytes()?;
+    let memory_context = free_bytes(&memory_probe)?;
 
     match (args.mode, args.workload.shape()) {
         (CandidateMode::Correctness, WorkloadShape::Allocation(shape)) => {
             let tensor =
                 Tensor::<Gpu, 3>::from_data(TensorData::new(fixture.a.clone(), shape), &device);
             Gpu::sync(&device).map_err(display)?;
-            let memory_allocation = free_bytes()?;
+            let memory_allocation = free_bytes(&memory_probe)?;
             let output = tensor
                 .try_into_data()
                 .map_err(display)?
@@ -75,8 +80,8 @@ pub fn run(args: &CandidateArgs, result: &mut CandidateResult) -> Result<(), Str
         (CandidateMode::Correctness, WorkloadShape::Matmul { m, k, n }) => {
             let graph = Graph::new(&fixture.a, &fixture.b, m, k, n, &device);
             Gpu::sync(&device).map_err(display)?;
-            let memory_allocation = free_bytes()?;
-            let observed = graph.evaluate()?;
+            let memory_allocation = free_bytes(&memory_probe)?;
+            let observed = graph.evaluate(&memory_probe)?;
             let oracle = evaluate_oracle(&fixture.a, &fixture.b, m, k, n);
             let correctness = assess_correctness(
                 ShapeResult {
@@ -106,7 +111,7 @@ pub fn run(args: &CandidateArgs, result: &mut CandidateResult) -> Result<(), Str
         (CandidateMode::Benchmark, WorkloadShape::Matmul { m, k, n }) => {
             let graph = Graph::new(&fixture.a, &fixture.b, m, k, n, &device);
             Gpu::sync(&device).map_err(display)?;
-            let memory_allocation = free_bytes()?;
+            let memory_allocation = free_bytes(&memory_probe)?;
 
             let jit_started = Instant::now();
             let jit_y = graph.forward();
@@ -119,12 +124,12 @@ pub fn run(args: &CandidateArgs, result: &mut CandidateResult) -> Result<(), Str
             Gpu::sync(&device).map_err(display)?;
             black_box(&first_y);
             let first_result_ns = duration_ns(first_started.elapsed());
-            let memory_forward = free_bytes()?;
+            let memory_forward = free_bytes(&memory_probe)?;
             let first_loss = first_y.cast(FloatDType::F32).powf_scalar(2.0).mean();
             let first_grads = first_loss.backward();
             Gpu::sync(&device).map_err(display)?;
             black_box(&first_grads);
-            let memory_backward = free_bytes()?;
+            let memory_backward = free_bytes(&memory_probe)?;
 
             let (forward_samples, forward_elapsed) = measure(
                 || Gpu::sync(&device).map_err(display),
@@ -333,10 +338,10 @@ impl Graph {
         black_box(loss.backward());
     }
 
-    fn evaluate(&self) -> Result<Observed, String> {
+    fn evaluate(&self, memory_probe: &CudaContext) -> Result<Observed, String> {
         let y = self.forward();
         Gpu::sync(&self.device).map_err(display)?;
-        let free_after_forward = free_bytes()?;
+        let free_after_forward = free_bytes(memory_probe)?;
         let loss = y.clone().cast(FloatDType::F32).powf_scalar(2.0).mean();
         let loss_values = loss
             .clone()
@@ -351,7 +356,7 @@ impl Graph {
         );
         let grads = loss.backward();
         Gpu::sync(&self.device).map_err(display)?;
-        let free_after_backward = free_bytes()?;
+        let free_after_backward = free_bytes(memory_probe)?;
         let grad_a = self
             .a
             .grad(&grads)
@@ -397,8 +402,9 @@ fn tensor_f32_f64(
         .map(|values| values.into_iter().map(f64::from).collect())
 }
 
-fn free_bytes() -> Result<u64, String> {
-    cudarc::driver::result::mem_get_info()
+fn free_bytes(context: &CudaContext) -> Result<u64, String> {
+    context
+        .mem_get_info()
         .map_err(display)
         .and_then(|(free, _)| u64::try_from(free).map_err(|error| error.to_string()))
 }

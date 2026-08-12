@@ -1,0 +1,169 @@
+Microsoft (R) COFF/PE Dumper Version 14.44.35222.0
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+
+Dump of file ${TEMP}/cpu-target/burn-cubecl/release/p2-burn-cubecl.exe
+
+PE signature found
+
+File Type: EXECUTABLE IMAGE
+
+FILE HEADER VALUES
+            8664 machine (x64)
+               5 number of sections
+        6A7CA9AC time date stamp Wed Aug 12 22:43:16 2026
+               0 file pointer to symbol table
+               0 number of symbols
+              F0 size of optional header
+              22 characteristics
+                   Executable
+                   Application can handle large (>2GB) addresses
+
+OPTIONAL HEADER VALUES
+             20B magic # (PE32+)
+           14.44 linker version
+           73400 size of code
+           18200 size of initialized data
+               0 size of uninitialized data
+           6F7BC entry point (000000014006F7BC) mainCRTStartup
+            1000 base of code
+       140000000 image base (0000000140000000 to 000000014008FFFF)
+            1000 section alignment
+             200 file alignment
+            6.00 operating system version
+            0.00 image version
+            6.00 subsystem version
+               0 Win32 version
+           90000 size of image
+             400 size of headers
+               0 checksum
+               3 subsystem (Windows CUI)
+            8160 DLL characteristics
+                   High Entropy Virtual Addresses
+                   Dynamic base
+                   NX compatible
+                   Terminal Server Aware
+          100000 size of stack reserve
+            1000 size of stack commit
+          100000 size of heap reserve
+            1000 size of heap commit
+               0 loader flags
+              10 number of directories
+               0 [       0] RVA [size] of Export Directory
+           89674 [      F0] RVA [size] of Import Directory
+               0 [       0] RVA [size] of Resource Directory
+           8C000 [    2250] RVA [size] of Exception Directory
+               0 [       0] RVA [size] of Certificates Directory
+           8F000 [     550] RVA [size] of Base Relocation Directory
+           860E0 [      54] RVA [size] of Debug Directory
+               0 [       0] RVA [size] of Architecture Directory
+               0 [       0] RVA [size] of Global Pointer Directory
+           86180 [      28] RVA [size] of Thread Storage Directory
+           85FA0 [     140] RVA [size] of Load Configuration Directory
+               0 [       0] RVA [size] of Bound Import Directory
+           75000 [     350] RVA [size] of Import Address Table Directory
+               0 [       0] RVA [size] of Delay Import Directory
+               0 [       0] RVA [size] of COM Descriptor Directory
+               0 [       0] RVA [size] of Reserved Directory
+
+
+SECTION HEADER #1
+   .text name
+   732CE virtual size
+    1000 virtual address (0000000140001000 to 00000001400742CD)
+   73400 size of raw data
+     400 file pointer to raw data (00000400 to 000737FF)
+       0 file pointer to relocation table
+       0 file pointer to line numbers
+       0 number of relocations
+       0 number of line numbers
+60000020 flags
+         Code
+         Execute Read
+
+SECTION HEADER #2
+  .rdata name
+   15346 virtual size
+   75000 virtual address (0000000140075000 to 000000014008A345)
+   15400 size of raw data
+   73800 file pointer to raw data (00073800 to 00088BFF)
+       0 file pointer to relocation table
+       0 file pointer to line numbers
+       0 number of relocations
+       0 number of line numbers
+40000040 flags
+         Initialized Data
+         Read Only
+
+  Debug Directories
+
+        Time Type        Size      RVA  Pointer
+    -------- ------- -------- -------- --------
+    6A7CA9AC cv            2B 0008626C    84A6C    Format: RSDS, {3B3FF5A5-8993-4576-8662-B19A95732432}, 1, p2_burn_cubecl.pdb
+    6A7CA9AC feat          14 00086298    84A98    Counts: Pre-VC++ 11.00=112, C/C++=32, /GS=32, /sdl=0, guardN=32
+    6A7CA9AC coffgrp      330 000862AC    84AAC
+
+  Image has the following dependencies:
+
+    kernel32.dll
+    ntdll.dll
+    bcryptprimitives.dll
+    api-ms-win-core-synch-l1-2-0.dll
+    KERNEL32.dll
+    VCRUNTIME140.dll
+    api-ms-win-crt-runtime-l1-1-0.dll
+    api-ms-win-crt-math-l1-1-0.dll
+    api-ms-win-crt-stdio-l1-1-0.dll
+    api-ms-win-crt-locale-l1-1-0.dll
+    api-ms-win-crt-heap-l1-1-0.dll
+
+SECTION HEADER #3
+   .data name
+     350 virtual size
+   8B000 virtual address (000000014008B000 to 000000014008B34F)
+     200 size of raw data
+   88C00 file pointer to raw data (00088C00 to 00088DFF)
+       0 file pointer to relocation table
+       0 file pointer to line numbers
+       0 number of relocations
+       0 number of line numbers
+C0000040 flags
+         Initialized Data
+         Read Write
+
+SECTION HEADER #4
+  .pdata name
+    2250 virtual size
+   8C000 virtual address (000000014008C000 to 000000014008E24F)
+    2400 size of raw data
+   88E00 file pointer to raw data (00088E00 to 0008B1FF)
+       0 file pointer to relocation table
+       0 file pointer to line numbers
+       0 number of relocations
+       0 number of line numbers
+40000040 flags
+         Initialized Data
+         Read Only
+
+SECTION HEADER #5
+  .reloc name
+     550 virtual size
+   8F000 virtual address (000000014008F000 to 000000014008F54F)
+     600 size of raw data
+   8B200 file pointer to raw data (0008B200 to 0008B7FF)
+       0 file pointer to relocation table
+       0 file pointer to line numbers
+       0 number of relocations
+       0 number of line numbers
+42000040 flags
+         Initialized Data
+         Discardable
+         Read Only
+
+  Summary
+
+        1000 .data
+        3000 .pdata
+       16000 .rdata
+        1000 .reloc
+       74000 .text

@@ -1,0 +1,148 @@
+{
+    "schema":  "python-slm-backend-qualification-policy-v1",
+    "phase_id":  "P2",
+    "policy_id":  "backend-qualification-v1",
+    "frozen_before_candidate_execution":  true,
+    "candidates":  [
+                       {
+                           "candidate_id":  "burn-cubecl",
+                           "crate":  "burn",
+                           "version":  "0.21.0",
+                           "role":  "framework"
+                       },
+                       {
+                           "candidate_id":  "candle",
+                           "crate":  "candle-core",
+                           "version":  "0.11.0",
+                           "role":  "framework"
+                       },
+                       {
+                           "candidate_id":  "cudarc-fallback",
+                           "crate":  "cudarc",
+                           "version":  "0.19.8",
+                           "role":  "diagnostic_fallback"
+                       }
+                   ],
+    "fixture_generation":  {
+                               "seed":  "domain-separated-sha256",
+                               "expander":  "splitmix64",
+                               "byte_mapping":  "signed_high_byte_divided_by_128_f32",
+                               "source_dtype":  "f32",
+                               "target_dtype":  "bf16",
+                               "rounding":  "round-to-nearest-even",
+                               "byte_order":  "little-endian",
+                               "framework_rng_allowed":  false
+                           },
+    "workloads":  {
+                      "allocation_shape":  [
+                                               16,
+                                               2048,
+                                               768
+                                           ],
+                      "correctness":  {
+                                          "m":  17,
+                                          "k":  31,
+                                          "n":  29
+                                      },
+                      "projection":  {
+                                         "m":  8192,
+                                         "k":  768,
+                                         "n":  768
+                                     },
+                      "ffn_expansion":  {
+                                            "m":  8192,
+                                            "k":  768,
+                                            "n":  2432
+                                        }
+                  },
+    "correctness_graph":  {
+                              "matmul":  "Y=A*B",
+                              "loss":  "mean(cast_f32(Y)^2)",
+                              "backward":  "gradients_for_A_and_B",
+                              "input_dtype":  "bf16",
+                              "output_dtype":  "bf16",
+                              "accumulation_dtype":  "fp32",
+                              "loss_dtype":  "fp32"
+                          },
+    "tolerances":  {
+                       "allocation_bitwise":  true,
+                       "forward_envelope":  {
+                                                "absolute_floor":  0.0078125,
+                                                "reference_multiplier":  0.015625
+                                            },
+                       "forward_relative_l2_max":  0.015,
+                       "loss_absolute_floor":  1E-05,
+                       "loss_reference_multiplier":  0.01,
+                       "gradient_envelope":  {
+                                                 "absolute_floor":  0.0078125,
+                                                 "reference_multiplier":  0.03125
+                                             },
+                       "gradient_relative_l2_max":  0.03,
+                       "gradient_cosine_min":  0.999,
+                       "nan_max":  0,
+                       "infinite_max":  0,
+                       "envelope_violations_max":  0,
+                       "relative_l2_denominator_floor":  1E-12,
+                       "reported_relative_error_denominator_floor":  1E-06,
+                       "signed_zero_equal":  true
+                   },
+    "timing":  {
+                   "round_order":  [
+                                       "burn-cubecl",
+                                       "candle",
+                                       "candle",
+                                       "burn-cubecl"
+                                   ],
+                   "fresh_process_each_round":  true,
+                   "round_order_scope":  "per_workload",
+                   "workload_order":  [
+                                          "projection",
+                                          "ffn-expansion"
+                                      ],
+                   "warmups_per_timed_operation":  50,
+                   "minimum_samples":  200,
+                   "minimum_window_seconds":  5,
+                   "maximum_samples":  10000,
+                   "maximum_window_seconds":  60,
+                   "synchronize_before_and_after":  true,
+                   "percentile_method":  "nearest-rank-integer-nanoseconds",
+                   "forward_flop_formula":  "2*M*N*K/time",
+                   "forward_backward_flop_formula":  "6*M*N*K/time",
+                   "tokens_per_second_forbidden":  true,
+                   "eight_hour_projection_forbidden":  true,
+                   "maximum_between_round_p50_drift_ratio":  0.1
+               },
+    "memory":  {
+                   "monitor":  "native-nvml-zero-python",
+                   "sample_interval_ms":  20,
+                   "baseline_samples":  20,
+                   "baseline_interval_ms":  50,
+                   "baseline_statistic":  "median",
+                   "maximum_sample_gap_ms":  100,
+                   "foreign_gpu_work_allowed":  false,
+                   "cuda_memory_points":  [
+                                              "after_context",
+                                              "after_allocation",
+                                              "after_forward",
+                                              "after_backward"
+                                          ]
+               },
+    "selection":  {
+                      "hard_gates_first":  true,
+                      "performance_advantage_ratio":  0.05,
+                      "ordered_tiebreakers":  [
+                                                  "geometric_mean_forward_backward_p50",
+                                                  "geometric_mean_forward_backward_p95",
+                                                  "observed_peak_vram",
+                                                  "locked_dependency_count",
+                                                  "stable_candidate_id"
+                                              ],
+                      "stable_candidate_id_final_tie":  true
+                  },
+    "fallback":  {
+                     "candidate_id":  "cudarc-fallback",
+                     "run_only_if_frameworks_fail":  true,
+                     "diagnostic_only":  true,
+                     "may_satisfy_p2":  false
+                 }
+}

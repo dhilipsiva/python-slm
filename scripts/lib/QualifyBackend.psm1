@@ -53,7 +53,7 @@ public sealed class P2Job : IDisposable {
     [DllImport("kernel32.dll")] private static extern bool SetInformationJobObject(IntPtr job, int cls, IntPtr info, uint len);
     [DllImport("kernel32.dll")] private static extern bool AssignProcessToJobObject(IntPtr job, IntPtr process);
     [DllImport("kernel32.dll")] private static extern bool TerminateJobObject(IntPtr job, uint code);
-    [DllImport("kernel32.dll")] private static extern bool QueryInformationJobObject(IntPtr job, int cls, IntPtr info, uint len, out uint returned);
+    [DllImport("kernel32.dll", SetLastError=true)] private static extern bool QueryInformationJobObject(IntPtr job, int cls, IntPtr info, uint len, out uint returned);
     [DllImport("kernel32.dll")] private static extern bool CloseHandle(IntPtr handle);
     public P2Job() {
         handle = CreateJobObject(IntPtr.Zero, null);
@@ -69,6 +69,25 @@ public sealed class P2Job : IDisposable {
         try { uint returned; if (!QueryInformationJobObject(handle, 1, ptr, (uint)size, out returned)) throw new System.ComponentModel.Win32Exception();
             return ((BASIC_ACCOUNTING)Marshal.PtrToStructure(ptr, typeof(BASIC_ACCOUNTING))).ActiveProcesses; }
         finally { Marshal.FreeHGlobal(ptr); }
+    }
+    public ulong[] ActiveProcessIds() {
+        int capacity=64;
+        while(capacity<=4096){
+            int size=8+(IntPtr.Size*capacity);IntPtr ptr=Marshal.AllocHGlobal(size);
+            try{
+                uint returned;
+                if(QueryInformationJobObject(handle,3,ptr,(uint)size,out returned)){
+                    uint count=(uint)Marshal.ReadInt32(ptr,4);var ids=new ulong[count];
+                    for(uint index=0;index<count;index++){
+                        IntPtr value=Marshal.ReadIntPtr(ptr,8+((int)index*IntPtr.Size));ids[index]=unchecked((ulong)value.ToInt64());
+                    }
+                    return ids;
+                }
+                int error=Marshal.GetLastWin32Error();if(error!=234)throw new System.ComponentModel.Win32Exception(error);
+            }finally{Marshal.FreeHGlobal(ptr);}
+            capacity*=2;
+        }
+        throw new InvalidOperationException("JOB_PROCESS_ID_LIST_TOO_LARGE");
     }
     public void Terminate(uint code) { if (handle != IntPtr.Zero && !TerminateJobObject(handle, code)) throw new System.ComponentModel.Win32Exception(); }
     public void Dispose() { if (handle != IntPtr.Zero) { CloseHandle(handle); handle = IntPtr.Zero; } }
@@ -171,6 +190,21 @@ function Test-P2PathWithin {
     return [string]::Equals($fullPath, $fullRoot, [StringComparison]::OrdinalIgnoreCase) -or
         $fullPath.StartsWith($fullRoot + [IO.Path]::DirectorySeparatorChar,
             [StringComparison]::OrdinalIgnoreCase)
+}
+
+function Test-P2QualifiedVctipProcessSet {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Processes,
+        [Parameter(Mandatory)][hashtable]$Environment)
+    if ($Processes.Count -eq 0 -or -not $Environment.ContainsKey('VCToolsInstallDir') -or
+        [string]::IsNullOrWhiteSpace([string]$Environment['VCToolsInstallDir'])) { return $false }
+    $toolsRoot = [string]$Environment['VCToolsInstallDir']
+    foreach ($process in $Processes) {
+        if ([string]$process.name -cne 'vctip' -or [string]::IsNullOrWhiteSpace([string]$process.path) -or
+            (Split-Path -Leaf ([string]$process.path)) -cne 'vctip.exe' -or
+            -not (Test-P2PathWithin -Path ([string]$process.path) -Root $toolsRoot)) { return $false }
+    }
+    return $true
 }
 
 function Wait-P2JobEmpty {
@@ -331,7 +365,7 @@ function Protect-P2Text {
 }
 
 function ConvertTo-P2CommandLine {
-    param([Parameter(Mandatory)][string[]]$Arguments)
+    param([Parameter(Mandatory)][AllowEmptyCollection()][string[]]$Arguments)
     $rendered = foreach ($argument in $Arguments) {
         if ($argument.Length -gt 0 -and $argument -notmatch '[\s"]') { $argument; continue }
         $builder = [Text.StringBuilder]::new(); [void]$builder.Append('"'); $slashes = 0
@@ -392,7 +426,7 @@ function Invoke-P2Process {
     $process = [Diagnostics.Process]::new(); $process.StartInfo = $start
     $job = [P2Job]::new(); $monitor = $null; $monitorResult = $null
     $stopwatch = [Diagnostics.Stopwatch]::StartNew(); $timedOut = $false; $treeTerminated = $true
-    $unexpectedDescendants = $false
+    $unexpectedDescendants = $false; $remainingProcesses = @(); $qualifiedToolDescendantsCleaned = $false
     $modules = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     try {
         if ($MonitorNvml) { $monitor = [P2NvmlMonitor]::new(); $monitor.Start(0) }
@@ -412,11 +446,25 @@ function Invoke-P2Process {
         }
         if (-not $timedOut) {
             $process.WaitForExit()
-            # A just-exited process can remain in the Job accounting snapshot for
-            # a few scheduler ticks.  Give clean compiler/candidate trees a short,
-            # bounded drain window before classifying a persistent descendant.
-            if (-not (Wait-P2JobEmpty -Job $job -TimeoutMilliseconds 2000)) {
-                $unexpectedDescendants = $true
+            # A successful parent can exit while already-finishing descendants
+            # remain briefly visible in the Job accounting snapshot. Give the
+            # complete tree a bounded drain window before classifying a
+            # descendant as persistent.
+            if (-not (Wait-P2JobEmpty -Job $job -TimeoutMilliseconds 10000)) {
+                $remainingProcesses = @($job.ActiveProcessIds() | ForEach-Object {
+                        $pidValue = [int64]$_; $name = '<exited>'; $path = $null
+                        try {
+                            $remainingProcess = Get-Process -Id $pidValue -ErrorAction Stop
+                            $name = [string]$remainingProcess.ProcessName
+                            try { $path = [string]$remainingProcess.Path } catch { }
+                        }
+                        catch { }
+                        [pscustomobject][ordered]@{ pid = $pidValue; name = $name; path = $path }
+                    })
+                $isCompilerCommand = (Split-Path -Leaf $FilePath) -cin @('cargo.exe', 'cl.exe')
+                $qualifiedToolDescendantsCleaned = $isCompilerCommand -and
+                    (Test-P2QualifiedVctipProcessSet -Processes $remainingProcesses -Environment $Environment)
+                $unexpectedDescendants = -not $qualifiedToolDescendantsCleaned
                 try { $job.Terminate(125) } catch { $treeTerminated = $false }
                 if (-not (Wait-P2JobEmpty -Job $job -TimeoutMilliseconds 10000)) { $treeTerminated = $false }
             }
@@ -430,6 +478,8 @@ function Invoke-P2Process {
             stderr = if ($stderrTask.IsCompleted) { [string]$stderrTask.Result } else { 'transcript capture did not complete' }
             timed_out = $timedOut; process_tree_terminated = $treeTerminated
             unexpected_descendants = $unexpectedDescendants
+            remaining_processes = @($remainingProcesses)
+            qualified_tool_descendants_cleaned = $qualifiedToolDescendantsCleaned
             loaded_modules = @($modules | Sort-Object)
             nvml = $null
         }
@@ -908,7 +958,7 @@ function New-P2CandidateAggregate {
         [AllowNull()][object]$CpuSmoke,
         [AllowNull()][object]$Allocation,
         [AllowNull()][object]$Correctness,
-        [Parameter(Mandatory)][object[]]$BenchmarkRounds,
+        [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$BenchmarkRounds,
         [object[]]$NvmlMeasurements = @(),
         [AllowNull()]$Summary,
         [Parameter(Mandatory)]$RuntimeProvenance,
@@ -1090,7 +1140,7 @@ function Assert-P2FixtureManifestSet {
 }
 
 function Merge-P2RuntimeProvenance {
-    param([Parameter(Mandatory)][object[]]$Records)
+    param([Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Records)
     $modules = [Collections.Generic.Dictionary[string, object]]::new([StringComparer]::Ordinal)
     $roots = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
     $allowed = $true

@@ -1,0 +1,31 @@
+{
+    "schema":  "python-slm-p2-host-state-v1",
+    "status":  "PASS",
+    "gpu":  "NVIDIA GeForce RTX 5090",
+    "compute_capability":  "12.0",
+    "driver_version":  "610.88",
+    "cuda_toolkit_version":  "13.1.0",
+    "foreign_gpu_process_count":  0,
+    "nvml_library":  {
+                         "path":  "${WINDOWS}/System32/nvml.dll",
+                         "sha256":  "029885fa79dcae6c6dd0a5cf41bf4300464834e864c985d44dc07538fb06670e",
+                         "provenance":  "p2_live_system32_driver_boundary"
+                     },
+    "cuda_health_recoveries":  [
+                                   {
+                                       "candidate_id":  "burn-cubecl",
+                                       "failed_command_id":  "C18",
+                                       "trigger":  "candidate_process_failure",
+                                       "result":  "PASS"
+                                   },
+                                   {
+                                       "candidate_id":  "candle",
+                                       "failed_command_id":  "C21",
+                                       "trigger":  "candidate_result_fail",
+                                       "result":  "PASS"
+                                   }
+                               ],
+    "benchmark_monitor_checks":  [
+
+                                 ]
+}
