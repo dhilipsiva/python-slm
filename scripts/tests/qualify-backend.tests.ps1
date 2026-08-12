@@ -134,6 +134,13 @@ try {
         Assert-P2Test ($safe -notmatch [regex]::Escape($repositoryRoot)) 'repository path leaked'
         Assert-P2Test ($safe -notmatch 'secret-value') 'secret leaked'
     }
+    Invoke-P2Test 'sanitizer redacts generic email addresses' {
+        $safe = Protect-P2Text -Text 'authors=owner@example.com,build.bot+cuda@example.org' -RepositoryRoot $repositoryRoot
+        Assert-P2Test ($safe -notmatch '(?i)[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}') 'generic email address leaked'
+        Assert-P2Test ($safe -cne 'authors=owner@example.com,build.bot+cuda@example.org') 'generic email addresses were not sanitized'
+        $cargo = Protect-P2Text -Text 'set CARGO_PKG_AUTHORS="Build Author <author@example.com>:Other Person <other@example.org>"&& set NEXT=1' -RepositoryRoot $repositoryRoot
+        Assert-P2Test ($cargo -ceq 'set CARGO_PKG_AUTHORS=<redacted-authors>&& set NEXT=1') 'Cargo author identity list was not fully redacted'
+    }
     Invoke-P2Test 'WinPS5 process runner canonicalizes the parent environment' {
         $result = Invoke-P2Process -FilePath $env:ComSpec -ArgumentList @('/d', '/c', 'echo P2_PROCESS_OK') `
             -WorkingDirectory $repositoryRoot -Environment @{ P2_CHILD_MARKER = 'present' } -TimeoutSeconds 10
@@ -276,6 +283,21 @@ $m=Import-Module -Name $ModulePath -Force -PassThru
         foreach($evidence in @('    python311.dll', 'link.exe /DEFAULTLIB:python3.lib', 'rustc.exe native=libpython312.dll')){
             $e=Test-P2CpuIsolationEvidence -CommandResults @([pscustomobject]@{raw_stdout=$evidence;raw_stderr=''}) -TargetFiles @('clean.obj')
             Assert-P2Test ($e.status -ceq 'FAIL' -and $e.cuda_or_python_discovered) "Python link evidence was missed: $evidence"
+        }
+    }
+    Invoke-P2Test 'CPU isolation ignores Python prose package names and public URLs' {
+        foreach($evidence in @(
+                'CARGO_PKG_DESCRIPTION="Split a string into shell words, like Python''s shlex."',
+                'tree-sitter-python v0.23.6',
+                'CARGO_PKG_REPOSITORY=https://github.com/tree-sitter/tree-sitter-python')){
+            $e=Test-P2CpuIsolationEvidence -CommandResults @([pscustomobject]@{raw_stdout=$evidence;raw_stderr=''}) -TargetFiles @('clean.obj')
+            Assert-P2Test ($e.status -ceq 'PASS' -and -not$e.cuda_or_python_discovered -and @($e.forbidden_hits).Count-eq0) "benign Python text was rejected: $evidence"
+        }
+    }
+    Invoke-P2Test 'CPU isolation retains executable canary and DLL detections' {
+        foreach($evidence in @('running python.exe --version','P2_CANARY_HIT','loading python311.dll')){
+            $e=Test-P2CpuIsolationEvidence -CommandResults @([pscustomobject]@{raw_stdout=$evidence;raw_stderr=''}) -TargetFiles @('clean.obj')
+            Assert-P2Test ($e.status -ceq 'FAIL' -and $e.cuda_or_python_discovered) "true Python evidence was missed: $evidence"
         }
     }
     Invoke-P2Test 'dependency policy rejects git sources and patches' {
@@ -486,9 +508,17 @@ $m=Import-Module -Name $ModulePath -Force -PassThru
         $threw=$false;try{$null=&$module {param($c)Get-P2AttemptedBenchmarkSlot $c burn-cubecl} $command}catch{$threw=$true};Assert-P2Test $threw 'mis-targeted failed-peer fixture path was accepted'
     }
     Invoke-P2Test 'global transcript audit rejects versioned Python tools and linkage' {
-        foreach($text in @('C:\tools\python3.13.exe build.py','pip3 install x','loading libpython313.dll','P2_CANARY_HIT')){
+        foreach($text in @('running python.exe --version','C:\tools\python3.13.exe build.py','pip3 install x','loading libpython313.dll','P2_CANARY_HIT')){
             Assert-P2Test (&$module {param($t)Test-P2PythonTranscriptViolation $t} $text) "global Python evidence was missed: $text"}
         Assert-P2Test (-not(&$module {Test-P2PythonTranscriptViolation 'cargo build --locked --offline'})) 'clean global transcript was rejected'
+    }
+    Invoke-P2Test 'global transcript audit ignores Python prose package names and public URLs' {
+        foreach($text in @(
+                'CARGO_PKG_DESCRIPTION="Split a string into shell words, like Python''s shlex."',
+                'tree-sitter-python v0.23.6',
+                'CARGO_PKG_REPOSITORY=https://github.com/tree-sitter/tree-sitter-python')){
+            Assert-P2Test (-not(&$module {param($t)Test-P2PythonTranscriptViolation $t} $text)) "benign global Python text was rejected: $text"
+        }
     }
     Invoke-P2Test 'runtime provenance requires GPU boundary but CPU forbids it' {
         $emptyGpu=Get-P2LoadedModuleProvenance -LoadedModules @() -CudaToolkitRoot $repositoryRoot -WindowsRoot $env:SystemRoot -CandidateId burn-cubecl
@@ -620,6 +650,18 @@ burn.workspace = true
         $root=Join-Path ([IO.Path]::GetTempPath()) ('p2-redact-'+[Guid]::NewGuid().ToString('N'))
         try{[void][IO.Directory]::CreateDirectory($root);$identity=if($env:COMPUTERNAME){$env:COMPUTERNAME}else{$env:USERNAME};Write-P2Utf8LfFile (Join-Path $root 'x.txt') $identity -CreateNew
             $threw=$false;try{[void](& $module {param($p)Test-P2ReceiptRedaction $p} $root)}catch{$threw=$true};Assert-P2Test $threw 'identity leak accepted'}finally{if(Test-Path $root){Remove-Item $root -Recurse -Force}}
+    }
+    Invoke-P2Test 'redaction allows public HTTPS but rejects Windows drive paths' {
+        $root=Join-Path ([IO.Path]::GetTempPath()) ('p2-redact-path-'+[Guid]::NewGuid().ToString('N'));$path=Join-Path $root 'x.txt'
+        try{
+            [void][IO.Directory]::CreateDirectory($root);Write-P2Utf8LfFile $path 'CARGO_PKG_REPOSITORY=https://github.com/tree-sitter/tree-sitter-python' -CreateNew
+            Assert-P2Test (&$module {param($p)Test-P2ReceiptRedaction $p} $root) 'public HTTPS URL was rejected as a drive path'
+            foreach($drivePath in @('C:\Users\example\artifact.txt','C:/Users/example/artifact.txt')){
+                Write-P2Utf8LfFile $path $drivePath;$threw=$false
+                try{[void](&$module {param($p)Test-P2ReceiptRedaction $p} $root)}catch{$threw=$true}
+                Assert-P2Test $threw "Windows drive path was accepted: $drivePath"
+            }
+        }finally{if(Test-Path $root){Remove-Item $root -Recurse -Force}}
     }
     Invoke-P2Test 'sealed failure run remains immutable and never publishes a pointer' {
         $root=Join-Path ([IO.Path]::GetTempPath()) ('p2-fail-'+[Guid]::NewGuid().ToString('N'));$run=Join-Path $root 'runs\20260812T010203004Z-0123456789abcdef01234567'

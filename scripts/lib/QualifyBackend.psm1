@@ -309,6 +309,10 @@ function Protect-P2Text {
     }
     $safe = [regex]::Replace($safe, '(?i)(authorization|token|password|secret|api[_-]?key)\s*[:=]\s*[^\s,;]+', '$1=<redacted>')
     $safe = [regex]::Replace($safe, '(?i)(https?://)[^/@\s:]+:[^/@\s]+@', '$1<redacted>@')
+    $safe = [regex]::Replace($safe, '(?i)(CARGO_PKG_AUTHORS=).*?(?=&&|\r?\n|$)', '$1<redacted-authors>')
+    $safe = [regex]::Replace($safe,
+        '(?i)(?<![A-Za-z0-9._%+\-])[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}(?![A-Za-z0-9.\-])',
+        '<redacted-email>')
     return $safe.Replace('\', '/')
 }
 
@@ -563,7 +567,7 @@ function Remove-P2OwnedTemporaryRoot {
 
 function Test-P2ReceiptRedaction {
     param([Parameter(Mandatory)][string]$RunRoot)
-    $forbidden = '(?i)(?:[A-Za-z]:[\\/]|\\\\|(?:authorization|password|secret|api[_-]?key|token)\s*[:=]\s*(?!<redacted>)[^\s,;]+|https?://[^/@\s:]+:[^/@\s]+@)'
+    $forbidden = '(?i)(?:(?<![A-Za-z0-9+.-])[A-Za-z]:[\\/]|\\\\|(?:authorization|password|secret|api[_-]?key|token)\s*[:=]\s*(?!<redacted>)[^\s,;]+|https?://[^/@\s:]+:[^/@\s]+@|(?<![A-Za-z0-9._%+\-])[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}(?![A-Za-z0-9.\-]))'
     $identityPatterns=@($env:USERNAME,$env:COMPUTERNAME)|Where-Object{-not[string]::IsNullOrWhiteSpace($_)}|ForEach-Object{[regex]::Escape([string]$_)}
     foreach ($file in Get-ChildItem -LiteralPath $RunRoot -Recurse -File | Where-Object {
             $_.Extension -in @('.json', '.txt')
@@ -722,7 +726,8 @@ function Test-P2CpuIsolationEvidence {
     [CmdletBinding()]
     param([Parameter(Mandatory)][object[]]$CommandResults, [Parameter(Mandatory)][string[]]$TargetFiles)
     $text = (($CommandResults | ForEach-Object { $_.raw_stdout + "`n" + $_.raw_stderr }) -join "`n")
-    $forbidden = '(?i)(P2_CANARY_HIT|(?:^|[\s"''])[A-Za-z0-9_.\\/-]*(?:nvcc|python(?:3|w)?|pip(?:3)?)(?:\.exe)?(?:[\s"'']|$)|(?:^|[\s"''])[A-Za-z0-9_.\\/-]*(?:lib)?python(?:3(?:\d+)?)?\.(?:lib|dll)(?:[\s"'']|$)|(?:link\.exe|rustc\.exe).*(?:(?:cudnn|cublas|cudart|nvcuda|cuda)\.(?:lib|dll)|(?:lib)?python(?:3(?:\d+)?)?\.(?:lib|dll)))'
+    $toolPath = '(?:(?:[A-Za-z]:)?[A-Za-z0-9_. +\-]*(?:[\\/][A-Za-z0-9_. +\-]+)*[\\/])?'
+    $forbidden = '(?i)(P2_CANARY_HIT|(?:^|[\s"''])' + $toolPath + 'python(?:w)?(?:3(?:\.?(?:\d+)?)?)?\.exe(?=[\s"'']|$)|(?:^|[\s"''])' + $toolPath + '(?:nvcc|py3?|pip(?:3(?:\.\d+)?)?)(?:\.exe)?(?=[\s"'']|$)|(?:^|[\s"''])[A-Za-z0-9_.\\/-]*(?:lib)?python(?:3(?:\d+)?)?\.(?:lib|dll)(?:[\s"'']|$)|(?:link\.exe|rustc\.exe).*(?:(?:cudnn|cublas|cudart|nvcuda|cuda)\.(?:lib|dll)|(?:lib)?python(?:3(?:\d+)?)?\.(?:lib|dll)))'
     $hits = [Collections.Generic.List[string]]::new()
     foreach ($match in [regex]::Matches($text, $forbidden)) { if (-not $hits.Contains($match.Value)) { $hits.Add($match.Value) } }
     foreach ($path in $TargetFiles) {
@@ -736,7 +741,9 @@ function Test-P2CpuIsolationEvidence {
 
 function Test-P2PythonTranscriptViolation {
     param([AllowEmptyString()][string]$Text)
-    return [bool]([string]$Text-match'(?i)(P2_CANARY_HIT|(?:^|[\s"''])[A-Za-z0-9_.\\/:+-]*(?:python(?:w)?(?:3(?:\.?(?:\d+)?)?)?|py3?|pip(?:3(?:\.\d+)?)?)(?:\.exe)?(?:[\s"'']|$)|(?:lib)?python(?:3(?:\d+)?)?\.(?:lib|dll))')
+    $toolPath = '(?:(?:[A-Za-z]:)?[A-Za-z0-9_. +\-]*(?:[\\/][A-Za-z0-9_. +\-]+)*[\\/])?'
+    $pattern = '(?i)(P2_CANARY_HIT|(?:^|[\s"''])' + $toolPath + 'python(?:w)?(?:3(?:\.?(?:\d+)?)?)?\.exe(?=[\s"'']|$)|(?:^|[\s"''])' + $toolPath + '(?:py3?|pip(?:3(?:\.\d+)?)?)(?:\.exe)?(?=[\s"'']|$)|(?:lib)?python(?:3(?:\d+)?)?\.(?:lib|dll))'
+    return [bool]([string]$Text -match $pattern)
 }
 
 function Get-P2DirectoryFingerprint {
