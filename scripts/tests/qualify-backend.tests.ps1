@@ -311,6 +311,31 @@ $m=Import-Module -Name $ModulePath -Force -PassThru
             -WorkingDirectory $repositoryRoot -TimeoutSeconds 1
         Assert-P2Test ($result.timed_out -and $result.process_tree_terminated) 'timed-out process tree survived'
     }
+    Invoke-P2Test 'rapid clean process exits drain Job accounting without false descendants' {
+        foreach($iteration in 1..12){
+            $result=Invoke-P2Process -FilePath $env:ComSpec -ArgumentList @('/d','/c','exit /b 0') `
+                -WorkingDirectory $repositoryRoot -TimeoutSeconds 10
+            Assert-P2Test (-not$result.timed_out-and$result.process_tree_terminated-and-not$result.unexpected_descendants) "clean process exit $iteration was classified as a descendant"
+        }
+    }
+    Invoke-P2Test 'persistent descendant is detected and terminated after the drain window' {
+        $script='$null=Start-Process -FilePath $env:ComSpec -ArgumentList @(''/d'',''/c'',''ping -n 20 127.0.0.1 >nul'') -WindowStyle Hidden -PassThru; exit 0'
+        $result=Invoke-P2Process -FilePath (Get-Command powershell.exe).Source `
+            -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-Command',$script) `
+            -WorkingDirectory $repositoryRoot -TimeoutSeconds 15
+        Assert-P2Test (-not$result.timed_out-and$result.unexpected_descendants-and$result.process_tree_terminated) 'persistent descendant escaped Job detection/termination'
+    }
+    Invoke-P2Test 'invocation projection is empty-safe and rejects malformed wrappers' {
+        $empty=&$module { ConvertTo-P2InvocationProjection -Invocations @() }
+        Assert-P2Test (@($empty.results).Count-eq0-and@($empty.references).Count-eq0-and@($empty.runtime_provenance).Count-eq0) 'empty invocation projection failed'
+        $valid=[pscustomobject]@{result=[pscustomobject]@{status='PASS'};reference=[pscustomobject]@{path='candidate-results/burn.json'}
+            runtime_provenance=[pscustomobject]@{loaded_modules=@();qualified_roots=@();all_allowed=$true}}
+        $projected=&$module {param($value)ConvertTo-P2InvocationProjection -Invocations @($value)} $valid
+        Assert-P2Test (@($projected.results).Count-eq1-and@($projected.references).Count-eq1-and@($projected.runtime_provenance).Count-eq1) 'valid invocation projection failed'
+        $invalid=[pscustomobject]@{result=$valid.result;reference=$valid.reference};$threw=$false
+        try{$null=&$module {param($value)ConvertTo-P2InvocationProjection -Invocations @($value)} $invalid}catch{$threw=$true}
+        Assert-P2Test $threw 'malformed invocation wrapper was accepted'
+    }
     Invoke-P2Test 'policy emitter matches renamed warmup contract and closed schema IDs' {
         $policy=New-P2Policy
         Assert-P2Test ($policy.schema -ceq 'python-slm-backend-qualification-policy-v1') 'policy schema mismatch'
@@ -413,7 +438,7 @@ $m=Import-Module -Name $ModulePath -Force -PassThru
             'PYTHONHOME','PYTHONPATH','PYTHONNOUSERSITE','VIRTUAL_ENV','CONDA_PREFIX','PIP_CONFIG_FILE')
         $base=[ordered]@{CARGO_NET_OFFLINE='true';CARGO_INCREMENTAL='0';CARGO_TERM_COLOR='never';CARGO_TARGET_DIR='${TEMP}/root-target'
             Path='${TEMP}/cpu-canaries;${TEMP}/python-canaries;${WINDOWS}/System32'}
-        foreach($name in $cleared){$base[$name]='<CLEARED>'};foreach($name in @('CUDA_PATH','CUDA_HOME','CUDA_ROOT','CUDA_TOOLKIT_ROOT_DIR','CUDNN_PATH','CUDNN_ROOT','NVCC','NVCC_PREPEND_FLAGS','NVCC_APPEND_FLAGS')){$base[$name]='<CLEARED>'}
+        foreach($name in $cleared){$base[$name]='<CLEARED>'};foreach($name in @('CUDA_PATH','CUDA_COMPUTE_CAP','CUDA_HOME','CUDA_ROOT','CUDA_TOOLKIT_ROOT_DIR','CUDNN_PATH','CUDNN_ROOT','NVCC','NVCC_PREPEND_FLAGS','NVCC_APPEND_FLAGS')){$base[$name]='<CLEARED>'}
         $command=[pscustomobject]@{argv=@('cargo.exe','test','--locked','--features','cpu-reference');cwd='${REPO}'}
         $configuration=[pscustomobject]@{effective_build_environment=[pscustomobject]$base}
         Assert-P2Test (&$module {param($c,$f)Assert-P2CommandEnvironmentPolicy $c $f} $command $configuration) 'canonical CPU environment was rejected'
@@ -429,15 +454,16 @@ $m=Import-Module -Name $ModulePath -Force -PassThru
         foreach($mutation in $mutations){$value=Copy-P2TestObject ([pscustomobject]$base);&$mutation $value;$threw=$false
             try{$null=&$module {param($c,$v)Assert-P2CommandEnvironmentPolicy $c ([pscustomobject]@{effective_build_environment=$v})} $command $value}catch{$threw=$true}
             Assert-P2Test $threw 'command environment mutation was accepted'}
-        $gpu=Copy-P2TestObject ([pscustomobject]$base);$gpu.PSObject.Properties.Remove('CARGO_TARGET_DIR');$gpu.CUDA_PATH='${CUDA_TOOLKIT}'
+        $gpu=Copy-P2TestObject ([pscustomobject]$base);$gpu.PSObject.Properties.Remove('CARGO_TARGET_DIR');$gpu.CUDA_PATH='${CUDA_TOOLKIT}';$gpu.CUDA_COMPUTE_CAP='120'
         foreach($name in @('CUDA_HOME','CUDA_ROOT','CUDA_TOOLKIT_ROOT_DIR','CUDNN_PATH','CUDNN_ROOT','NVCC','NVCC_PREPEND_FLAGS','NVCC_APPEND_FLAGS')){$gpu.PSObject.Properties.Remove($name)}
         $gpu.Path='${TEMP}/python-canaries;${CUDA_TOOLKIT}/bin;${WINDOWS}/System32'
         foreach($name in @('USERPROFILE','HOME','TEMP','TMP')){$gpu|Add-Member $name '${TEMP}/invocations/candle/round-2-projection'}
         $gpu|Add-Member CUDA_CACHE_PATH '${TEMP}/invocations/candle/round-2-projection/cuda-cache'
         $gpuCommand=[pscustomobject]@{argv=@('p2-candle.exe','--mode','benchmark','--workload','projection','--fixture-dir','${TEMP}/fixtures','--output','${TEMP}/invocations/candle/round-2-projection/raw-result.json');cwd='${TEMP}/invocations/candle/round-2-projection'}
         Assert-P2Test (&$module {param($c,$v)Assert-P2CommandEnvironmentPolicy $c ([pscustomobject]@{effective_build_environment=$v})} $gpuCommand $gpu) 'canonical GPU invocation environment was rejected'
-        $gpu.CUDA_CACHE_PATH='${TEMP}/shared-cache';$threw=$false;try{$null=&$module {param($c,$v)Assert-P2CommandEnvironmentPolicy $c ([pscustomobject]@{effective_build_environment=$v})} $gpuCommand $gpu}catch{$threw=$true}
-        Assert-P2Test $threw 'shared GPU cache path was accepted'
+        foreach($mutation in @({param($v)$v.CUDA_CACHE_PATH='${TEMP}/shared-cache'},{param($v)$v.CUDA_COMPUTE_CAP='119'})){
+            $value=Copy-P2TestObject $gpu;&$mutation $value;$threw=$false;try{$null=&$module {param($c,$v)Assert-P2CommandEnvironmentPolicy $c ([pscustomobject]@{effective_build_environment=$v})} $gpuCommand $value}catch{$threw=$true}
+            Assert-P2Test $threw 'invalid GPU cache/compute-capability environment was accepted'}
     }
     Invoke-P2Test 'command protocol permits only immediate derived graph auxiliaries' {
         $ids=@('C01','C02','C1002','C03');$primary=0;$last=$null;$accepted=$true

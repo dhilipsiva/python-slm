@@ -1,0 +1,168 @@
+Microsoft (R) COFF/PE Dumper Version 14.44.35222.0
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+
+Dump of file ${TEMP}/cpu-target/candle/release/p2-candle.exe
+
+PE signature found
+
+File Type: EXECUTABLE IMAGE
+
+FILE HEADER VALUES
+            8664 machine (x64)
+               5 number of sections
+        6A7C8227 time date stamp Wed Aug 12 19:54:39 2026
+               0 file pointer to symbol table
+               0 number of symbols
+              F0 size of optional header
+              22 characteristics
+                   Executable
+                   Application can handle large (>2GB) addresses
+
+OPTIONAL HEADER VALUES
+             20B magic # (PE32+)
+           14.44 linker version
+           43C00 size of code
+           15A00 size of initialized data
+               0 size of uninitialized data
+           40D1C entry point (0000000140040D1C) mainCRTStartup
+            1000 base of code
+       140000000 image base (0000000140000000 to 000000014005CFFF)
+            1000 section alignment
+             200 file alignment
+            6.00 operating system version
+            0.00 image version
+            6.00 subsystem version
+               0 Win32 version
+           5D000 size of image
+             400 size of headers
+               0 checksum
+               3 subsystem (Windows CUI)
+            8160 DLL characteristics
+                   High Entropy Virtual Addresses
+                   Dynamic base
+                   NX compatible
+                   Terminal Server Aware
+          100000 size of stack reserve
+            1000 size of stack commit
+          100000 size of heap reserve
+            1000 size of heap commit
+               0 loader flags
+              10 number of directories
+               0 [       0] RVA [size] of Export Directory
+           576DC [      DC] RVA [size] of Import Directory
+               0 [       0] RVA [size] of Resource Directory
+           5A000 [    1A58] RVA [size] of Exception Directory
+               0 [       0] RVA [size] of Certificates Directory
+           5C000 [     404] RVA [size] of Base Relocation Directory
+           54120 [      54] RVA [size] of Debug Directory
+               0 [       0] RVA [size] of Architecture Directory
+               0 [       0] RVA [size] of Global Pointer Directory
+           54180 [      28] RVA [size] of Thread Storage Directory
+           53FE0 [     140] RVA [size] of Load Configuration Directory
+               0 [       0] RVA [size] of Bound Import Directory
+           45000 [     340] RVA [size] of Import Address Table Directory
+               0 [       0] RVA [size] of Delay Import Directory
+               0 [       0] RVA [size] of COM Descriptor Directory
+               0 [       0] RVA [size] of Reserved Directory
+
+
+SECTION HEADER #1
+   .text name
+   43A2E virtual size
+    1000 virtual address (0000000140001000 to 0000000140044A2D)
+   43C00 size of raw data
+     400 file pointer to raw data (00000400 to 00043FFF)
+       0 file pointer to relocation table
+       0 file pointer to line numbers
+       0 number of relocations
+       0 number of line numbers
+60000020 flags
+         Code
+         Execute Read
+
+SECTION HEADER #2
+  .rdata name
+   13352 virtual size
+   45000 virtual address (0000000140045000 to 0000000140058351)
+   13400 size of raw data
+   44000 file pointer to raw data (00044000 to 000573FF)
+       0 file pointer to relocation table
+       0 file pointer to line numbers
+       0 number of relocations
+       0 number of line numbers
+40000040 flags
+         Initialized Data
+         Read Only
+
+  Debug Directories
+
+        Time Type        Size      RVA  Pointer
+    -------- ------- -------- -------- --------
+    6A7C8227 cv            26 0005426C    5326C    Format: RSDS, {14F2A5CA-0DCD-4CB5-9F6F-250AA91E9474}, 1, p2_candle.pdb
+    6A7C8227 feat          14 00054294    53294    Counts: Pre-VC++ 11.00=108, C/C++=32, /GS=32, /sdl=0, guardN=32
+    6A7C8227 coffgrp      330 000542A8    532A8
+
+  Image has the following dependencies:
+
+    kernel32.dll
+    ntdll.dll
+    api-ms-win-core-synch-l1-2-0.dll
+    KERNEL32.dll
+    VCRUNTIME140.dll
+    api-ms-win-crt-runtime-l1-1-0.dll
+    api-ms-win-crt-math-l1-1-0.dll
+    api-ms-win-crt-stdio-l1-1-0.dll
+    api-ms-win-crt-locale-l1-1-0.dll
+    api-ms-win-crt-heap-l1-1-0.dll
+
+SECTION HEADER #3
+   .data name
+     300 virtual size
+   59000 virtual address (0000000140059000 to 00000001400592FF)
+     200 size of raw data
+   57400 file pointer to raw data (00057400 to 000575FF)
+       0 file pointer to relocation table
+       0 file pointer to line numbers
+       0 number of relocations
+       0 number of line numbers
+C0000040 flags
+         Initialized Data
+         Read Write
+
+SECTION HEADER #4
+  .pdata name
+    1A58 virtual size
+   5A000 virtual address (000000014005A000 to 000000014005BA57)
+    1C00 size of raw data
+   57600 file pointer to raw data (00057600 to 000591FF)
+       0 file pointer to relocation table
+       0 file pointer to line numbers
+       0 number of relocations
+       0 number of line numbers
+40000040 flags
+         Initialized Data
+         Read Only
+
+SECTION HEADER #5
+  .reloc name
+     404 virtual size
+   5C000 virtual address (000000014005C000 to 000000014005C403)
+     600 size of raw data
+   59200 file pointer to raw data (00059200 to 000597FF)
+       0 file pointer to relocation table
+       0 file pointer to line numbers
+       0 number of relocations
+       0 number of line numbers
+42000040 flags
+         Initialized Data
+         Discardable
+         Read Only
+
+  Summary
+
+        1000 .data
+        2000 .pdata
+       14000 .rdata
+        1000 .reloc
+       44000 .text

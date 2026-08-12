@@ -173,6 +173,20 @@ function Test-P2PathWithin {
             [StringComparison]::OrdinalIgnoreCase)
 }
 
+function Wait-P2JobEmpty {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Job,
+        [ValidateRange(0, 30000)][int]$TimeoutMilliseconds = 2000
+    )
+    $deadline = [DateTime]::UtcNow.AddMilliseconds($TimeoutMilliseconds)
+    do {
+        if ([uint32]$Job.ActiveProcessCount() -eq 0) { return $true }
+        if ([DateTime]::UtcNow -ge $deadline) { return $false }
+        Start-Sleep -Milliseconds 25
+    } while ($true)
+}
+
 function New-P2NvmlLibraryRecord {
     param([Parameter(Mandatory)][string]$Path,[Parameter(Mandatory)][string]$WindowsRoot)
     $expected=[IO.Path]::GetFullPath((Join-Path $WindowsRoot 'System32\nvml.dll'))
@@ -391,15 +405,20 @@ function Invoke-P2Process {
                 $timedOut = $true
                 try { $job.Terminate(124) } catch { $treeTerminated = $false }
                 if (-not $process.WaitForExit(10000)) { $treeTerminated = $false }
+                if (-not (Wait-P2JobEmpty -Job $job -TimeoutMilliseconds 10000)) { $treeTerminated = $false }
                 break
             }
             try { foreach ($module in $process.Modules) { [void]$modules.Add($module.FileName) } } catch { }
         }
         if (-not $timedOut) {
             $process.WaitForExit()
-            if ([uint32]$job.ActiveProcessCount() -gt 0) {
+            # A just-exited process can remain in the Job accounting snapshot for
+            # a few scheduler ticks.  Give clean compiler/candidate trees a short,
+            # bounded drain window before classifying a persistent descendant.
+            if (-not (Wait-P2JobEmpty -Job $job -TimeoutMilliseconds 2000)) {
                 $unexpectedDescendants = $true
                 try { $job.Terminate(125) } catch { $treeTerminated = $false }
+                if (-not (Wait-P2JobEmpty -Job $job -TimeoutMilliseconds 10000)) { $treeTerminated = $false }
             }
         }
         try { foreach ($module in $process.Modules) { [void]$modules.Add($module.FileName) } } catch { }
@@ -965,10 +984,11 @@ publish = false
         -Environment $invocationEnvironment -ExpectedExitCodes @(0, 5) -TimeoutSeconds 180 `
         -MonitorNvml:$MonitorNvml -RoleRoots @{ TEMP = $TemporaryRoot; CUDA_TOOLKIT = $CudaToolkitRoot }
     try {
-        if (-not $command.record.expectation_met -or [string]$command.record.status -eq 'TIMEOUT' -or
-            -not $command.process_tree_terminated -or $command.unexpected_descendants) {
-            throw "$CandidateId process tree did not terminate completely"
+        if (-not $command.record.expectation_met -or [string]$command.record.status -eq 'TIMEOUT') {
+            throw "$CandidateId process did not satisfy its exit contract"
         }
+        if (-not $command.process_tree_terminated) { throw "$CandidateId process tree could not be terminated" }
+        if ($command.unexpected_descendants) { throw "$CandidateId retained a persistent descendant process" }
         if (-not (Test-Path -LiteralPath $transientOutput -PathType Leaf)) {
             throw "$CandidateId did not create its requested result"
         }
@@ -1085,6 +1105,30 @@ function Merge-P2RuntimeProvenance {
     }
 }
 
+function ConvertTo-P2InvocationProjection {
+    [CmdletBinding()]
+    param([AllowEmptyCollection()][object[]]$Invocations = @())
+    $results = [Collections.Generic.List[object]]::new()
+    $references = [Collections.Generic.List[object]]::new()
+    $runtimeProvenance = [Collections.Generic.List[object]]::new()
+    foreach ($invocation in @($Invocations)) {
+        if ($null -eq $invocation) { throw 'candidate invocation projection contains null' }
+        foreach ($field in @('result', 'reference', 'runtime_provenance')) {
+            if ($null -eq $invocation.PSObject.Properties[$field] -or $null -eq $invocation.$field) {
+                throw "candidate invocation projection is missing $field"
+            }
+        }
+        $results.Add($invocation.result)
+        $references.Add($invocation.reference)
+        $runtimeProvenance.Add($invocation.runtime_provenance)
+    }
+    return [pscustomobject][ordered]@{
+        results = @($results)
+        references = @($references)
+        runtime_provenance = @($runtimeProvenance)
+    }
+}
+
 function ConvertTo-P2NvmlMeasurement {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Invocation, [Parameter(Mandatory)][int]$Round,
@@ -1187,7 +1231,12 @@ function New-P2IsolatedEnvironment {
     param([Parameter(Mandatory)][hashtable]$DeveloperEnvironment,
         [Parameter(Mandatory)][string]$TemporaryRoot,
         [Parameter(Mandatory)][string]$VsRoot,
-        [Parameter(Mandatory)][string]$CudaToolkitRoot)
+        [Parameter(Mandatory)][string]$CudaToolkitRoot,
+        [Parameter(Mandatory)][string]$ComputeCapability)
+    if ($ComputeCapability -cnotmatch '^(?<major>[1-9][0-9]*)\.(?<minor>[0-9])$') {
+        throw 'qualified CUDA compute capability is not canonical'
+    }
+    $cudaComputeCapability = $Matches.major + $Matches.minor
     $isolated = @{}
     foreach ($entry in [Environment]::GetEnvironmentVariables().GetEnumerator()) { $isolated[[string]$entry.Key] = $null }
     $allow = '^(?i:Path|PATHEXT|SystemRoot|WINDIR|ComSpec|PROCESSOR_ARCHITECTURE|NUMBER_OF_PROCESSORS|INCLUDE|LIB|LIBPATH|VSINSTALLDIR|VCINSTALLDIR|VCToolsInstallDir|VCToolsVersion|VisualStudioVersion|VSCMD_.*|WindowsSdkDir|WindowsSDKVersion|WindowsSdkBinPath|WindowsSdkVerBinPath|UCRTVersion|UniversalCRTSdkDir|ExtensionSdkDir|FrameworkDir.*|FrameworkVersion.*|NETFXSDKDir|DevEnvDir)$'
@@ -1219,6 +1268,7 @@ function New-P2IsolatedEnvironment {
         if (Test-Path $required) { $full = [IO.Path]::GetFullPath($required); if ($pathSet.Add($full)) { $parts.Add($full) } }
     }
     $isolated['Path'] = $parts -join ';'; $isolated['CUDA_PATH'] = $CudaToolkitRoot
+    $isolated['CUDA_COMPUTE_CAP'] = $cudaComputeCapability
     $isolated['CARGO_NET_OFFLINE'] = 'true'; $isolated['CARGO_INCREMENTAL'] = '0'; $isolated['CARGO_TERM_COLOR'] = 'never'
     foreach ($name in @('RUSTC_WRAPPER','RUSTC_WORKSPACE_WRAPPER','RUSTFLAGS','CARGO_ENCODED_RUSTFLAGS','RUSTDOCFLAGS','CARGO_ENCODED_RUSTDOCFLAGS',
             'PYTHONHOME','PYTHONPATH','PYTHONNOUSERSITE','VIRTUAL_ENV','CONDA_PREFIX','PIP_CONFIG_FILE')) { $isolated[$name] = $null }
@@ -1886,7 +1936,11 @@ function Invoke-P2Qualification {
         $script:P2TranscriptRoleRoots=@{VS_INSTALL=$build.vs_install;VC_TOOLS=[string]$build.environment['VCToolsInstallDir'];WINDOWS_KITS=[string]$build.environment['WindowsSdkDir'];CARGO_HOME=[string]$build.environment['CARGO_HOME'];RUSTUP_HOME=[string]$build.environment['RUSTUP_HOME']}
         [void](Assert-P2BuildEnvironmentMatch -Environment $build.environment -QualifiedManifest $qualifiedHost.manifest)
         $environment = New-P2IsolatedEnvironment -DeveloperEnvironment $build.environment `
-            -TemporaryRoot $temporaryRoot -VsRoot $build.vs_install -CudaToolkitRoot $cudaRoot
+            -TemporaryRoot $temporaryRoot -VsRoot $build.vs_install -CudaToolkitRoot $cudaRoot `
+            -ComputeCapability ([string]$qualifiedHost.compute_capability)
+        if ([string]$environment['CUDA_COMPUTE_CAP'] -cne '120') {
+            throw 'P2 backend qualification requires the approved compute capability 12.0 boundary'
+        }
         [void](Assert-P2CargoConfigurationSafe -RepositoryRoot $repository -CargoHome ([string]$environment['CARGO_HOME']))
         $cl = @(([string]$build.environment['Path']).Split(';') | ForEach-Object { Join-Path $_ 'cl.exe' } |
             Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -Unique)
@@ -1901,7 +1955,7 @@ function Invoke-P2Qualification {
         $cpuEnvironment = @{}; foreach ($key in $environment.Keys) { $cpuEnvironment[$key] = $environment[$key] }
         $cpuPath=@(([string]$environment['Path']).Split(';')|Where-Object{-not(Test-P2PathWithin -Path $_ -Root $cudaRoot)})
         $cpuEnvironment['Path'] = $cpuCanaryRoot + ';' + ($cpuPath -join ';')
-        foreach ($name in @('CUDA_PATH','CUDA_HOME','CUDA_ROOT','CUDA_TOOLKIT_ROOT_DIR','CUDNN_PATH','CUDNN_ROOT','NVCC','NVCC_PREPEND_FLAGS','NVCC_APPEND_FLAGS')) {
+        foreach ($name in @('CUDA_PATH','CUDA_COMPUTE_CAP','CUDA_HOME','CUDA_ROOT','CUDA_TOOLKIT_ROOT_DIR','CUDNN_PATH','CUDNN_ROOT','NVCC','NVCC_PREPEND_FLAGS','NVCC_APPEND_FLAGS')) {
             $cpuEnvironment[$name] = $null
         }
         $cpuTarget = Join-Path $temporaryRoot 'cpu-target'; $cudaTarget = Join-Path $temporaryRoot 'cuda-target'
@@ -2108,18 +2162,20 @@ function Invoke-P2Qualification {
             $candidateRows=@($roundValues|Where-Object candidate_id -eq $candidateId|Sort-Object -Property @(
                     @{Expression={[int]$_.round}},@{Expression={if($_.workload-ceq'projection'){0}else{1}}}))
             $candidateRounds = @($candidateRows | ForEach-Object { $_.value })
-            $allProv = @($state.provenance) + @($candidateRounds.runtime_provenance); $runtime = Merge-P2RuntimeProvenance -Records $allProv
+            $roundProjection = ConvertTo-P2InvocationProjection -Invocations $candidateRounds
+            $allProv = @($state.provenance) + @($roundProjection.runtime_provenance)
+            $runtime = Merge-P2RuntimeProvenance -Records $allProv
             if (-not [bool]$runtime.all_allowed) {
                 $state.failures += @(Get-P2CandidateFailure -Message "$candidateId loaded an unqualified CUDA runtime boundary" `
                         -CommandId $null -Code 'RUNTIME_PROVENANCE_FAILED' -Category 3)
             }
             $summary = $null; $nvmlMeasurements = [Collections.Generic.List[object]]::new()
             foreach($roundValue in $candidateRows){$nvmlMeasurements.Add($roundValue.value.measurement)}
-            if ($candidateRounds.Count -eq 4 -and @($candidateRounds.result | Where-Object status -ne PASS).Count -eq 0) {
+            if ($candidateRounds.Count -eq 4 -and @($roundProjection.results | Where-Object status -ne PASS).Count -eq 0) {
                 try {
                     $dependencyCount=[int]$activatedGraphs[$candidateId].package_count
                     $observed=[int64](($nvmlMeasurements | Measure-Object delta_bytes -Maximum).Maximum)
-                    $cmp = Get-P2CandidateComparison -CandidateId $candidateId -BenchmarkResults @($candidateRounds.result) `
+                    $cmp = Get-P2CandidateComparison -CandidateId $candidateId -BenchmarkResults @($roundProjection.results) `
                         -LockedDependencyCount $dependencyCount -ObservedPeakBytes $observed
                     $summary = [ordered]@{
                         geomean_fwbw_p50_ns = $cmp.comparison.geomean_fwbw_p50_ns; geomean_fwbw_p95_ns = $cmp.comparison.geomean_fwbw_p95_ns
@@ -2138,7 +2194,7 @@ function Invoke-P2Qualification {
             $allocationRef=$(if($null -ne $state.allocation){$state.allocation.reference}else{$null})
             $correctnessRef=$(if($null -ne $state.correctness){$state.correctness.reference}else{$null})
             $aggregate = New-P2CandidateAggregate -CandidateId $candidateId -CpuSmoke $cpuRef `
-                -Allocation $allocationRef -Correctness $correctnessRef -BenchmarkRounds @($candidateRounds.reference) `
+                -Allocation $allocationRef -Correctness $correctnessRef -BenchmarkRounds @($roundProjection.references) `
                 -NvmlMeasurements @($nvmlMeasurements) -Summary $summary -RuntimeProvenance $runtime -Failures @($state.failures)
             $null = Assert-P2CandidateAggregate -Aggregate $aggregate -RunRoot $runRoot
             $aggregates.Add($aggregate)
@@ -3199,7 +3255,7 @@ function Assert-P2CommandEnvironmentPolicy {
             'PYTHONHOME','PYTHONPATH','PYTHONNOUSERSITE','VIRTUAL_ENV','CONDA_PREFIX','PIP_CONFIG_FILE')){&$require $name '<CLEARED>'}
     if(@($properties.Keys|Where-Object{$_-match'(?i)(token|secret|password|credential|api[_-]?key)'}).Count-ne0){throw 'command configuration retains a credential-bearing environment key'}
     $permittedActive=@('CARGO_NET_OFFLINE','CARGO_INCREMENTAL','CARGO_TERM_COLOR','CARGO_TARGET_DIR','CARGO_HOME',
-        'RUSTUP_HOME','RUSTUP_TOOLCHAIN','CUDA_PATH','PATH','TEMP','TMP','USERPROFILE','HOME','LIB','INCLUDE','LIBPATH',
+        'RUSTUP_HOME','RUSTUP_TOOLCHAIN','CUDA_PATH','CUDA_COMPUTE_CAP','PATH','TEMP','TMP','USERPROFILE','HOME','LIB','INCLUDE','LIBPATH',
         'WindowsSdkDir','WindowsSDKVersion','VCToolsInstallDir','VisualStudioVersion','CUDA_CACHE_PATH')
     foreach($name in @($properties.Keys|Where-Object{$_-match'^(?i)(?:CARGO|RUST|CUDA|CUDNN|NVCC|PYTHON|PIP|VIRTUAL_ENV|CONDA_PREFIX)'})){
         if($name-notin$permittedActive-and[string]$properties[$name]-cne'<CLEARED>'){throw "unapproved active build environment variable: $name"}
@@ -3216,11 +3272,11 @@ function Assert-P2CommandEnvironmentPolicy {
         elseif($argv-contains'p2-backend-common'){$isCpu=$true}
     }elseif([string]$argv[0]-ceq'dumpbin.exe'){$isCpu=[string]$argv[3]-cmatch'^\$\{TEMP\}/cpu-target/'}
     if($isCpu){
-        foreach($name in @('CUDA_PATH','CUDA_HOME','CUDA_ROOT','CUDA_TOOLKIT_ROOT_DIR','CUDNN_PATH','CUDNN_ROOT','NVCC','NVCC_PREPEND_FLAGS','NVCC_APPEND_FLAGS')){&$require $name '<CLEARED>'}
+        foreach($name in @('CUDA_PATH','CUDA_COMPUTE_CAP','CUDA_HOME','CUDA_ROOT','CUDA_TOOLKIT_ROOT_DIR','CUDNN_PATH','CUDNN_ROOT','NVCC','NVCC_PREPEND_FLAGS','NVCC_APPEND_FLAGS')){&$require $name '<CLEARED>'}
         if(-not$properties.ContainsKey('Path')-or[string]$properties.Path-cnotmatch'^\$\{TEMP\}/cpu-canaries;\$\{TEMP\}/python-canaries(?:;|$)'-or
             [string]$properties.Path-cmatch'(?:^|;)\$\{CUDA_TOOLKIT\}(?:/|;|$)'){throw 'CPU command PATH does not enforce executable canaries and CUDA-toolkit isolation'}
     }elseif($isCandidate-or[string]$argv[0]-in@('cargo.exe','dumpbin.exe')){
-        &$require CUDA_PATH '${CUDA_TOOLKIT}'
+        &$require CUDA_PATH '${CUDA_TOOLKIT}'; &$require CUDA_COMPUTE_CAP '120'
         if(-not$properties.ContainsKey('Path')-or[string]$properties.Path-cnotmatch'^\$\{TEMP\}/python-canaries(?:;|$)'){throw 'GPU command PATH does not begin with the executable Python canaries'}
     }
     return $true
