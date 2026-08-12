@@ -1232,6 +1232,17 @@ function Assert-P2CargoConfigurationSafe {
     return $true
 }
 
+function ConvertTo-P2NvidiaSmiMemoryMiB {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][int64]$Bytes)
+    if ($Bytes -le 0) { throw 'P1B GPU memory byte count is invalid' }
+    # nvidia-smi exposes memory.total as a whole MiB value, while the CUDA
+    # runtime receipt retains the exact byte count. Round only after converting
+    # the exact value to MiB so the two representations compare coherently.
+    return [int64][Math]::Round(
+        ([decimal]$Bytes / [decimal]1MB), 0, [MidpointRounding]::AwayFromZero)
+}
+
 function Assert-P2LiveP1BEnvironment {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RepositoryRoot, [Parameter(Mandatory)]$Dependency,
@@ -1271,7 +1282,7 @@ function Assert-P2LiveP1BEnvironment {
     }
     $identity = @(& $smi --query-gpu=name,compute_cap,memory.total,driver_version --format=csv,noheader,nounits)
     $fields=if($identity.Count-eq1){@($identity[0]-split','|ForEach-Object{$_.Trim()})}else{@()}
-    $expectedMiB=[int64]$qualified.gpu.memory_total_bytes/1MB
+    $expectedMiB=ConvertTo-P2NvidiaSmiMemoryMiB -Bytes ([int64]$qualified.gpu.memory_total_bytes)
     if ($LASTEXITCODE -ne 0 -or $fields.Count-ne4-or$fields[0]-cne'NVIDIA GeForce RTX 5090'-or$fields[1]-cne'12.0'-or
         [int64]$fields[2]-ne$expectedMiB-or$fields[3]-cne[string]$qualified.driver.driver_version) {
         throw 'live GPU identity no longer matches P1B'

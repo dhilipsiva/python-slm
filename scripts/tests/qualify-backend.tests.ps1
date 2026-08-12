@@ -559,6 +559,12 @@ burn.workspace = true
         $result=Test-P2DependencyPolicy (Join-Path $root 'Cargo.toml') (Join-Path $root 'Cargo.lock')
         Assert-P2Test ($result.status-ceq'PASS'-and$result.manifest_count-eq5) 'checked-in experiment dependency graph was rejected'
     }
+    Invoke-P2Test 'GPU identity compares exact P1B bytes with nvidia-smi whole MiB' {
+        $reported=&$module { ConvertTo-P2NvidiaSmiMemoryMiB -Bytes 34190458880 }
+        Assert-P2Test ($reported-eq32607) 'P1B exact memory bytes did not normalize to the sealed nvidia-smi value'
+        $threw=$false;try{$null=&$module { ConvertTo-P2NvidiaSmiMemoryMiB -Bytes 0 }}catch{$threw=$true}
+        Assert-P2Test $threw 'invalid P1B memory byte count was accepted'
+    }
     Invoke-P2Test 'runtime provenance rejects Python DLLs and copied driver libraries' {
         $root=Join-Path ([IO.Path]::GetTempPath()) ('p2-runtime-boundary-'+[Guid]::NewGuid().ToString('N'))
         try{[void][IO.Directory]::CreateDirectory($root)
