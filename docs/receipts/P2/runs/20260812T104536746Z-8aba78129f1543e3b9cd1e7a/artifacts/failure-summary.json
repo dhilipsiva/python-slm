@@ -1,0 +1,13 @@
+{
+    "schema":  "python-slm-p2-failure-summary-v1",
+    "phase_id":  "P2",
+    "run_id":  "20260812T104536746Z-8aba78129f1543e3b9cd1e7a",
+    "errors":  [
+                   {
+                       "code":  "P2_QUALIFICATION_FAILED",
+                       "category":  5,
+                       "message":  "Unable to find type [P2NvmlMonitor].",
+                       "remediation":  "Resolve the recorded failure and rerun P2 from stable inputs."
+                   }
+               ]
+}

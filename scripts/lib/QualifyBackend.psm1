@@ -19,6 +19,10 @@ $script:P2TranscriptRoleRoots = @{}
 
 function Initialize-P2NativeInterop {
     if ($script:P2NativeLoaded) { return }
+    $requiredTypes=@('P2Job','P2NvmlSampleResult','P2NvmlMonitor','P2CudaHealth')
+    $loadedTypes=@($requiredTypes|Where-Object{$null-ne($_-as[type])})
+    if($loadedTypes.Count-eq$requiredTypes.Count){$script:P2NativeLoaded=$true;return}
+    if($loadedTypes.Count-ne0){throw 'P2 native interop type set is only partially loaded'}
     $source = @'
 using System;
 using System.Collections.Generic;
@@ -1817,6 +1821,7 @@ function Invoke-P2Qualification {
     $sourcePath = Join-Path $runRoot 'artifacts\source-identity.json'
     $parentEnvironmentBefore=Get-P2EnvironmentFingerprint
     try {
+        Initialize-P2NativeInterop
         $source = Get-P2RepositoryIdentity -RepositoryRoot $repository
         $sourceInputFingerprint = $source.fingerprint
         Write-P2JsonFile -Path $sourcePath -Value $source.value -CreateNew
@@ -2921,6 +2926,7 @@ function Get-P2SelectedP1BDependency {
 function Assert-P2PassRun {
     param([Parameter(Mandatory)][string]$RunRoot, [Parameter(Mandatory)][string]$RunId,
         [Parameter(Mandatory)][string]$SourceIdentitySha256)
+    Initialize-P2NativeInterop
     if ($RunId -cnotmatch '^[0-9]{8}T[0-9]{9}Z-[0-9a-f]{24}$' -or
         (Split-Path -Leaf $RunRoot) -cne $RunId -or -not (Test-P2Seal -RunRoot $RunRoot)) {
         throw 'accepted P2 run identity or seal is invalid'

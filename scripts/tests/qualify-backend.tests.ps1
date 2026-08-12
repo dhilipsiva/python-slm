@@ -141,6 +141,49 @@ try {
         Assert-P2Test ($result.exit_code -eq 0) 'process runner failed'
         Assert-P2Test ($result.stdout.Trim() -ceq 'P2_PROCESS_OK') 'process stdout mismatch'
     }
+    Invoke-P2Test 'fresh WinPS5 import resolves monitor construction and provenance' {
+        $root=Join-Path ([IO.Path]::GetTempPath()) ('p2-fresh-native-'+[Guid]::NewGuid().ToString('N'))
+        try{
+            [void][IO.Directory]::CreateDirectory($root);$probe=Join-Path $root 'probe.ps1'
+            $source=@'
+param([Parameter(Mandatory)][string]$ModulePath)
+$ErrorActionPreference='Stop'
+$m=Import-Module -Name $ModulePath -Force -PassThru
+&$m {
+    Initialize-P2NativeInterop
+    $monitor=[P2NvmlMonitor]::new()
+    try {
+        $path=[P2NvmlMonitor]::EnsureQualifiedLibrary()
+        $record=New-P2NvmlLibraryRecord -Path $path -WindowsRoot $env:SystemRoot
+        if([string]$record.path-cne'${WINDOWS}/System32/nvml.dll'-or[string]$record.sha256-cnotmatch'^[0-9a-f]{64}$'){
+            throw 'fresh-process NVML provenance is invalid'
+        }
+        $record|ConvertTo-Json -Compress
+    }
+    finally{$monitor.Dispose()}
+}
+$m=Import-Module -Name $ModulePath -Force -PassThru
+&$m { Initialize-P2NativeInterop;$monitor=[P2NvmlMonitor]::new();$monitor.Dispose() }
+'@
+            Write-P2Utf8LfFile -Path $probe -Text $source -CreateNew
+            $powershell=(Get-Command powershell.exe -ErrorAction Stop).Source
+            $result=Invoke-P2Process -FilePath $powershell -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',$probe,'-ModulePath',$modulePath) `
+                -WorkingDirectory $repositoryRoot -TimeoutSeconds 30
+            Assert-P2Test (-not$result.timed_out-and$result.exit_code-eq0) "fresh WinPS5 native import failed: $($result.stderr)"
+            $record=$result.stdout|ConvertFrom-Json
+            Assert-P2Test ([string]$record.path-ceq'${WINDOWS}/System32/nvml.dll') 'fresh WinPS5 NVML provenance path is wrong'
+        }finally{if(Test-Path $root){Remove-Item $root -Recurse -Force}}
+    }
+    Invoke-P2Test 'qualification initializes native interop before its first NVML reference' {
+        $source=[IO.File]::ReadAllText($modulePath,[Text.UTF8Encoding]::new($false,$true))
+        $start=$source.IndexOf('function Invoke-P2Qualification',[StringComparison]::Ordinal)
+        $end=$source.IndexOf('function Get-P2SelectedP1BDependency',[StringComparison]::Ordinal)
+        Assert-P2Test ($start-ge0-and$end-gt$start) 'qualification source boundary was not found'
+        $body=$source.Substring($start,$end-$start)
+        $initialize=$body.IndexOf('Initialize-P2NativeInterop',[StringComparison]::Ordinal)
+        $nvml=$body.IndexOf('[P2NvmlMonitor]',[StringComparison]::Ordinal)
+        Assert-P2Test ($initialize-ge0-and$nvml-gt$initialize) 'qualification references NVML before native interop initialization'
+    }
     Invoke-P2Test 'run seal covers sorted files and detects tampering' {
         $root = Join-Path ([IO.Path]::GetTempPath()) ('p2-seal-' + [Guid]::NewGuid().ToString('N'))
         try {

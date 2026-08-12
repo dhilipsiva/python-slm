@@ -1,0 +1,18 @@
+{
+    "status":  "PASS",
+    "pointer_path":  "docs/receipts/P1B/evidence.json",
+    "pointer_sha256":  "3996de1da05b842688526684f870f7af4c353ad16f408e11957c9fc57bca7cd4",
+    "acceptance_path":  "docs/receipts/P1B/acceptances/00000001.json",
+    "acceptance_sha256":  "87254f78309854d9562fc0c1d3ee8e4759049fdf6429e49488e45b97982b5334",
+    "acceptance_sequence":  1,
+    "run_path":  "docs/receipts/P1B/runs/20260811T174734119Z-7e7135b7cb794eb791c0e607",
+    "run_evidence_sha256":  "de3c9fcbb67b0338f1415045cbc82e671630db47f064092f01131dd55758d810",
+    "seal_path":  "docs/receipts/P1B/runs/20260811T174734119Z-7e7135b7cb794eb791c0e607/SHA256SUMS",
+    "seal_sha256":  "ce7ad7ff4f9bedc97e8f5443c42b7520eb7c7a34852a7e941388273c7a2dbcd6",
+    "environment_path":  "docs/receipts/P1B/runs/20260811T174734119Z-7e7135b7cb794eb791c0e607/artifacts/environment.json",
+    "environment_sha256":  "68232385423942b525f142c54ffc5b32473925896f05a05f9e8a6bb508e2da1d",
+    "source_identity_sha256":  "d3df9796dbcef5040ba8278127615cf6efc91e0a9408a8bf5d6831a221f7807d",
+    "verifier_sha256":  "d3ca5176f8ee5e63bc1e104c37045ddafb4a2cd71dec7f209e78175632032fd9",
+    "schema_bundle_sha256":  "43f7b6de3629034f0c90fb874c2bcbb124da2032f95757a92e4ec48d9e742a4a",
+    "review_closure_commit":  "8c822e51956543e3fa52aaf1f295a6b517e0fd40"
+}

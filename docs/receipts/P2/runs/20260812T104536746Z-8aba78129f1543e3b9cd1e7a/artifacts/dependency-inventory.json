@@ -1,0 +1,54 @@
+{
+    "schema":  "python-slm-p2-dependency-inventory-v1",
+    "status":  "PASS",
+    "cargo_lock_sha256":  "a16b8d8ce19c5406ffe92eeadc349fdf67e985c9ac04636aae2473aac4681ce2",
+    "locked_dependency_count":  616,
+    "hydration":  {
+                      "bootstrap_acquisition":  "cargo fetch --target x86_64-pc-windows-msvc",
+                      "bootstrap_created_lock":  true,
+                      "prequalification_locked_cache_validation":  "cargo fetch --locked --target x86_64-pc-windows-msvc",
+                      "qualification_commands_locked_offline":  true,
+                      "qualification_network_allowed":  false
+                  },
+    "git_dependencies":  0,
+    "alternate_registries":  0,
+    "patches":  0,
+    "schema_bundle_sha256":  "5de6a61d1f398fb577b9533e80ade6c268fedb6eb86b8e30079dc87dd787804d",
+    "schema_files":  [
+                         {
+                             "path":  "docs/schemas/P2/python-slm-backend-candidate-aggregate-v1.schema.json",
+                             "sha256":  "544940262430e81ebda50d7b9cdcca0ff9425648a08780430d4fe7bfe97d7728",
+                             "bytes":  18944
+                         },
+                         {
+                             "path":  "docs/schemas/P2/python-slm-backend-candidate-result-v1.schema.json",
+                             "sha256":  "3899bc6f873c053679af5e5b3d88f7087f12d24b90f1a9489c7d7e2f39e032cf",
+                             "bytes":  19941
+                         },
+                         {
+                             "path":  "docs/schemas/P2/python-slm-backend-phase-acceptance-v1.schema.json",
+                             "sha256":  "1b0fee6da4021028bce931ba875a23b331b51c3473f0a244ce27465348f2f0cb",
+                             "bytes":  2300
+                         },
+                         {
+                             "path":  "docs/schemas/P2/python-slm-backend-phase-evidence-pointer-v1.schema.json",
+                             "sha256":  "c3135f07e3dc1db084a4ee862984ef7f6b5940dc1867bc3de6b7895b2189e8c2",
+                             "bytes":  827
+                         },
+                         {
+                             "path":  "docs/schemas/P2/python-slm-backend-phase-evidence-v1.schema.json",
+                             "sha256":  "f937b7efcd558fcb587790b17bd9b605c5e7b2bbcd3cd5e8be23e553852f4fc6",
+                             "bytes":  16880
+                         },
+                         {
+                             "path":  "docs/schemas/P2/python-slm-backend-qualification-policy-v1.schema.json",
+                             "sha256":  "d7cc106ae7d3a500e1e70095d34a2fba72753c9c0130701280718024ab88e628",
+                             "bytes":  8615
+                         },
+                         {
+                             "path":  "docs/schemas/P2/python-slm-backend-selection-decision-v1.schema.json",
+                             "sha256":  "84ce2fdd3de2af2b4653e3189516cbf6959561fba5952c4e0cdadb4631e0517c",
+                             "bytes":  4682
+                         }
+                     ]
+}
