@@ -659,21 +659,28 @@ function Test-P2DependencyPolicy {
                 continue
             }
             if (-not $dependencySection -or $line -match '^\s*(?:#|$)') { continue }
-            if ($line -notmatch '^\s*[A-Za-z0-9_.-]+\s*=\s*(?<value>.+?)\s*(?:#.*)?$') {
+            if ($line -notmatch '^\s*(?<name>[A-Za-z0-9_.-]+)\s*=\s*(?<value>.+?)\s*(?:#.*)?$') {
                 throw 'experiment dependency declaration is not statically auditable'
             }
-            $value = $Matches.value
+            $dependencyName = [string]$Matches.name; $value = [string]$Matches.value
             if ($value -match '^"(?<version>[^"]+)"$') {
                 if ($Matches.version -notmatch '^=[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$') { throw 'experiment direct registry dependency version is not exact' }
             }
             elseif ($value -match '^\{.*\}$') {
-                $version = [regex]::Match($value, '(?:^|,)\s*version\s*=\s*"(?<version>[^"]+)"')
+                $inline = $value.Substring(1, $value.Length - 2)
+                $version = [regex]::Match($inline, '(?:^|,)\s*version\s*=\s*"(?<version>[^"]+)"')
                 if ($version.Success -and $version.Groups['version'].Value -notmatch '^=[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$') {
                     throw 'experiment direct registry dependency version is not exact'
                 }
-                if (-not $version.Success -and $value -notmatch '(?:^|,)\s*(?:path|workspace)\s*=') {
+                if (-not $version.Success -and $inline -notmatch '(?:^|,)\s*(?:path|workspace)\s*=') {
                     throw 'experiment direct dependency has neither an exact version nor a local/workspace binding'
                 }
+            }
+            elseif ($value -ceq 'true' -and $dependencyName -cmatch '\.workspace$') {
+                # Cargo's dotted-key shorthand `name.workspace = true` is
+                # semantically identical to `name = { workspace = true }`.
+                # The exact registry version remains frozen in the root
+                # [workspace.dependencies] declaration audited above.
             }
             else { throw 'experiment dependency declaration is not a supported exact form' }
         }
@@ -1581,7 +1588,8 @@ function Write-P2FailureRun {
         [AllowNull()]$Comparison,
         [AllowNull()]$Decision
     )
-    $artifacts = Join-Path $RunRoot 'artifacts'; [void][IO.Directory]::CreateDirectory($artifacts)
+    $commandsRoot=Join-Path $RunRoot 'commands';[void][IO.Directory]::CreateDirectory($commandsRoot);Assert-P2OwnedDirectory $commandsRoot $RunRoot
+    $artifacts = Join-Path $RunRoot 'artifacts'; [void][IO.Directory]::CreateDirectory($artifacts);Assert-P2OwnedDirectory $artifacts $RunRoot
     $placeholder = { param($name, $value)
         $path = Join-Path $artifacts $name
         if (-not (Test-Path -LiteralPath $path)) { Write-P2JsonFile -Path $path -Value $value -CreateNew }
@@ -1785,6 +1793,7 @@ function Invoke-P2Qualification {
     $runsRoot=Join-Path $output 'runs';[void][IO.Directory]::CreateDirectory($runsRoot);Assert-P2OwnedDirectory $runsRoot $output
     $runId = New-P2RunId; $runRoot = Join-Path (Join-Path $output 'runs') $runId
     [void][IO.Directory]::CreateDirectory($runRoot);Assert-P2OwnedDirectory $runRoot $output
+    [void][IO.Directory]::CreateDirectory((Join-Path $runRoot 'commands'));Assert-P2OwnedDirectory (Join-Path $runRoot 'commands') $runRoot
     [void][IO.Directory]::CreateDirectory((Join-Path $runRoot 'artifacts'));Assert-P2OwnedDirectory (Join-Path $runRoot 'artifacts') $runRoot
     $started = [DateTime]::UtcNow; $watch = [Diagnostics.Stopwatch]::StartNew()
     $commands = [Collections.Generic.List[object]]::new(); $errors = [Collections.Generic.List[object]]::new()

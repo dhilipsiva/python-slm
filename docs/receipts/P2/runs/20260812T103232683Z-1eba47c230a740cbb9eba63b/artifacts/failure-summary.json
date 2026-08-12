@@ -1,0 +1,13 @@
+{
+    "schema":  "python-slm-p2-failure-summary-v1",
+    "phase_id":  "P2",
+    "run_id":  "20260812T103232683Z-1eba47c230a740cbb9eba63b",
+    "errors":  [
+                   {
+                       "code":  "P2_QUALIFICATION_FAILED",
+                       "category":  5,
+                       "message":  "experiment dependency declaration is not a supported exact form",
+                       "remediation":  "Resolve the recorded failure and rerun P2 from stable inputs."
+                   }
+               ]
+}

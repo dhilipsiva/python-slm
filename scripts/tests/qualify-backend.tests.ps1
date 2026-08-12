@@ -523,6 +523,42 @@ try {
             $threw=$false;try{$null=Test-P2DependencyPolicy $manifest $lock}catch{$threw=$true};Assert-P2Test $threw 'compound semver requirement was accepted'
         }finally{if(Test-Path $root){Remove-Item $root -Recurse -Force}}
     }
+    Invoke-P2Test 'dependency policy accepts only true Cargo workspace dotted-key inheritance' {
+        $root=Join-Path ([IO.Path]::GetTempPath()) ('p2-workspace-inherit-'+[Guid]::NewGuid().ToString('N'))
+        try{[void][IO.Directory]::CreateDirectory((Join-Path $root 'child'))
+            $manifest=@'
+[workspace]
+members = ["child"]
+
+[workspace.dependencies]
+burn = { version = "=0.21.0" }
+candle-core = { version = "=0.11.0" }
+cudarc = { version = "=0.19.8" }
+half = { version = "=2.7.1" }
+'@
+            $child=@'
+[package]
+name = "fixture"
+version = "0.0.0"
+
+[dependencies]
+burn.workspace = true
+'@
+            Write-P2Utf8LfFile (Join-Path $root 'Cargo.toml') $manifest -CreateNew
+            Write-P2Utf8LfFile (Join-Path $root 'child\Cargo.toml') $child -CreateNew
+            Write-P2Utf8LfFile (Join-Path $root 'Cargo.lock') 'version = 4' -CreateNew
+            $result=Test-P2DependencyPolicy (Join-Path $root 'Cargo.toml') (Join-Path $root 'Cargo.lock')
+            Assert-P2Test ($result.status-ceq'PASS'-and$result.manifest_count-eq2) 'valid dotted-key workspace inheritance was rejected'
+            Write-P2Utf8LfFile (Join-Path $root 'child\Cargo.toml') ($child.Replace('workspace = true','workspace = false'))
+            $threw=$false;try{$null=Test-P2DependencyPolicy (Join-Path $root 'Cargo.toml') (Join-Path $root 'Cargo.lock')}catch{$threw=$true}
+            Assert-P2Test $threw 'false dotted-key workspace inheritance was accepted'
+        }finally{if(Test-Path $root){Remove-Item $root -Recurse -Force}}
+    }
+    Invoke-P2Test 'checked-in experiment manifests satisfy the exact dependency policy' {
+        $root=Join-Path $repositoryRoot 'experiments\p2-backends'
+        $result=Test-P2DependencyPolicy (Join-Path $root 'Cargo.toml') (Join-Path $root 'Cargo.lock')
+        Assert-P2Test ($result.status-ceq'PASS'-and$result.manifest_count-eq5) 'checked-in experiment dependency graph was rejected'
+    }
     Invoke-P2Test 'runtime provenance rejects Python DLLs and copied driver libraries' {
         $root=Join-Path ([IO.Path]::GetTempPath()) ('p2-runtime-boundary-'+[Guid]::NewGuid().ToString('N'))
         try{[void][IO.Directory]::CreateDirectory($root)
@@ -553,6 +589,7 @@ try {
             $required=@('source-identity.json','p1b-dependency.json','qualification-policy.json','dependency-inventory.json','fixture-manifest.json',
                 'host-state.json','burn-cubecl.json','candle.json','comparison.json','decision.json','cpu-isolation.json','failure-summary.json')
             foreach($name in $required){Assert-P2Test (Test-Path (Join-Path $root "artifacts\$name") -PathType Leaf) "early failure artifact missing: $name"}
+            Assert-P2Test (Test-Path (Join-Path $root 'commands') -PathType Container) 'early failure commands directory is missing'
             Assert-P2Test ($evidence.status-ceq'FAIL'-and@($evidence.candidates).Count-eq2) 'early failure evidence is incomplete'
             foreach($ref in @($evidence.candidates)){Assert-P2Test ($ref.sha256-cmatch'^[0-9a-f]{64}$'-and[int64]$ref.bytes-gt0) 'NOT_RUN candidate was not hash-bound'}
             Assert-P2Test (Test-P2Seal $root) 'early failure layout seal is invalid'

@@ -1,0 +1,173 @@
+{
+    "schema":  "python-slm-backend-phase-evidence-v1",
+    "phase_id":  "P2",
+    "run_id":  "20260812T103232683Z-1eba47c230a740cbb9eba63b",
+    "status":  "FAIL",
+    "owner_review_status":  "AWAITING_REVIEW",
+    "started_at":  "2026-08-12T10:32:32.6935644Z",
+    "finished_at":  "2026-08-12T10:32:52.5156165Z",
+    "duration_ms":  19820,
+    "invocation":  {
+                       "argv":  [
+                                    "powershell",
+                                    "-NoProfile",
+                                    "-ExecutionPolicy",
+                                    "Bypass",
+                                    "-File",
+                                    "scripts/qualify-backend.ps1",
+                                    "-OutputRoot",
+                                    "docs/receipts/P2"
+                                ],
+                       "cwd":  "${REPO}"
+                   },
+    "source_identity_sha256":  "924c832013099f6566541339240fbba13a04b55a776ebc7d7049c55258acbf41",
+    "p1b_dependency":  {
+                           "status":  "PASS",
+                           "pointer_path":  "docs/receipts/P1B/evidence.json",
+                           "pointer_sha256":  "3996de1da05b842688526684f870f7af4c353ad16f408e11957c9fc57bca7cd4",
+                           "acceptance_path":  "docs/receipts/P1B/acceptances/00000001.json",
+                           "acceptance_sha256":  "87254f78309854d9562fc0c1d3ee8e4759049fdf6429e49488e45b97982b5334",
+                           "acceptance_sequence":  1,
+                           "run_path":  "docs/receipts/P1B/runs/20260811T174734119Z-7e7135b7cb794eb791c0e607",
+                           "run_evidence_sha256":  "de3c9fcbb67b0338f1415045cbc82e671630db47f064092f01131dd55758d810",
+                           "seal_path":  "docs/receipts/P1B/runs/20260811T174734119Z-7e7135b7cb794eb791c0e607/SHA256SUMS",
+                           "seal_sha256":  "ce7ad7ff4f9bedc97e8f5443c42b7520eb7c7a34852a7e941388273c7a2dbcd6",
+                           "environment_path":  "docs/receipts/P1B/runs/20260811T174734119Z-7e7135b7cb794eb791c0e607/artifacts/environment.json",
+                           "environment_sha256":  "68232385423942b525f142c54ffc5b32473925896f05a05f9e8a6bb508e2da1d",
+                           "source_identity_sha256":  "d3df9796dbcef5040ba8278127615cf6efc91e0a9408a8bf5d6831a221f7807d",
+                           "verifier_sha256":  "d3ca5176f8ee5e63bc1e104c37045ddafb4a2cd71dec7f209e78175632032fd9",
+                           "schema_bundle_sha256":  "43f7b6de3629034f0c90fb874c2bcbb124da2032f95757a92e4ec48d9e742a4a",
+                           "review_closure_commit":  "8c822e51956543e3fa52aaf1f295a6b517e0fd40"
+                       },
+    "policy":  {
+                   "path":  "artifacts/qualification-policy.json",
+                   "sha256":  "48b2f1349f5936edfb17c6edfdfeaebdc57921496709f3f11488651cb3498550",
+                   "bytes":  7251
+               },
+    "dependency_inventory":  {
+                                 "path":  "artifacts/dependency-inventory.json",
+                                 "sha256":  "383623d9e5a5ee9d810e8b7425e50c107f39e3204a77b3051f894c47fddeb108",
+                                 "bytes":  85
+                             },
+    "fixture_manifest":  {
+                             "path":  "artifacts/fixture-manifest.json",
+                             "sha256":  "27d8e5def25d9aa1809d40a980202a6b072b96952885362c13100cdd666a9bf0",
+                             "bytes":  81
+                         },
+    "host_state":  {
+                       "path":  "artifacts/host-state.json",
+                       "sha256":  "f80aa58e34cf777e1ec7b932bf822bade6c8e80ac4d6b98f0fb36aea7e2f1980",
+                       "bytes":  75
+                   },
+    "candidates":  [
+                       {
+                           "candidate_id":  "burn-cubecl",
+                           "role":  "framework",
+                           "status":  "NOT_RUN",
+                           "path":  "artifacts/burn-cubecl.json",
+                           "sha256":  "293d5ad194fbd6ade29a4ae205ff8924d20a399706db8684d0e013107e1875ac",
+                           "bytes":  435
+                       },
+                       {
+                           "candidate_id":  "candle",
+                           "role":  "framework",
+                           "status":  "NOT_RUN",
+                           "path":  "artifacts/candle.json",
+                           "sha256":  "519f207ca3143f9d355c7083dd1948bc6b4ba6953e63414abeba1cd246434509",
+                           "bytes":  430
+                       }
+                   ],
+    "comparison":  {
+                       "path":  "artifacts/comparison.json",
+                       "sha256":  "f46cace7c86d0c098d7ebd104da551c189f695ea79aa00a265831de0c7037040",
+                       "bytes":  746
+                   },
+    "decision":  {
+                     "path":  "artifacts/decision.json",
+                     "sha256":  "1b8cce2baa4a183c7132ac9290cbde3cf684fe70d0cbb21bc2c7986191b9beaa",
+                     "bytes":  1779,
+                     "status":  "FAIL",
+                     "selected_candidate_id":  null,
+                     "owner_review_status":  "AWAITING_REVIEW"
+                 },
+    "cpu_isolation":  {
+                          "path":  "artifacts/cpu-isolation.json",
+                          "sha256":  "983696fd46b626416ee599e3dae3db6bac5a553ad477b11ccfb22788239e5336",
+                          "bytes":  171
+                      },
+    "commands":  [
+
+                 ],
+    "gates":  {
+                  "p1b_dependency":  {
+                                         "status":  "PASS",
+                                         "detail":  "Selected P1B chain, nested P1A/P0 chain, and review closure commit validated."
+                                     },
+                  "input_stability":  {
+                                          "status":  "NOT_RUN",
+                                          "detail":  "Gate has not run."
+                                      },
+                  "dependency_policy":  {
+                                            "status":  "NOT_RUN",
+                                            "detail":  "Gate has not run."
+                                        },
+                  "fixture_determinism":  {
+                                              "status":  "NOT_RUN",
+                                              "detail":  "Gate has not run."
+                                          },
+                  "cpu_isolation":  {
+                                        "status":  "NOT_RUN",
+                                        "detail":  "Gate has not run."
+                                    },
+                  "sm120_launch":  {
+                                       "status":  "NOT_RUN",
+                                       "detail":  "Gate has not run."
+                                   },
+                  "bf16_roundtrip":  {
+                                         "status":  "NOT_RUN",
+                                         "detail":  "Gate has not run."
+                                     },
+                  "correctness":  {
+                                      "status":  "NOT_RUN",
+                                      "detail":  "Gate has not run."
+                                  },
+                  "synchronization":  {
+                                          "status":  "NOT_RUN",
+                                          "detail":  "Gate has not run."
+                                      },
+                  "runtime_provenance":  {
+                                             "status":  "NOT_RUN",
+                                             "detail":  "Gate has not run."
+                                         },
+                  "measurement_validity":  {
+                                               "status":  "NOT_RUN",
+                                               "detail":  "Gate has not run."
+                                           },
+                  "redaction":  {
+                                    "status":  "NOT_RUN",
+                                    "detail":  "Gate has not run."
+                                },
+                  "cleanup":  {
+                                  "status":  "PASS",
+                                  "detail":  "Failure-path temporary cleanup was attempted."
+                              }
+              },
+    "errors":  [
+                   {
+                       "code":  "P2_QUALIFICATION_FAILED",
+                       "category":  5,
+                       "message":  "experiment dependency declaration is not a supported exact form",
+                       "remediation":  "Resolve the recorded failure and rerun P2 from stable inputs."
+                   }
+               ],
+    "cleanup":  {
+                    "attempted":  true,
+                    "temporary_root_removed":  true,
+                    "process_trees_terminated":  true
+                },
+    "seal":  {
+                 "path":  "SHA256SUMS",
+                 "entries":  13,
+                 "coverage_rule":  "all_run_files_except_seal"
+             }
+}

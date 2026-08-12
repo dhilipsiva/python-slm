@@ -1,0 +1,20 @@
+{
+    "schema":  "python-slm-backend-candidate-aggregate-v1",
+    "candidate_id":  "candle",
+    "role":  "framework",
+    "status":  "NOT_RUN",
+    "cpu_smoke":  null,
+    "allocation":  null,
+    "correctness":  null,
+    "benchmark_rounds":  [
+
+                         ],
+    "nvml_measurements":  [
+
+                          ],
+    "summary":  null,
+    "runtime_provenance":  null,
+    "failures":  [
+
+                 ]
+}

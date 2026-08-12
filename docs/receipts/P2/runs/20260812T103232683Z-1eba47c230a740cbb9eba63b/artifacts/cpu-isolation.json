@@ -1,0 +1,8 @@
+{
+    "schema":  "python-slm-p2-cpu-isolation-v1",
+    "status":  "NOT_RUN",
+    "forbidden_hits":  [
+
+                       ],
+    "cuda_or_python_discovered":  false
+}
