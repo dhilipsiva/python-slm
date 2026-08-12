@@ -1,0 +1,30 @@
+[package]
+name = "p2-cudarc-fallback"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "p2-cudarc-fallback"
+path = "src/main.rs"
+
+[features]
+default = []
+cuda = [
+  "dep:cudarc",
+  "cudarc/std",
+  "cudarc/driver",
+  "cudarc/cublas",
+  "cudarc/cublaslt",
+  "cudarc/f16",
+  "cudarc/dynamic-linking",
+  "cudarc/cuda-13010",
+]
+
+[dependencies]
+cudarc = { workspace = true, optional = true }
+half.workspace = true
+p2-backend-common = { path = "../common" }
+serde_json.workspace = true

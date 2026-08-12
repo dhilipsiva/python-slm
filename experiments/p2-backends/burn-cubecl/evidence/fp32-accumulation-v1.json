@@ -1,0 +1,11 @@
+{
+  "schema": "python-slm-burn-fp32-accumulation-evidence-v1",
+  "crate": "cubek-matmul",
+  "version": "0.2.0",
+  "crate_checksum_sha256": "83a4cea5f0f439907dc953c7638a6204b3f055f1bcbd10db91dfc5faa030ac1c",
+  "target_condition": "not(target_os=macos)",
+  "source_relative_path": "src/definition/spec.rs",
+  "source_sha256": "f74fe23b585d7b359d7c04f5a9e586c517684ff4e788807ee67897383160c655",
+  "source_lines": "85-91",
+  "required_assertion": "BF16_MATMUL_PRECISION_ACCUMULATOR_F32"
+}

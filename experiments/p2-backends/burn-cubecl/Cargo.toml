@@ -1,0 +1,34 @@
+[package]
+name = "p2-burn-cubecl"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "p2-burn-cubecl"
+path = "src/main.rs"
+
+[features]
+default = ["cpu"]
+cpu = ["burn/flex", "burn/autodiff"]
+cuda = [
+  "burn/cuda",
+  "burn/autodiff",
+  "burn/fusion",
+  "burn/autotune",
+  "dep:cudarc",
+  "cudarc/std",
+  "cudarc/driver",
+  "cudarc/fallback-dynamic-loading",
+  "cudarc/cuda-version-from-build-system",
+  "cudarc/fallback-latest",
+]
+
+[dependencies]
+burn.workspace = true
+cudarc = { workspace = true, optional = true }
+half.workspace = true
+p2-backend-common = { path = "../common" }
+serde_json.workspace = true

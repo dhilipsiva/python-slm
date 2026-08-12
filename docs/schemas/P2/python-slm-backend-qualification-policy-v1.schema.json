@@ -1,0 +1,108 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://python-slm.local/schemas/P2/python-slm-backend-qualification-policy-v1.schema.json",
+  "title": "python-slm Phase 2 backend qualification policy v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "phase_id", "policy_id", "frozen_before_candidate_execution", "candidates", "fixture_generation", "workloads", "correctness_graph", "tolerances", "timing", "memory", "selection", "fallback"],
+  "properties": {
+    "schema": { "const": "python-slm-backend-qualification-policy-v1" },
+    "phase_id": { "const": "P2" },
+    "policy_id": { "const": "backend-qualification-v1" },
+    "frozen_before_candidate_execution": { "const": true },
+    "candidates": {
+      "const": [
+        { "candidate_id": "burn-cubecl", "crate": "burn", "version": "0.21.0", "role": "framework" },
+        { "candidate_id": "candle", "crate": "candle-core", "version": "0.11.0", "role": "framework" },
+        { "candidate_id": "cudarc-fallback", "crate": "cudarc", "version": "0.19.8", "role": "diagnostic_fallback" }
+      ]
+    },
+    "fixture_generation": { "$ref": "#/definitions/fixtureGeneration" },
+    "workloads": { "$ref": "#/definitions/workloads" },
+    "correctness_graph": { "$ref": "#/definitions/correctnessGraph" },
+    "tolerances": { "$ref": "#/definitions/tolerances" },
+    "timing": { "$ref": "#/definitions/timing" },
+    "memory": { "$ref": "#/definitions/memory" },
+    "selection": { "$ref": "#/definitions/selection" },
+    "fallback": { "$ref": "#/definitions/fallback" }
+  },
+  "definitions": {
+    "shape": {
+      "type": "object", "additionalProperties": false, "required": ["m", "k", "n"],
+      "properties": { "m": { "type": "integer", "minimum": 1 }, "k": { "type": "integer", "minimum": 1 }, "n": { "type": "integer", "minimum": 1 } }
+    },
+    "fixtureGeneration": {
+      "type": "object", "additionalProperties": false,
+      "required": ["seed", "expander", "byte_mapping", "source_dtype", "target_dtype", "rounding", "byte_order", "framework_rng_allowed"],
+      "properties": {
+        "seed": { "const": "domain-separated-sha256" }, "expander": { "const": "splitmix64" },
+        "byte_mapping": { "const": "signed_high_byte_divided_by_128_f32" }, "source_dtype": { "const": "f32" },
+        "target_dtype": { "const": "bf16" }, "rounding": { "const": "round-to-nearest-even" },
+        "byte_order": { "const": "little-endian" }, "framework_rng_allowed": { "const": false }
+      }
+    },
+    "workloads": {
+      "type": "object", "additionalProperties": false, "required": ["allocation_shape", "correctness", "projection", "ffn_expansion"],
+      "properties": {
+        "allocation_shape": { "const": [16, 2048, 768] },
+        "correctness": { "allOf": [{ "$ref": "#/definitions/shape" }, { "properties": { "m": { "const": 17 }, "k": { "const": 31 }, "n": { "const": 29 } } }] },
+        "projection": { "allOf": [{ "$ref": "#/definitions/shape" }, { "properties": { "m": { "const": 8192 }, "k": { "const": 768 }, "n": { "const": 768 } } }] },
+        "ffn_expansion": { "allOf": [{ "$ref": "#/definitions/shape" }, { "properties": { "m": { "const": 8192 }, "k": { "const": 768 }, "n": { "const": 2432 } } }] }
+      }
+    },
+    "correctnessGraph": {
+      "type": "object", "additionalProperties": false, "required": ["matmul", "loss", "backward", "input_dtype", "output_dtype", "accumulation_dtype", "loss_dtype"],
+      "properties": {
+        "matmul": { "const": "Y=A*B" }, "loss": { "const": "mean(cast_f32(Y)^2)" }, "backward": { "const": "gradients_for_A_and_B" },
+        "input_dtype": { "const": "bf16" }, "output_dtype": { "const": "bf16" }, "accumulation_dtype": { "const": "fp32" }, "loss_dtype": { "const": "fp32" }
+      }
+    },
+    "envelope": {
+      "type": "object", "additionalProperties": false, "required": ["absolute_floor", "reference_multiplier"],
+      "properties": { "absolute_floor": { "type": "number", "minimum": 0 }, "reference_multiplier": { "type": "number", "minimum": 0 } }
+    },
+    "tolerances": {
+      "type": "object", "additionalProperties": false, "required": ["allocation_bitwise", "forward_envelope", "forward_relative_l2_max", "loss_absolute_floor", "loss_reference_multiplier", "gradient_envelope", "gradient_relative_l2_max", "gradient_cosine_min", "nan_max", "infinite_max", "envelope_violations_max", "relative_l2_denominator_floor", "reported_relative_error_denominator_floor", "signed_zero_equal"],
+      "properties": {
+        "allocation_bitwise": { "const": true },
+        "forward_envelope": { "allOf": [{ "$ref": "#/definitions/envelope" }, { "properties": { "absolute_floor": { "const": 0.0078125 }, "reference_multiplier": { "const": 0.015625 } } }] },
+        "forward_relative_l2_max": { "const": 0.015 }, "loss_absolute_floor": { "const": 0.00001 }, "loss_reference_multiplier": { "const": 0.01 },
+        "gradient_envelope": { "allOf": [{ "$ref": "#/definitions/envelope" }, { "properties": { "absolute_floor": { "const": 0.0078125 }, "reference_multiplier": { "const": 0.03125 } } }] },
+        "gradient_relative_l2_max": { "const": 0.03 }, "gradient_cosine_min": { "const": 0.999 },
+        "nan_max": { "const": 0 }, "infinite_max": { "const": 0 }, "envelope_violations_max": { "const": 0 },
+        "relative_l2_denominator_floor": { "const": 1e-12 }, "reported_relative_error_denominator_floor": { "const": 0.000001 }, "signed_zero_equal": { "const": true }
+      }
+    },
+    "timing": {
+      "type": "object", "additionalProperties": false, "required": ["round_order", "round_order_scope", "workload_order", "fresh_process_each_round", "warmups_per_timed_operation", "minimum_samples", "minimum_window_seconds", "maximum_samples", "maximum_window_seconds", "synchronize_before_and_after", "percentile_method", "forward_flop_formula", "forward_backward_flop_formula", "tokens_per_second_forbidden", "eight_hour_projection_forbidden", "maximum_between_round_p50_drift_ratio"],
+      "properties": {
+        "round_order": { "const": ["burn-cubecl", "candle", "candle", "burn-cubecl"] },
+        "round_order_scope": { "const": "per_workload" }, "workload_order": { "const": ["projection", "ffn-expansion"] }, "fresh_process_each_round": { "const": true },
+        "warmups_per_timed_operation": { "const": 50 }, "minimum_samples": { "const": 200 }, "minimum_window_seconds": { "const": 5 }, "maximum_samples": { "const": 10000 }, "maximum_window_seconds": { "const": 60 },
+        "synchronize_before_and_after": { "const": true }, "percentile_method": { "const": "nearest-rank-integer-nanoseconds" },
+        "forward_flop_formula": { "const": "2*M*N*K/time" }, "forward_backward_flop_formula": { "const": "6*M*N*K/time" },
+        "tokens_per_second_forbidden": { "const": true }, "eight_hour_projection_forbidden": { "const": true }, "maximum_between_round_p50_drift_ratio": { "const": 0.1 }
+      }
+    },
+    "memory": {
+      "type": "object", "additionalProperties": false, "required": ["monitor", "sample_interval_ms", "baseline_samples", "baseline_interval_ms", "baseline_statistic", "maximum_sample_gap_ms", "foreign_gpu_work_allowed", "cuda_memory_points"],
+      "properties": {
+        "monitor": { "const": "native-nvml-zero-python" }, "sample_interval_ms": { "const": 20 }, "baseline_samples": { "const": 20 }, "baseline_interval_ms": { "const": 50 },
+        "baseline_statistic": { "const": "median" }, "maximum_sample_gap_ms": { "const": 100 }, "foreign_gpu_work_allowed": { "const": false },
+        "cuda_memory_points": { "const": ["after_context", "after_allocation", "after_forward", "after_backward"] }
+      }
+    },
+    "selection": {
+      "type": "object", "additionalProperties": false, "required": ["hard_gates_first", "performance_advantage_ratio", "ordered_tiebreakers", "stable_candidate_id_final_tie"],
+      "properties": {
+        "hard_gates_first": { "const": true }, "performance_advantage_ratio": { "const": 0.05 },
+        "ordered_tiebreakers": { "const": ["geometric_mean_forward_backward_p50", "geometric_mean_forward_backward_p95", "observed_peak_vram", "locked_dependency_count", "stable_candidate_id"] },
+        "stable_candidate_id_final_tie": { "const": true }
+      }
+    },
+    "fallback": {
+      "type": "object", "additionalProperties": false, "required": ["candidate_id", "run_only_if_frameworks_fail", "diagnostic_only", "may_satisfy_p2"],
+      "properties": { "candidate_id": { "const": "cudarc-fallback" }, "run_only_if_frameworks_fail": { "const": true }, "diagnostic_only": { "const": true }, "may_satisfy_p2": { "const": false } }
+    }
+  }
+}

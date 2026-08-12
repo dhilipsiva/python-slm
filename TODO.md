@@ -33,7 +33,7 @@ defines the target design. A conflict is a stop condition.
   block succeeds. `docs/receipts/P0.md` is its human approval authority, the sealed run is
   its machine evidence, and P0 requires no acceptance generation or root pointer. Machine
   evidence, checklist prose, silence, or an agent audit never substitutes for human approval.
-- P1A and P1B are the automatic machine-qualification exceptions currently authorized. A
+- P1A, P1B, and P2 are the automatic machine-qualification exceptions currently authorized. A
   passing verifier publishes an acceptance with `required_approvals: []` and selects it
   through the phase root pointer. The verifier never edits this checklist or commits. The
   owner must review and check the phase complete before a dependent phase begins; no later
@@ -315,14 +315,26 @@ Dependencies: P1B.
 Prompt:
 
 > Create isolated, disposable spikes for current supported Burn/CubeCL and Candle
-> candidates on Windows/MSVC/RTX 5090. Pin versions only for the experiment. Measure BF16
+> candidates on Windows/MSVC/RTX 5090. Pin Burn `0.21.0`, Candle Core `0.11.0`, and the
+> diagnostic-only cudarc fallback `0.19.8` in an experiment-only lockfile; do not modify
+> the root package or lockfile. Measure BF16
 > allocation, representative GEMM, automatic differentiation/backward, synchronization,
 > p50/p95 latency, and peak VRAM after warmup, using a minimal scalar CPU oracle. Do not
 > invent model semantics or add FA3/custom attention. Before running, write the BF16
 > forward/gradient tolerance table and comparison metrics into the receipt; changing them
-> invalidates and reruns P2. Write `docs/adr/0001-ml-backend.md` with raw JSON,
-> constraints, a provisional selection, and fallback boundary; P10 model/attention parity
+> invalidates and reruns P2. Write `docs/adr/0001-ml-backend.md` with immutable result
+> paths and hashes, constraints, a provisional selection, and fallback boundary; raw JSON
+> remains in the sealed receipt. P10 model/attention parity
 > and P12 synchronized full-training-step evidence make it final.
+
+VERIFY:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\tests\qualify-backend.tests.ps1
+if ($LASTEXITCODE -ne 0) { throw "P2 verifier tests failed: $LASTEXITCODE" }
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\qualify-backend.ps1 -OutputRoot docs\receipts\P2
+if ($LASTEXITCODE -ne 0) { throw "P2 backend qualification failed: $LASTEXITCODE" }
+```
 
 PASS:
 
@@ -330,6 +342,11 @@ PASS:
   declared BF16 tolerances.
 - The selection is based on target-host measurements, not feature lists.
 - CPU-only compilation does not discover or link CUDA.
+- The qualifier seals PASS/FAIL evidence, automatically publishes a passing acceptance with
+  `required_approvals: []`, and revalidates its pointer chain. The checkbox stays open until
+  the owner reviews the selected receipt; only that reviewed checklist commit unblocks P10.
+- The ADR explicitly records transformer-layer parity as deferred to P10, full optimizer-step
+  evidence as deferred to P12, and makes no tokens/s, production-VRAM, or eight-hour claim.
 
 STOP/loop: if no backend passes, evaluate a narrowly scoped `cudarc`/cuBLASLt design
 before changing the architecture. Suggested commit: `bench: select measured GPU backend`.

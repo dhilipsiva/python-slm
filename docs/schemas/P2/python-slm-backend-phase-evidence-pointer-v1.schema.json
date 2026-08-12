@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://python-slm.local/schemas/P2/python-slm-backend-phase-evidence-pointer-v1.schema.json",
+  "title": "python-slm selected Phase 2 backend qualification evidence pointer v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "phase_id", "acceptance_path", "acceptance_sha256", "updated_at"],
+  "properties": {
+    "schema": { "const": "python-slm-backend-phase-evidence-pointer-v1" }, "phase_id": { "const": "P2" },
+    "acceptance_path": { "type": "string", "pattern": "^acceptances/[0-9]{8}\\.json$" },
+    "acceptance_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "updated_at": { "$ref": "#/definitions/utc" }
+  },
+  "definitions": { "utc": { "type": "string", "format": "date-time", "pattern": "Z$" } }
+}

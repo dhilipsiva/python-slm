@@ -1,0 +1,22 @@
+[package]
+name = "p2-candle"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "p2-candle"
+path = "src/main.rs"
+
+[features]
+default = ["cpu"]
+cpu = []
+cuda = ["candle-core/cuda"]
+
+[dependencies]
+candle-core.workspace = true
+half.workspace = true
+p2-backend-common = { path = "../common" }
+serde_json.workspace = true

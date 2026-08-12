@@ -1,0 +1,263 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://python-slm.local/schemas/P2/python-slm-backend-candidate-result-v1.schema.json",
+  "title": "python-slm Phase 2 backend candidate result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "candidate_id", "mode", "status", "workload", "fixture_hashes", "allocation", "correctness", "timing", "memory", "provenance", "diagnostics"],
+  "properties": {
+    "schema": { "const": "python-slm-backend-candidate-result-v1" },
+    "candidate_id": { "enum": ["burn-cubecl", "candle", "cudarc-fallback"] },
+    "mode": { "enum": ["cpu-smoke", "correctness", "benchmark"] },
+    "status": { "enum": ["PASS", "FAIL"] },
+    "workload": { "enum": ["allocation", "correctness", "projection", "ffn-expansion"] },
+    "fixture_hashes": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/fixtureHashes" }] },
+    "allocation": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/allocation" }] },
+    "correctness": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/correctness" }] },
+    "timing": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/timing" }] },
+    "memory": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/memory" }] },
+    "provenance": { "$ref": "#/definitions/provenance" },
+    "diagnostics": { "type": "array", "items": { "$ref": "#/definitions/diagnostic" } }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "PASS" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "fixture_hashes": { "$ref": "#/definitions/fixtureHashes" },
+          "diagnostics": { "type": "array", "maxItems": 0 }
+        }
+      },
+      "else": { "properties": { "diagnostics": { "type": "array", "minItems": 1 } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "PASS" }, "mode": { "const": "correctness" }, "workload": { "const": "allocation" } }, "required": ["status", "mode", "workload"] },
+      "then": { "properties": { "fixture_hashes": { "$ref": "#/definitions/allocationFixtureHashes" }, "allocation": { "$ref": "#/definitions/passingAllocation" }, "correctness": { "type": "null" }, "timing": { "type": "null" }, "memory": { "$ref": "#/definitions/passingAllocationMemory" }, "provenance": { "$ref": "#/definitions/passingGpuProvenance" } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "PASS" }, "mode": { "const": "correctness" }, "workload": { "const": "correctness" } }, "required": ["status", "mode", "workload"] },
+      "then": { "properties": { "fixture_hashes": { "$ref": "#/definitions/binaryFixtureHashes" }, "allocation": { "type": "null" }, "correctness": { "$ref": "#/definitions/passingCorrectness" }, "timing": { "type": "null" } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "PASS" }, "mode": { "const": "benchmark" }, "workload": { "enum": ["projection", "ffn-expansion"] } }, "required": ["status", "mode", "workload"] },
+      "then": { "properties": { "fixture_hashes": { "$ref": "#/definitions/binaryFixtureHashes" }, "allocation": { "type": "null" }, "correctness": { "type": "null" }, "timing": { "$ref": "#/definitions/passingTiming" }, "memory": { "$ref": "#/definitions/passingMemory" }, "provenance": { "$ref": "#/definitions/passingGpuProvenance" } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "PASS" }, "mode": { "const": "benchmark" }, "workload": { "const": "projection" } }, "required": ["status", "mode", "workload"] },
+      "then": { "properties": { "timing": { "allOf": [{ "$ref": "#/definitions/passingTiming" }, { "properties": { "shape": { "const": { "m": 8192, "k": 768, "n": 768 } }, "forward": { "properties": { "flop_count": { "const": 9663676416 } }, "required": ["flop_count"] }, "forward_backward": { "properties": { "flop_count": { "const": 28991029248 } }, "required": ["flop_count"] } } }] } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "PASS" }, "mode": { "const": "benchmark" }, "workload": { "const": "ffn-expansion" } }, "required": ["status", "mode", "workload"] },
+      "then": { "properties": { "timing": { "allOf": [{ "$ref": "#/definitions/passingTiming" }, { "properties": { "shape": { "const": { "m": 8192, "k": 768, "n": 2432 } }, "forward": { "properties": { "flop_count": { "const": 30601641984 } }, "required": ["flop_count"] }, "forward_backward": { "properties": { "flop_count": { "const": 91804925952 } }, "required": ["flop_count"] } } }] } } }
+    },
+    {
+      "if": { "properties": { "mode": { "const": "cpu-smoke" } }, "required": ["mode"] },
+      "then": { "properties": { "workload": { "const": "correctness" } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "PASS" }, "mode": { "const": "cpu-smoke" } }, "required": ["status", "mode"] },
+      "then": { "properties": { "fixture_hashes": { "$ref": "#/definitions/binaryFixtureHashes" }, "allocation": { "type": "null" }, "correctness": { "type": "null" }, "timing": { "type": "null" }, "memory": { "type": "null" }, "provenance": { "$ref": "#/definitions/rngFreeProvenance" } } }
+    },
+    {
+      "if": { "properties": { "mode": { "const": "correctness" } }, "required": ["mode"] },
+      "then": { "properties": { "workload": { "enum": ["allocation", "correctness"] } } }
+    },
+    {
+      "if": { "properties": { "mode": { "const": "benchmark" } }, "required": ["mode"] },
+      "then": { "properties": { "workload": { "enum": ["projection", "ffn-expansion"] } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "PASS" }, "mode": { "const": "correctness" }, "workload": { "const": "correctness" } }, "required": ["status", "mode", "workload"] },
+      "then": { "properties": { "memory": { "$ref": "#/definitions/passingMemory" }, "provenance": { "$ref": "#/definitions/passingGpuProvenance" } } }
+    },
+    {
+      "if": { "properties": { "candidate_id": { "const": "burn-cubecl" } }, "required": ["candidate_id"] },
+      "then": { "properties": { "provenance": { "allOf": [{ "$ref": "#/definitions/provenance" }, { "properties": { "crate_name": { "const": "burn" }, "crate_version": { "const": "0.21.0" } } }] } } }
+    },
+    {
+      "if": { "properties": { "candidate_id": { "const": "candle" } }, "required": ["candidate_id"] },
+      "then": { "properties": { "provenance": { "allOf": [{ "$ref": "#/definitions/provenance" }, { "properties": { "crate_name": { "const": "candle-core" }, "crate_version": { "const": "0.11.0" } } }] } } }
+    },
+    {
+      "if": { "properties": { "candidate_id": { "const": "cudarc-fallback" } }, "required": ["candidate_id"] },
+      "then": { "properties": { "provenance": { "allOf": [{ "$ref": "#/definitions/provenance" }, { "properties": { "crate_name": { "const": "cudarc" }, "crate_version": { "const": "0.19.8" } } }] } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "PASS" }, "candidate_id": { "const": "burn-cubecl" }, "mode": { "const": "cpu-smoke" } }, "required": ["status", "candidate_id", "mode"] },
+      "then": { "properties": { "provenance": { "allOf": [{ "$ref": "#/definitions/rngFreeProvenance" }, { "properties": { "feature_set": { "const": ["autodiff", "flex"] }, "device": { "const": "CPU" }, "device_ordinal": { "type": "null" } } }] } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "PASS" }, "candidate_id": { "const": "candle" }, "mode": { "const": "cpu-smoke" } }, "required": ["status", "candidate_id", "mode"] },
+      "then": { "properties": { "provenance": { "allOf": [{ "$ref": "#/definitions/rngFreeProvenance" }, { "properties": { "feature_set": { "const": [] }, "device": { "const": "CPU" }, "device_ordinal": { "type": "null" } } }] } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "PASS" }, "candidate_id": { "const": "burn-cubecl" }, "mode": { "enum": ["correctness", "benchmark"] } }, "required": ["status", "candidate_id", "mode"] },
+      "then": { "properties": { "provenance": { "allOf": [{ "$ref": "#/definitions/passingGpuProvenance" }, { "properties": { "feature_set": { "const": ["autodiff", "autotune", "cuda", "fusion"] }, "device": { "const": "CUDA device 0" }, "device_ordinal": { "const": 0 } } }] } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "PASS" }, "candidate_id": { "const": "candle" }, "mode": { "enum": ["correctness", "benchmark"] } }, "required": ["status", "candidate_id", "mode"] },
+      "then": { "properties": { "provenance": { "allOf": [{ "$ref": "#/definitions/passingGpuProvenance" }, { "properties": { "feature_set": { "const": ["cuda"] }, "device": { "const": "CUDA device 0" }, "device_ordinal": { "const": 0 } } }] } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "PASS" }, "candidate_id": { "const": "cudarc-fallback" }, "mode": { "enum": ["correctness", "benchmark"] } }, "required": ["status", "candidate_id", "mode"] },
+      "then": { "properties": { "provenance": { "allOf": [{ "$ref": "#/definitions/passingGpuProvenance" }, { "properties": { "feature_set": { "const": ["cublas", "cublaslt", "cuda-13010", "driver"] }, "device": { "const": "CUDA device 0" }, "device_ordinal": { "const": 0 } } }] } } }
+    }
+  ],
+  "definitions": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "safeString": { "type": "string", "minLength": 1, "pattern": "^(?!.*(?:[A-Za-z]:[\\\\/]|\\\\\\\\))[^\\r\\n]+$" },
+    "shape": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["m", "k", "n"],
+      "properties": { "m": { "type": "integer", "minimum": 1 }, "k": { "type": "integer", "minimum": 1 }, "n": { "type": "integer", "minimum": 1 } }
+    },
+    "fixtureHashes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "a_sha256", "b_sha256", "a_elements", "b_elements"],
+      "properties": {
+        "algorithm": { "const": "sha256" },
+        "a_sha256": { "$ref": "#/definitions/sha256" },
+        "b_sha256": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "a_elements": { "type": "integer", "minimum": 1 },
+        "b_elements": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "allocationFixtureHashes": { "allOf": [{ "$ref": "#/definitions/fixtureHashes" }, { "properties": { "b_sha256": { "type": "null" }, "b_elements": { "const": 0 } } }] },
+    "binaryFixtureHashes": { "allOf": [{ "$ref": "#/definitions/fixtureHashes" }, { "properties": { "b_sha256": { "$ref": "#/definitions/sha256" }, "b_elements": { "type": "integer", "minimum": 1 } } }] },
+    "allocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["shape", "elements", "input_sha256", "output_sha256", "bitwise_equal"],
+      "properties": {
+        "shape": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 1 } },
+        "elements": { "type": "integer", "minimum": 1 },
+        "input_sha256": { "$ref": "#/definitions/sha256" },
+        "output_sha256": { "$ref": "#/definitions/sha256" },
+        "bitwise_equal": { "type": "boolean" }
+      }
+    },
+    "passingAllocation": { "allOf": [{ "$ref": "#/definitions/allocation" }, { "properties": { "shape": { "const": [16, 2048, 768] }, "elements": { "const": 25165824 }, "bitwise_equal": { "const": true } } }] },
+    "metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["elements", "max_absolute_error", "max_relative_error", "relative_l2", "cosine_similarity", "envelope_violation_count"],
+      "properties": {
+        "elements": { "type": "integer", "minimum": 1 },
+        "max_absolute_error": { "$ref": "#/definitions/nonnegativeFiniteNumber" },
+        "max_relative_error": { "$ref": "#/definitions/nonnegativeFiniteNumber" },
+        "relative_l2": { "$ref": "#/definitions/nonnegativeFiniteNumber" },
+        "cosine_similarity": { "allOf": [{ "$ref": "#/definitions/finiteNumber" }, { "minimum": -1, "maximum": 1 }] },
+        "envelope_violation_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "passingForwardMetric": { "allOf": [{ "$ref": "#/definitions/metric" }, { "properties": { "relative_l2": { "maximum": 0.015 }, "envelope_violation_count": { "const": 0 } } }] },
+    "passingGradientMetric": { "allOf": [{ "$ref": "#/definitions/metric" }, { "properties": { "relative_l2": { "maximum": 0.03 }, "cosine_similarity": { "minimum": 0.999 }, "envelope_violation_count": { "const": 0 } } }] },
+    "scalar": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actual", "reference", "absolute_error", "allowed_error", "passed"],
+      "properties": { "actual": { "$ref": "#/definitions/finiteNumber" }, "reference": { "$ref": "#/definitions/finiteNumber" }, "absolute_error": { "$ref": "#/definitions/nonnegativeFiniteNumber" }, "allowed_error": { "$ref": "#/definitions/nonnegativeFiniteNumber" }, "passed": { "type": "boolean" } }
+    },
+    "correctness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["shape", "accumulation", "output_dtype", "loss_dtype", "forward", "loss", "grad_a", "grad_b", "nan_count", "infinite_count", "envelope_violation_count"],
+      "properties": {
+        "shape": { "$ref": "#/definitions/shape" },
+        "accumulation": { "enum": ["fp32", "unverified"] },
+        "output_dtype": { "const": "bf16" },
+        "loss_dtype": { "const": "fp32" },
+        "forward": { "$ref": "#/definitions/metric" },
+        "loss": { "$ref": "#/definitions/scalar" },
+        "grad_a": { "$ref": "#/definitions/metric" },
+        "grad_b": { "$ref": "#/definitions/metric" },
+        "nan_count": { "type": "integer", "minimum": 0 },
+        "infinite_count": { "type": "integer", "minimum": 0 },
+        "envelope_violation_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "passingCorrectness": {
+      "allOf": [{ "$ref": "#/definitions/correctness" }, { "properties": {
+        "shape": { "properties": { "m": { "const": 17 }, "k": { "const": 31 }, "n": { "const": 29 } } },
+        "accumulation": { "const": "fp32" },
+        "forward": { "$ref": "#/definitions/passingForwardMetric" },
+        "loss": { "allOf": [{ "$ref": "#/definitions/scalar" }, { "properties": { "passed": { "const": true } } }] },
+        "grad_a": { "$ref": "#/definitions/passingGradientMetric" },
+        "grad_b": { "$ref": "#/definitions/passingGradientMetric" },
+        "nan_count": { "const": 0 }, "infinite_count": { "const": 0 }, "envelope_violation_count": { "const": 0 }
+      } }]
+    },
+    "timingSeries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["samples_ns", "sample_count", "elapsed_ns", "p50_ns", "p95_ns", "flop_count", "gflops"],
+      "properties": {
+        "samples_ns": { "type": "array", "minItems": 1, "maxItems": 10000, "items": { "type": "integer", "minimum": 1 } },
+        "sample_count": { "type": "integer", "minimum": 1, "maximum": 10000 },
+        "elapsed_ns": { "type": "integer", "minimum": 1, "maximum": 60000000000 },
+        "p50_ns": { "type": "integer", "minimum": 1 }, "p95_ns": { "type": "integer", "minimum": 1 },
+        "flop_count": { "type": "integer", "minimum": 1 }, "gflops": { "$ref": "#/definitions/positiveFiniteNumber" }
+      }
+    },
+    "passingTimingSeries": {
+      "allOf": [
+        { "$ref": "#/definitions/timingSeries" },
+        { "properties": { "sample_count": { "minimum": 200 } } },
+        { "anyOf": [{ "properties": { "elapsed_ns": { "minimum": 5000000000 } }, "required": ["elapsed_ns"] }, { "properties": { "sample_count": { "const": 10000 } }, "required": ["sample_count"] }] }
+      ]
+    },
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["shape", "warmup_iterations", "forward", "forward_backward", "context_ns", "jit_ns", "first_result_ns"],
+      "properties": {
+        "shape": { "$ref": "#/definitions/shape" }, "warmup_iterations": { "type": "integer", "minimum": 0 },
+        "forward": { "$ref": "#/definitions/timingSeries" }, "forward_backward": { "$ref": "#/definitions/timingSeries" },
+        "context_ns": { "type": "integer", "minimum": 0 }, "jit_ns": { "type": "integer", "minimum": 0 }, "first_result_ns": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "passingTiming": { "allOf": [{ "$ref": "#/definitions/timing" }, { "properties": { "warmup_iterations": { "const": 50 }, "forward": { "$ref": "#/definitions/passingTimingSeries" }, "forward_backward": { "$ref": "#/definitions/passingTimingSeries" } } }] },
+    "memory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["free_bytes_after_context", "free_bytes_after_allocation", "free_bytes_after_forward", "free_bytes_after_backward"],
+      "properties": {
+        "free_bytes_after_context": { "oneOf": [{ "type": "null" }, { "type": "integer", "minimum": 0 }] },
+        "free_bytes_after_allocation": { "oneOf": [{ "type": "null" }, { "type": "integer", "minimum": 0 }] },
+        "free_bytes_after_forward": { "oneOf": [{ "type": "null" }, { "type": "integer", "minimum": 0 }] },
+        "free_bytes_after_backward": { "oneOf": [{ "type": "null" }, { "type": "integer", "minimum": 0 }] }
+      }
+    },
+    "passingMemory": { "allOf": [{ "$ref": "#/definitions/memory" }, { "properties": {
+      "free_bytes_after_context": { "type": "integer", "minimum": 0 }, "free_bytes_after_allocation": { "type": "integer", "minimum": 0 },
+      "free_bytes_after_forward": { "type": "integer", "minimum": 0 }, "free_bytes_after_backward": { "type": "integer", "minimum": 0 }
+    } }] },
+    "passingAllocationMemory": { "allOf": [{ "$ref": "#/definitions/memory" }, { "properties": {
+      "free_bytes_after_context": { "type": "integer", "minimum": 0 }, "free_bytes_after_allocation": { "type": "integer", "minimum": 0 },
+      "free_bytes_after_forward": { "type": "null" }, "free_bytes_after_backward": { "type": "null" }
+    } }] },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["crate_name", "crate_version", "feature_set", "device", "device_ordinal", "explicit_synchronization", "fp32_accumulation_evidence", "framework_rng_used"],
+      "properties": {
+        "crate_name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$" }, "crate_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "feature_set": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" } },
+        "device": { "$ref": "#/definitions/safeString" }, "device_ordinal": { "oneOf": [{ "type": "null" }, { "type": "integer", "minimum": 0 }] }, "explicit_synchronization": { "type": "boolean" },
+        "fp32_accumulation_evidence": { "$ref": "#/definitions/safeString" }, "framework_rng_used": { "type": "boolean" }
+      }
+    },
+    "rngFreeProvenance": { "allOf": [{ "$ref": "#/definitions/provenance" }, { "properties": { "framework_rng_used": { "const": false } } }] },
+    "passingProvenance": { "allOf": [{ "$ref": "#/definitions/rngFreeProvenance" }, { "properties": { "explicit_synchronization": { "const": true } } }] },
+    "passingGpuProvenance": { "allOf": [{ "$ref": "#/definitions/passingProvenance" }, { "properties": { "device_ordinal": { "type": "integer", "minimum": 0 } } }] },
+    "diagnostic": {
+      "type": "object", "additionalProperties": false, "required": ["code", "message"],
+      "properties": { "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" }, "message": { "$ref": "#/definitions/safeString" } }
+    },
+    "finiteNumber": { "type": "number", "minimum": -1.7976931348623157e308, "maximum": 1.7976931348623157e308 },
+    "nonnegativeFiniteNumber": { "allOf": [{ "$ref": "#/definitions/finiteNumber" }, { "minimum": 0 }] },
+    "positiveFiniteNumber": { "allOf": [{ "$ref": "#/definitions/finiteNumber" }, { "exclusiveMinimum": 0 }] }
+  }
+}
