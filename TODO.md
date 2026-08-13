@@ -245,7 +245,7 @@ it never rewrites P0. Suggested commit:
 
 ## Phase 0A — Approve the Prototype-First Portable-Interface Amendment
 
-- [ ] P0A complete
+- [x] P0A complete
 
 Dependencies: P0.
 
