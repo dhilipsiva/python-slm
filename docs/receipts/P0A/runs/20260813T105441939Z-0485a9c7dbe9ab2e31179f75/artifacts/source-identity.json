@@ -1,0 +1,10 @@
+{
+  "schema": "python-slm-p0a-source-identity-v1",
+  "commit": "59c54a0fc350c389682f39499db62c46d7bb03a6",
+  "tree": "596dfc8d7fc299d6a9cc760c1fdccb6ddfefcc75",
+  "branch": "main",
+  "dirty": false,
+  "cargo_lock_sha256": "719bd8ae1fad884f18848e870773df0323fc5ff0433f26449f2f47301ba6361f",
+  "verifier_source_sha256": "d5e7b2debe1f3eefb7d932dab8ca95ec2c06555c4ce7f417f7ea71891832bef9",
+  "schema_bundle_sha256": "115bf6976a2769e8e720b587813d94e3fa2d1e8fce121ec628844fc05573b807"
+}
