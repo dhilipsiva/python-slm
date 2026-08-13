@@ -6609,12 +6609,14 @@ dependencies = [
  "base64 0.22.1",
  "clap",
  "hex",
+ "regex",
  "serde",
  "serde_json",
  "sha2",
  "tempfile",
  "tree-sitter",
  "tree-sitter-python",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

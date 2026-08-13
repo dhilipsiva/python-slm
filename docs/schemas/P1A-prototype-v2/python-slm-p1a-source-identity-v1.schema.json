@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://python-slm.local/schemas/P1A-prototype-v2/python-slm-p1a-source-identity-v1.schema.json",
+  "title": "python-slm P1A prototype-v2 source identity v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "phase_id",
+    "interface_id",
+    "profile_id",
+    "support_tier",
+    "commit",
+    "tree",
+    "branch",
+    "dirty",
+    "cargo_lock_sha256",
+    "verifier_source_sha256",
+    "schema_bundle_sha256",
+    "p0a_pointer_sha256"
+  ],
+  "properties": {
+    "schema": { "const": "python-slm-p1a-source-identity-v1" },
+    "phase_id": { "const": "P1A" },
+    "interface_id": { "const": "portable-interface-v2" },
+    "profile_id": { "const": "prototype-windows-5090-v1" },
+    "support_tier": { "const": "implemented" },
+    "commit": { "$ref": "#/definitions/gitSha" },
+    "tree": { "$ref": "#/definitions/gitSha" },
+    "branch": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "dirty": { "const": false },
+    "cargo_lock_sha256": { "$ref": "#/definitions/sha256" },
+    "verifier_source_sha256": { "$ref": "#/definitions/sha256" },
+    "schema_bundle_sha256": { "$ref": "#/definitions/sha256" },
+    "p0a_pointer_sha256": { "const": "c3ac49fdd2aecddb677bd315678d0f0d72bba3fbd92f773289ef98871505e15d" }
+  },
+  "definitions": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "gitSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
+  }
+}

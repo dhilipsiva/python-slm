@@ -1,0 +1,314 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://python-slm.local/schemas/P1A-prototype-v2/python-slm-p1a-cpu-isolation-v1.schema.json",
+  "title": "python-slm P1A CPU isolation qualification v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "phase_id",
+    "interface_id",
+    "profile_id",
+    "support_tier",
+    "status",
+    "policy",
+    "result",
+    "errors"
+  ],
+  "properties": {
+    "schema": { "const": "python-slm-p1a-cpu-isolation-v1" },
+    "phase_id": { "const": "P1A" },
+    "interface_id": { "const": "portable-interface-v2" },
+    "profile_id": { "const": "prototype-windows-5090-v1" },
+    "support_tier": { "const": "implemented" },
+    "status": { "enum": ["PASS", "FAIL"] },
+    "policy": { "$ref": "#/definitions/policy" },
+    "result": {
+      "oneOf": [
+        { "$ref": "#/definitions/passResult" },
+        { "$ref": "#/definitions/failResult" }
+      ]
+    },
+    "errors": { "$ref": "#/definitions/errors" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "PASS" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "result": { "$ref": "#/definitions/passResult" },
+          "errors": { "maxItems": 0 }
+        }
+      },
+      "else": {
+        "properties": {
+          "result": { "$ref": "#/definitions/failResult" },
+          "errors": { "minItems": 1 }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_id",
+        "selected_processor_group",
+        "selected_affinity_mask",
+        "sample_duration_ms",
+        "minimum_system_idle_fraction",
+        "maximum_foreign_process_single_core_fraction",
+        "approved_process_basis",
+        "approved_identity_basis",
+        "competing_compute_names",
+        "require_topology_stability",
+        "require_affinity_stability",
+        "require_power_policy_stability"
+      ],
+      "properties": {
+        "policy_id": { "const": "p1a-cpu-isolation-policy-v1" },
+        "selected_processor_group": { "const": 0 },
+        "selected_affinity_mask": { "$ref": "#/definitions/hexMask" },
+        "sample_duration_ms": { "const": 2000 },
+        "minimum_system_idle_fraction": { "const": 0.5 },
+        "maximum_foreign_process_single_core_fraction": { "const": 0.5 },
+        "approved_process_basis": { "const": "verifier_process_ancestry_and_contained_descendants_only" },
+        "approved_identity_basis": { "const": "native_pid_creation_time_ancestry_plus_windows_job_containment" },
+        "competing_compute_names": {
+          "const": [
+            "cargo.exe",
+            "cl.exe",
+            "clang.exe",
+            "clang-cl.exe",
+            "cmake.exe",
+            "hipcc.exe",
+            "link.exe",
+            "msbuild.exe",
+            "ninja.exe",
+            "nvcc.exe",
+            "py.exe",
+            "python.exe",
+            "python3.exe",
+            "rustc.exe"
+          ]
+        },
+        "require_topology_stability": { "const": true },
+        "require_affinity_stability": { "const": true },
+        "require_power_policy_stability": { "const": true }
+      }
+    },
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "processor_group_count",
+        "active_logical_processors",
+        "logical_processor_union_mask",
+        "core_topology_sha256",
+        "process_group",
+        "thread_group_mask",
+        "process_affinity_mask",
+        "system_affinity_mask",
+        "selected_logical_processor_count",
+        "power_scheme_guid",
+        "power_scheme_name",
+        "ac_line_status",
+        "power_value_source",
+        "clock_policy"
+      ],
+      "properties": {
+        "processor_group_count": { "const": 1 },
+        "active_logical_processors": { "const": 32 },
+        "logical_processor_union_mask": { "const": "0x00000000FFFFFFFF" },
+        "core_topology_sha256": { "$ref": "#/definitions/sha256" },
+        "process_group": { "const": 0 },
+        "thread_group_mask": { "$ref": "#/definitions/hexMask" },
+        "process_affinity_mask": { "$ref": "#/definitions/hexMask" },
+        "system_affinity_mask": { "$ref": "#/definitions/hexMask" },
+        "selected_logical_processor_count": { "type": "integer", "minimum": 1, "maximum": 32 },
+        "power_scheme_guid": { "$ref": "#/definitions/guid" },
+        "power_scheme_name": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "ac_line_status": { "const": "online" },
+        "power_value_source": { "const": "ac" },
+        "clock_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["minimum_processor_percent_ac", "maximum_processor_percent_ac", "boost_mode_ac", "energy_performance_preference_ac"],
+          "properties": {
+            "minimum_processor_percent_ac": { "type": "integer", "minimum": 0, "maximum": 100 },
+            "maximum_processor_percent_ac": { "type": "integer", "minimum": 1, "maximum": 100 },
+            "boost_mode_ac": { "type": "integer", "minimum": 0, "maximum": 6 },
+            "energy_performance_preference_ac": { "type": "integer", "minimum": 0, "maximum": 100 }
+          }
+        }
+      }
+    },
+    "baseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sample_duration_ms",
+        "actual_elapsed_ns",
+        "logical_processor_capacity",
+        "system_idle_delta_100ns",
+        "system_kernel_delta_100ns",
+        "system_user_delta_100ns",
+        "system_busy_basis_points",
+        "system_idle_fraction",
+        "maximum_foreign_process_single_core_fraction",
+        "largest_unapproved_process_single_core_basis_points",
+        "ordinary_os_activity_process_count",
+        "ordinary_os_activity_total_cpu_100ns",
+        "approved_verifier_cpu_100ns",
+        "inaccessible_processes_at_start",
+        "inaccessible_processes_at_end",
+        "new_processes",
+        "ended_processes",
+        "approved_process_basis",
+        "foreign_process_loads",
+        "competing_workloads"
+      ],
+      "properties": {
+        "sample_duration_ms": { "const": 2000 },
+        "actual_elapsed_ns": { "type": "integer", "minimum": 2000000000 },
+        "logical_processor_capacity": { "const": 32 },
+        "system_idle_delta_100ns": { "type": "integer", "minimum": 0 },
+        "system_kernel_delta_100ns": { "type": "integer", "minimum": 1 },
+        "system_user_delta_100ns": { "type": "integer", "minimum": 0 },
+        "system_busy_basis_points": { "type": "integer", "minimum": 0, "maximum": 10000 },
+        "system_idle_fraction": { "type": "number", "minimum": 0, "maximum": 1 },
+        "maximum_foreign_process_single_core_fraction": { "type": "number", "minimum": 0 },
+        "largest_unapproved_process_single_core_basis_points": { "type": "integer", "minimum": 0 },
+        "ordinary_os_activity_process_count": { "type": "integer", "minimum": 0 },
+        "ordinary_os_activity_total_cpu_100ns": { "type": "integer", "minimum": 0 },
+        "approved_verifier_cpu_100ns": { "type": "integer", "minimum": 0 },
+        "inaccessible_processes_at_start": { "type": "integer", "minimum": 0 },
+        "inaccessible_processes_at_end": { "type": "integer", "minimum": 0 },
+        "new_processes": { "type": "integer", "minimum": 0 },
+        "ended_processes": { "type": "integer", "minimum": 0 },
+        "approved_process_basis": { "const": "verifier_process_ancestry_and_contained_descendants_only" },
+        "foreign_process_loads": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/foreignProcessLoad" }
+        },
+        "competing_workloads": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["process_id", "creation_time_100ns", "image_name", "reason"],
+            "properties": {
+              "process_id": { "type": "integer", "minimum": 1 },
+              "creation_time_100ns": {
+                "oneOf": [
+                  { "type": "integer", "minimum": 1 },
+                  { "type": "null" }
+                ]
+              },
+              "image_name": { "$ref": "#/definitions/processImageName" },
+              "reason": { "enum": ["known_compute_process", "cpu_fraction_exceeded"] }
+            }
+          }
+        }
+      }
+    },
+    "passResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "before", "after", "baseline", "topology_stable", "affinity_stable", "power_policy_stable"],
+      "properties": {
+        "kind": { "const": "complete" },
+        "before": { "$ref": "#/definitions/snapshot" },
+        "after": { "$ref": "#/definitions/snapshot" },
+        "baseline": {
+          "allOf": [
+            { "$ref": "#/definitions/baseline" },
+            {
+              "properties": {
+                "system_idle_fraction": { "minimum": 0.5 },
+                "system_busy_basis_points": { "maximum": 5000 },
+                "maximum_foreign_process_single_core_fraction": { "maximum": 0.5 },
+                "largest_unapproved_process_single_core_basis_points": { "maximum": 5000 },
+                "competing_workloads": { "maxItems": 0 }
+              }
+            }
+          ]
+        },
+        "topology_stable": { "const": true },
+        "affinity_stable": { "const": true },
+        "power_policy_stable": { "const": true }
+      }
+    },
+    "failResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "completed_checks", "failure_code"],
+      "properties": {
+        "kind": { "const": "incomplete_or_rejected" },
+        "completed_checks": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "enum": ["policy_loaded", "before_snapshot", "background_baseline", "after_snapshot", "stability_comparison"] }
+        },
+        "failure_code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$" }
+      }
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "remediation"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$" },
+        "message": { "type": "string", "minLength": 1 },
+        "remediation": { "type": "string", "minLength": 1 }
+      }
+    },
+    "foreignProcessLoad": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "process_id",
+        "creation_time_100ns",
+        "image_name",
+        "cpu_time_100ns",
+        "single_core_basis_points",
+        "single_core_fraction",
+        "approved",
+        "known_compute_name"
+      ],
+      "properties": {
+        "process_id": { "type": "integer", "minimum": 1 },
+        "creation_time_100ns": {
+          "oneOf": [
+            { "type": "integer", "minimum": 1 },
+            { "type": "null" }
+          ]
+        },
+        "image_name": { "$ref": "#/definitions/processImageName" },
+        "cpu_time_100ns": { "type": "integer", "minimum": 0 },
+        "single_core_basis_points": { "type": "integer", "minimum": 0 },
+        "single_core_fraction": { "type": "number", "minimum": 0 },
+        "approved": { "type": "boolean" },
+        "known_compute_name": { "type": "boolean" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "approved": { "const": true } }, "required": ["approved"] },
+          "then": { "properties": { "creation_time_100ns": { "type": "integer", "minimum": 1 } } }
+        }
+      ]
+    },
+    "errors": { "type": "array", "items": { "$ref": "#/definitions/error" } },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "hexMask": { "type": "string", "pattern": "^0x[0-9A-Fa-f]+$" },
+    "guid": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+    "processImageName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 260,
+      "pattern": "^[^\\r\\n\\\\/:]+$"
+    }
+  }
+}

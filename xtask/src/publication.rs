@@ -8,24 +8,32 @@ use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 
 pub fn require_output_root(repository: &Path, supplied: &Path) -> Result<PathBuf> {
-    let expected_relative = Path::new("docs/receipts/P0A");
+    require_exact_output_root(repository, supplied, Path::new("docs/receipts/P0A"), "P0A")
+}
+
+pub fn require_exact_output_root(
+    repository: &Path,
+    supplied: &Path,
+    expected_relative: &Path,
+    phase: &str,
+) -> Result<PathBuf> {
     if supplied != expected_relative {
         return Err(XtaskError::new(
             "OUTPUT_ROOT_INVALID",
             crate::error::Category::Usage,
             format!(
-                "P0A output root must be {}, observed {}",
+                "{phase} output root must be {}, observed {}",
                 expected_relative.display(),
                 supplied.display()
             ),
-            "Use --output-root docs/receipts/P0A.",
+            format!("Use --output-root {}.", expected_relative.display()),
         ));
     }
     for component in supplied.components() {
         if !matches!(component, Component::Normal(_)) {
             return Err(XtaskError::integrity(
                 "OUTPUT_ROOT_UNSAFE",
-                "P0A output root contains an unsafe path component",
+                format!("{phase} output root contains an unsafe path component"),
             ));
         }
     }
@@ -209,33 +217,88 @@ pub fn write_new_via_owned_temp(path: &Path, bytes: &[u8], owner: &str) -> Resul
         std::process::id()
     ));
     write_new(&temporary, bytes)?;
-    // A same-filesystem hard link is an atomic create-new publication: unlike rename on
-    // Unix it cannot replace a concurrently created immutable destination. Removing the
-    // temporary name after the link leaves the exact synced inode at its final name.
-    match fs::hard_link(&temporary, path) {
-        Ok(()) => {
-            if fs::read(path).ok().as_deref() != Some(bytes) {
-                return Err(XtaskError::integrity(
-                    "CREATE_NEW_ATOMIC_PUBLICATION_INVALID",
-                    "create-new atomic publication bytes changed after linking",
-                ));
-            }
-            // The immutable final is already exact. Temp cleanup failure is handled by
-            // bounded recovery and cannot retroactively turn publication into failure.
-            let _ = fs::remove_file(&temporary);
-            Ok(())
-        }
-        Err(error) => {
-            let _ = fs::remove_file(&temporary);
-            Err(XtaskError::environment(
+    if let Err(error) = move_new_write_through(&temporary, path) {
+        return match fs::remove_file(&temporary) {
+            Ok(()) => Err(error),
+            Err(cleanup) => Err(XtaskError::environment(
                 "CREATE_NEW_ATOMIC_PUBLICATION_FAILED",
                 format!(
-                    "could not publish create-new file {}: {error}",
-                    path.display()
+                    "{}; the owned temporary {} also could not be removed: {cleanup}",
+                    error.message,
+                    temporary.display()
                 ),
-            ))
-        }
+            )),
+        };
     }
+    if fs::read(path).ok().as_deref() != Some(bytes) {
+        return Err(XtaskError::integrity(
+            "CREATE_NEW_ATOMIC_PUBLICATION_INVALID",
+            "create-new atomic publication bytes changed after its write-through move",
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(windows)]
+fn move_new_write_through(source: &Path, destination: &Path) -> Result<()> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Storage::FileSystem::{MOVEFILE_WRITE_THROUGH, MoveFileExW};
+
+    let mut source_wide = source.as_os_str().encode_wide().collect::<Vec<_>>();
+    source_wide.push(0);
+    let mut destination_wide = destination.as_os_str().encode_wide().collect::<Vec<_>>();
+    destination_wide.push(0);
+    // SAFETY: both UTF-16 buffers are NUL-terminated and remain live for the call.
+    if unsafe {
+        MoveFileExW(
+            source_wide.as_ptr(),
+            destination_wide.as_ptr(),
+            MOVEFILE_WRITE_THROUGH,
+        )
+    } == 0
+    {
+        return Err(XtaskError::environment(
+            "CREATE_NEW_ATOMIC_PUBLICATION_FAILED",
+            format!(
+                "could not write-through move {} to the create-new destination {}: {}",
+                source.display(),
+                destination.display(),
+                std::io::Error::last_os_error()
+            ),
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn move_new_write_through(source: &Path, destination: &Path) -> Result<()> {
+    // A same-filesystem hard link is an atomic create-new publication on POSIX: it
+    // cannot replace a concurrently created immutable destination. Flush the parent
+    // after removing the temporary name so both directory mutations are durable.
+    fs::hard_link(source, destination).io_context(
+        "CREATE_NEW_ATOMIC_PUBLICATION_FAILED",
+        format!(
+            "could not link {} to the create-new destination {}",
+            source.display(),
+            destination.display()
+        ),
+    )?;
+    fs::remove_file(source).io_context(
+        "CREATE_NEW_TEMP_CLEANUP_FAILED",
+        format!("could not remove owned temporary {}", source.display()),
+    )?;
+    let parent = destination.parent().ok_or_else(|| {
+        XtaskError::integrity(
+            "CREATE_NEW_ATOMIC_PUBLICATION_FAILED",
+            "create-new destination has no parent directory",
+        )
+    })?;
+    fs::File::open(parent)
+        .and_then(|directory| directory.sync_all())
+        .io_context(
+            "CREATE_NEW_PARENT_SYNC_FAILED",
+            format!("could not sync publication directory {}", parent.display()),
+        )
 }
 
 pub fn write_json_new_via_owned_temp<T: Serialize>(

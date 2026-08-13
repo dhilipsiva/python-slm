@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://python-slm.local/schemas/P1A-prototype-v2/python-slm-p1a-schema-bundle-v1.schema.json",
+  "title": "python-slm P1A prototype-v2 schema bundle v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "phase_id", "interface_id", "profile_id", "entries", "bundle_sha256"],
+  "properties": {
+    "schema": { "const": "python-slm-p1a-schema-bundle-v1" },
+    "phase_id": { "const": "P1A" },
+    "interface_id": { "const": "portable-interface-v2" },
+    "profile_id": { "const": "prototype-windows-5090-v1" },
+    "entries": {
+      "type": "array",
+      "minItems": 13,
+      "maxItems": 13,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": {
+            "enum": [
+              "docs/schemas/P1A-prototype-v2/python-slm-p0a-dependency-v1.schema.json",
+              "docs/schemas/P1A-prototype-v2/python-slm-p1a-cpu-isolation-v1.schema.json",
+              "docs/schemas/P1A-prototype-v2/python-slm-p1a-host-environment-v1.schema.json",
+              "docs/schemas/P1A-prototype-v2/python-slm-p1a-native-abi-probe-v1.schema.json",
+              "docs/schemas/P1A-prototype-v2/python-slm-p1a-phase-acceptance-v1.schema.json",
+              "docs/schemas/P1A-prototype-v2/python-slm-p1a-phase-evidence-v1.schema.json",
+              "docs/schemas/P1A-prototype-v2/python-slm-p1a-phase-pointer-v1.schema.json",
+              "docs/schemas/P1A-prototype-v2/python-slm-p1a-schema-bundle-v1.schema.json",
+              "docs/schemas/P1A-prototype-v2/python-slm-p1a-source-identity-v1.schema.json",
+              "docs/schemas/portable-v2/python-slm-prototype-profile-v1.schema.json",
+              "docs/schemas/portable-v2/python-slm-prototype-sla-v1.schema.json",
+              "docs/schemas/portable-v2/python-slm-training-memory-policy-v1.schema.json",
+              "docs/schemas/portable-v2/tree-sitter-python-compatibility-v1.json"
+            ]
+          },
+          "sha256": { "$ref": "#/definitions/sha256" }
+        }
+      },
+      "allOf": [
+        { "contains": { "properties": { "path": { "const": "docs/schemas/P1A-prototype-v2/python-slm-p0a-dependency-v1.schema.json" } }, "required": ["path"] } },
+        { "contains": { "properties": { "path": { "const": "docs/schemas/P1A-prototype-v2/python-slm-p1a-cpu-isolation-v1.schema.json" } }, "required": ["path"] } },
+        { "contains": { "properties": { "path": { "const": "docs/schemas/P1A-prototype-v2/python-slm-p1a-host-environment-v1.schema.json" } }, "required": ["path"] } },
+        { "contains": { "properties": { "path": { "const": "docs/schemas/P1A-prototype-v2/python-slm-p1a-native-abi-probe-v1.schema.json" } }, "required": ["path"] } },
+        { "contains": { "properties": { "path": { "const": "docs/schemas/P1A-prototype-v2/python-slm-p1a-phase-acceptance-v1.schema.json" } }, "required": ["path"] } },
+        { "contains": { "properties": { "path": { "const": "docs/schemas/P1A-prototype-v2/python-slm-p1a-phase-evidence-v1.schema.json" } }, "required": ["path"] } },
+        { "contains": { "properties": { "path": { "const": "docs/schemas/P1A-prototype-v2/python-slm-p1a-phase-pointer-v1.schema.json" } }, "required": ["path"] } },
+        { "contains": { "properties": { "path": { "const": "docs/schemas/P1A-prototype-v2/python-slm-p1a-schema-bundle-v1.schema.json" } }, "required": ["path"] } },
+        { "contains": { "properties": { "path": { "const": "docs/schemas/P1A-prototype-v2/python-slm-p1a-source-identity-v1.schema.json" } }, "required": ["path"] } },
+        { "contains": { "properties": { "path": { "const": "docs/schemas/portable-v2/python-slm-prototype-profile-v1.schema.json" } }, "required": ["path"] } },
+        { "contains": { "properties": { "path": { "const": "docs/schemas/portable-v2/python-slm-prototype-sla-v1.schema.json" } }, "required": ["path"] } },
+        { "contains": { "properties": { "path": { "const": "docs/schemas/portable-v2/python-slm-training-memory-policy-v1.schema.json" } }, "required": ["path"] } },
+        { "contains": { "properties": { "path": { "const": "docs/schemas/portable-v2/tree-sitter-python-compatibility-v1.json" } }, "required": ["path"] } }
+      ]
+    },
+    "bundle_sha256": { "$ref": "#/definitions/sha256" }
+  },
+  "definitions": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

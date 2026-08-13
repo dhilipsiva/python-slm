@@ -1684,28 +1684,60 @@ fn require_fixed_process_boundary(repository: &Path) -> Result<()> {
             "XTASK_PROCESS_AUDIT_FAILED",
             format!("could not read {}", path.display()),
         )?;
-        let compact: String = text
+        let file_name = path.file_name().and_then(|value| value.to_str());
+        let is_process_module = file_name == Some("process.rs");
+        let is_native_process_module = file_name == Some("p1a_process.rs");
+        let audited_text = if is_native_process_module {
+            text.split_once("#[cfg(test)]")
+                .map(|(production, _)| production)
+                .ok_or_else(|| {
+                    XtaskError::integrity(
+                        "XTASK_PROCESS_BOUNDARY_VIOLATION",
+                        "the native P1A process module has no closed test-only boundary",
+                    )
+                })?
+        } else {
+            text.as_str()
+        };
+        let compact: String = audited_text
             .chars()
             .filter(|value| !value.is_whitespace())
             .collect();
-        let is_process_module =
-            path.file_name().and_then(|value| value.to_str()) == Some("process.rs");
         let fully_qualified = ["std::process::", "Command::new("].concat();
         let relative_qualified = ["process::", "Command::new("].concat();
         let direct_import = ["use", "std::process::", "Command"].concat();
         let grouped_import = ["use", "std::process::{", "Command"].concat();
         let spawn = [".sp", "awn("].concat();
+        let native_create = ["Create", "ProcessW("].concat();
         if !is_process_module
+            && !is_native_process_module
             && (compact.contains(&fully_qualified)
                 || compact.contains(&relative_qualified)
                 || compact.contains(&direct_import)
                 || compact.contains(&grouped_import)
-                || compact.contains(&spawn))
+                || compact.contains(&spawn)
+                || compact.contains(&native_create))
         {
             return Err(XtaskError::integrity(
                 "XTASK_PROCESS_BOUNDARY_VIOLATION",
                 "xtask contains an unapproved process-construction surface",
             ));
+        }
+        if is_native_process_module {
+            if !compact.contains(&native_create)
+                || compact.matches(&native_create).count() != 1
+                || compact.contains(&fully_qualified)
+                || compact.contains(&relative_qualified)
+                || compact.contains(&direct_import)
+                || compact.contains(&grouped_import)
+                || compact.contains(&spawn)
+            {
+                return Err(XtaskError::integrity(
+                    "XTASK_PROCESS_BOUNDARY_VIOLATION",
+                    "the native P1A process module is outside its single CreateProcessW boundary",
+                ));
+            }
+            continue;
         }
         if !is_process_module {
             continue;

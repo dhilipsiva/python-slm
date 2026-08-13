@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://python-slm.local/schemas/P1A-prototype-v2/python-slm-p1a-phase-pointer-v1.schema.json",
+  "title": "python-slm selected P1A prototype host acceptance pointer v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "phase_id",
+    "interface_id",
+    "profile_id",
+    "support_tier",
+    "qualification_scope",
+    "host",
+    "accelerator_provider",
+    "accelerator_device",
+    "memory_model",
+    "backend_identity",
+    "native_ml_library_identity",
+    "sla",
+    "sequence",
+    "acceptance_path",
+    "acceptance_sha256",
+    "run_id",
+    "run_path",
+    "run_evidence_sha256",
+    "seal_path",
+    "seal_sha256",
+    "source_commit",
+    "source_tree",
+    "host_environment_sha256",
+    "cpu_isolation_sha256",
+    "native_abi_probe_sha256",
+    "previous_acceptance_sha256",
+    "updated_at"
+  ],
+  "properties": {
+    "schema": { "const": "python-slm-p1a-phase-pointer-v1" },
+    "phase_id": { "const": "P1A" },
+    "interface_id": { "const": "portable-interface-v2" },
+    "profile_id": { "const": "prototype-windows-5090-v1" },
+    "support_tier": { "const": "implemented" },
+    "qualification_scope": { "const": "host_toolchain_only" },
+    "host": {
+      "const": {
+        "os_family": "windows",
+        "architecture": "x86_64",
+        "cpu_vendor": "AuthenticAMD",
+        "cpu_model": "AMD Ryzen 9 9950X3D 16-Core Processor",
+        "rust_target": "x86_64-pc-windows-msvc",
+        "c_cpp_toolchain": "msvc"
+      }
+    },
+    "accelerator_provider": { "type": "null" },
+    "accelerator_device": { "type": "null" },
+    "memory_model": { "type": "null" },
+    "backend_identity": { "type": "null" },
+    "native_ml_library_identity": { "type": "null" },
+    "sla": { "type": "null" },
+    "sequence": { "type": "integer", "minimum": 1, "maximum": 99999999 },
+    "acceptance_path": { "type": "string", "pattern": "^acceptances/[0-9]{8}\\.json$" },
+    "acceptance_sha256": { "$ref": "#/definitions/sha256" },
+    "run_id": { "$ref": "#/definitions/runId" },
+    "run_path": { "type": "string", "pattern": "^runs/[0-9]{8}T[0-9]{9}Z-[0-9a-f]{24}$" },
+    "run_evidence_sha256": { "$ref": "#/definitions/sha256" },
+    "seal_path": { "type": "string", "pattern": "^runs/[0-9]{8}T[0-9]{9}Z-[0-9a-f]{24}/SHA256SUMS$" },
+    "seal_sha256": { "$ref": "#/definitions/sha256" },
+    "source_commit": { "$ref": "#/definitions/gitSha" },
+    "source_tree": { "$ref": "#/definitions/gitSha" },
+    "host_environment_sha256": { "$ref": "#/definitions/sha256" },
+    "cpu_isolation_sha256": { "$ref": "#/definitions/sha256" },
+    "native_abi_probe_sha256": { "$ref": "#/definitions/sha256" },
+    "previous_acceptance_sha256": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+    "updated_at": { "type": "string", "format": "date-time", "pattern": "Z$" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "sequence": { "const": 1 } }, "required": ["sequence"] },
+      "then": {
+        "properties": {
+          "acceptance_path": { "const": "acceptances/00000001.json" },
+          "previous_acceptance_sha256": { "type": "null" }
+        }
+      },
+      "else": {
+        "properties": { "previous_acceptance_sha256": { "$ref": "#/definitions/sha256" } }
+      }
+    }
+  ],
+  "definitions": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "gitSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "runId": { "type": "string", "pattern": "^[0-9]{8}T[0-9]{9}Z-[0-9a-f]{24}$" }
+  }
+}

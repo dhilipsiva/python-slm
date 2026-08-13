@@ -1,0 +1,843 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://python-slm.local/schemas/P1A-prototype-v2/python-slm-p1a-host-environment-v1.schema.json",
+  "title": "python-slm P1A prototype Windows host environment v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "phase_id",
+    "interface_id",
+    "profile_id",
+    "support_tier",
+    "qualification_scope",
+    "qualification_tuple",
+    "status",
+    "result",
+    "errors"
+  ],
+  "properties": {
+    "schema": { "const": "python-slm-p1a-host-environment-v1" },
+    "phase_id": { "const": "P1A" },
+    "interface_id": { "const": "portable-interface-v2" },
+    "profile_id": { "const": "prototype-windows-5090-v1" },
+    "support_tier": { "const": "implemented" },
+    "qualification_scope": { "const": "host_toolchain_only" },
+    "qualification_tuple": { "$ref": "#/definitions/qualificationTuple" },
+    "status": { "enum": ["PASS", "FAIL"] },
+    "result": {
+      "oneOf": [
+        { "$ref": "#/definitions/passResult" },
+        { "$ref": "#/definitions/failResult" }
+      ]
+    },
+    "errors": { "$ref": "#/definitions/errors" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "PASS" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "result": { "$ref": "#/definitions/passResult" },
+          "errors": { "maxItems": 0 }
+        }
+      },
+      "else": {
+        "properties": {
+          "result": { "$ref": "#/definitions/failResult" },
+          "errors": { "minItems": 1 }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "qualificationTuple": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host",
+        "accelerator_provider",
+        "accelerator_device",
+        "memory_model",
+        "backend_identity",
+        "native_ml_library_identity",
+        "sla"
+      ],
+      "properties": {
+        "host": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["os_family", "architecture", "cpu_vendor", "cpu_model", "rust_target", "c_cpp_toolchain"],
+          "properties": {
+            "os_family": { "const": "windows" },
+            "architecture": { "const": "x86_64" },
+            "cpu_vendor": { "const": "AuthenticAMD" },
+            "cpu_model": { "const": "AMD Ryzen 9 9950X3D 16-Core Processor" },
+            "rust_target": { "const": "x86_64-pc-windows-msvc" },
+            "c_cpp_toolchain": { "const": "msvc" }
+          }
+        },
+        "accelerator_provider": { "type": "null" },
+        "accelerator_device": { "type": "null" },
+        "memory_model": { "type": "null" },
+        "backend_identity": { "type": "null" },
+        "native_ml_library_identity": { "type": "null" },
+        "sla": { "type": "null" }
+      }
+    },
+    "passResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "operating_system",
+        "cpu",
+        "rust_toolchain",
+        "native_toolchain",
+        "windows_sdk",
+        "runtime",
+        "target_abi",
+        "cargo_build_policy",
+        "quality_gate",
+        "toolchain_identity_stability",
+        "input_stability",
+        "cleanup",
+        "deferred_adapters"
+      ],
+      "properties": {
+        "kind": { "const": "complete" },
+        "operating_system": { "$ref": "#/definitions/operatingSystem" },
+        "cpu": { "$ref": "#/definitions/cpu" },
+        "rust_toolchain": { "$ref": "#/definitions/rustToolchain" },
+        "native_toolchain": { "$ref": "#/definitions/nativeToolchain" },
+        "windows_sdk": { "$ref": "#/definitions/windowsSdk" },
+        "runtime": { "$ref": "#/definitions/runtime" },
+        "target_abi": { "$ref": "#/definitions/targetAbi" },
+        "cargo_build_policy": { "$ref": "#/definitions/cargoBuildPolicy" },
+        "quality_gate": { "$ref": "#/definitions/qualityGate" },
+        "toolchain_identity_stability": { "$ref": "#/definitions/toolchainIdentityStability" },
+        "input_stability": { "$ref": "#/definitions/inputStability" },
+        "cleanup": { "$ref": "#/definitions/cleanup" },
+        "deferred_adapters": { "$ref": "#/definitions/deferredAdapters" }
+      }
+    },
+    "failResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "completed_checks", "failure_code"],
+      "properties": {
+        "kind": { "const": "incomplete_or_rejected" },
+        "completed_checks": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "platform_dispatch",
+              "os_identity",
+              "cpu_identity",
+              "rust_toolchain",
+              "native_toolchain",
+              "windows_sdk",
+              "runtime",
+              "cargo_policy",
+              "quality_gate",
+              "input_stability",
+              "cleanup"
+            ]
+          }
+        },
+        "failure_code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$" }
+      }
+    },
+    "operatingSystem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["family", "architecture", "native_architecture", "version", "build", "service_pack_major", "service_pack_minor", "product_type", "native_windows_process"],
+      "properties": {
+        "family": { "const": "windows" },
+        "architecture": { "const": "x86_64" },
+        "native_architecture": { "const": "AMD64" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$" },
+        "build": { "type": "integer", "minimum": 0 },
+        "service_pack_major": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "service_pack_minor": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "product_type": { "type": "integer", "minimum": 1, "maximum": 3 },
+        "native_windows_process": { "const": true }
+      }
+    },
+    "cpu": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "vendor_id",
+        "normalized_model",
+        "family",
+        "model",
+        "stepping",
+        "physical_packages",
+        "physical_cores",
+        "logical_processors",
+        "processor_groups",
+        "logical_processor_union_mask",
+        "core_topology",
+        "core_topology_sha256",
+        "instruction_sets"
+      ],
+      "properties": {
+        "vendor_id": { "const": "AuthenticAMD" },
+        "normalized_model": { "const": "AMD Ryzen 9 9950X3D 16-Core Processor" },
+        "family": { "const": 26 },
+        "model": { "const": 68 },
+        "stepping": { "const": 0 },
+        "physical_packages": { "const": 1 },
+        "physical_cores": { "const": 16 },
+        "logical_processors": { "const": 32 },
+        "processor_groups": { "const": 1 },
+        "logical_processor_union_mask": { "const": "0x00000000FFFFFFFF" },
+        "core_topology": {
+          "type": "array",
+          "minItems": 16,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/coreTopologyEntry" },
+          "allOf": [
+            { "contains": { "properties": { "core_index": { "const": 0 } }, "required": ["core_index"] } },
+            { "contains": { "properties": { "core_index": { "const": 1 } }, "required": ["core_index"] } },
+            { "contains": { "properties": { "core_index": { "const": 2 } }, "required": ["core_index"] } },
+            { "contains": { "properties": { "core_index": { "const": 3 } }, "required": ["core_index"] } },
+            { "contains": { "properties": { "core_index": { "const": 4 } }, "required": ["core_index"] } },
+            { "contains": { "properties": { "core_index": { "const": 5 } }, "required": ["core_index"] } },
+            { "contains": { "properties": { "core_index": { "const": 6 } }, "required": ["core_index"] } },
+            { "contains": { "properties": { "core_index": { "const": 7 } }, "required": ["core_index"] } },
+            { "contains": { "properties": { "core_index": { "const": 8 } }, "required": ["core_index"] } },
+            { "contains": { "properties": { "core_index": { "const": 9 } }, "required": ["core_index"] } },
+            { "contains": { "properties": { "core_index": { "const": 10 } }, "required": ["core_index"] } },
+            { "contains": { "properties": { "core_index": { "const": 11 } }, "required": ["core_index"] } },
+            { "contains": { "properties": { "core_index": { "const": 12 } }, "required": ["core_index"] } },
+            { "contains": { "properties": { "core_index": { "const": 13 } }, "required": ["core_index"] } },
+            { "contains": { "properties": { "core_index": { "const": 14 } }, "required": ["core_index"] } },
+            { "contains": { "properties": { "core_index": { "const": 15 } }, "required": ["core_index"] } }
+          ]
+        },
+        "core_topology_sha256": { "$ref": "#/definitions/sha256" },
+        "instruction_sets": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sse2",
+            "sse3",
+            "ssse3",
+            "sse4_1",
+            "sse4_2",
+            "popcnt",
+            "aes",
+            "pclmulqdq",
+            "avx",
+            "avx2",
+            "fma",
+            "bmi1",
+            "bmi2",
+            "avx512f",
+            "avx512dq",
+            "avx512cd",
+            "avx512bw",
+            "avx512vl",
+            "sha",
+            "vaes",
+            "vpclmulqdq"
+          ],
+          "properties": {
+            "sse2": { "const": true },
+            "sse3": { "const": true },
+            "ssse3": { "const": true },
+            "sse4_1": { "const": true },
+            "sse4_2": { "const": true },
+            "popcnt": { "const": true },
+            "aes": { "const": true },
+            "pclmulqdq": { "const": true },
+            "avx": { "const": true },
+            "avx2": { "const": true },
+            "fma": { "const": true },
+            "bmi1": { "const": true },
+            "bmi2": { "const": true },
+            "avx512f": { "const": true },
+            "avx512dq": { "const": true },
+            "avx512cd": { "const": true },
+            "avx512bw": { "const": true },
+            "avx512vl": { "const": true },
+            "sha": { "const": true },
+            "vaes": { "const": true },
+            "vpclmulqdq": { "const": true }
+          }
+        }
+      }
+    },
+    "rustToolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rustc", "cargo", "release", "release_semver", "host", "llvm_version"],
+      "properties": {
+        "rustc": { "$ref": "#/definitions/toolIdentity" },
+        "cargo": { "$ref": "#/definitions/toolIdentity" },
+        "release": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "release_semver": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["major", "minor", "patch"],
+          "properties": {
+            "major": { "type": "integer", "minimum": 1 },
+            "minor": { "type": "integer", "minimum": 0 },
+            "patch": { "type": "integer", "minimum": 0 }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "major": { "const": 1 } }, "required": ["major"] },
+              "then": { "properties": { "minor": { "minimum": 96 } } },
+              "else": { "properties": { "major": { "minimum": 2 } } }
+            }
+          ]
+        },
+        "host": { "const": "x86_64-pc-windows-msvc" },
+        "llvm_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" }
+      }
+    },
+    "coreTopologyEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["core_index", "efficiency_class", "smt", "group_masks"],
+      "properties": {
+        "core_index": { "type": "integer", "minimum": 0, "maximum": 15 },
+        "efficiency_class": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "smt": { "const": true },
+        "group_masks": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": { "$ref": "#/definitions/coreGroupMask" }
+        }
+      }
+    },
+    "coreGroupMask": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["group", "mask", "logical_processors"],
+      "properties": {
+        "group": { "const": 0 },
+        "mask": { "type": "string", "pattern": "^0x[0-9A-F]{16}$" },
+        "logical_processors": { "const": 2 }
+      }
+    },
+    "nativeToolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "visual_studio_discovery_method",
+        "vswhere",
+        "vswhere_query",
+        "visual_studio_candidates",
+        "selected_visual_studio_instance_id",
+        "selected_visual_studio_product_id",
+        "visual_studio_installation_path",
+        "visual_studio_edition",
+        "visual_studio_version",
+        "visual_studio_complete",
+        "visual_studio_launchable",
+        "msvc_tools_version",
+        "msvc_runtime_redist_version",
+        "c_compiler",
+        "cpp_compiler",
+        "c_frontend",
+        "cpp_frontend",
+        "optimizer_codegen",
+        "linker",
+        "archiver",
+        "binary_inspector"
+      ],
+      "properties": {
+        "visual_studio_discovery_method": { "const": "vswhere-fixed-audited-runner" },
+        "vswhere": {
+          "allOf": [
+            { "$ref": "#/definitions/toolIdentity" },
+            { "properties": { "logical_name": { "const": "vswhere" }, "invocation_mode": { "const": "native" } } }
+          ]
+        },
+        "vswhere_query": {
+          "const": [
+            "-version",
+            "[17.0,18.0)",
+            "-products",
+            "*",
+            "-requires",
+            "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+            "-format",
+            "json",
+            "-utf8"
+          ]
+        },
+        "visual_studio_candidates": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/visualStudioCandidate" }
+        },
+        "selected_visual_studio_instance_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "selected_visual_studio_product_id": { "type": "string", "pattern": "^Microsoft\\.VisualStudio\\.Product\\.[A-Za-z0-9._-]+$" },
+        "visual_studio_installation_path": { "$ref": "#/definitions/tokenizedPath" },
+        "visual_studio_edition": { "type": "string", "minLength": 1 },
+        "visual_studio_version": { "type": "string", "pattern": "^17\\.[0-9]+(?:\\.[0-9]+){1,2}$" },
+        "visual_studio_complete": { "const": true },
+        "visual_studio_launchable": { "const": true },
+        "msvc_tools_version": { "type": "string", "pattern": "^14\\.[0-9]+\\.[0-9]+$" },
+        "msvc_runtime_redist_version": { "type": "string", "pattern": "^14\\.[0-9]+\\.[0-9]+$" },
+        "c_compiler": {
+          "allOf": [
+            { "$ref": "#/definitions/toolIdentity" },
+            { "properties": { "logical_name": { "const": "msvc_c_compiler" }, "invocation_mode": { "const": "c17" } } }
+          ]
+        },
+        "cpp_compiler": {
+          "allOf": [
+            { "$ref": "#/definitions/toolIdentity" },
+            { "properties": { "logical_name": { "const": "msvc_cpp_compiler" }, "invocation_mode": { "const": "c++20" } } }
+          ]
+        },
+        "c_frontend": {
+          "allOf": [
+            { "$ref": "#/definitions/fileIdentity" },
+            { "properties": { "logical_name": { "const": "msvc_c_frontend_c1" } } }
+          ]
+        },
+        "cpp_frontend": {
+          "allOf": [
+            { "$ref": "#/definitions/fileIdentity" },
+            { "properties": { "logical_name": { "const": "msvc_cpp_frontend_c1xx" } } }
+          ]
+        },
+        "optimizer_codegen": {
+          "allOf": [
+            { "$ref": "#/definitions/fileIdentity" },
+            { "properties": { "logical_name": { "const": "msvc_optimizer_codegen_c2" } } }
+          ]
+        },
+        "linker": {
+          "allOf": [
+            { "$ref": "#/definitions/toolIdentity" },
+            { "properties": { "logical_name": { "const": "msvc_linker" }, "invocation_mode": { "const": "native" } } }
+          ]
+        },
+        "archiver": {
+          "allOf": [
+            { "$ref": "#/definitions/toolIdentity" },
+            { "properties": { "logical_name": { "const": "msvc_archiver" }, "invocation_mode": { "const": "native" } } }
+          ]
+        },
+        "binary_inspector": {
+          "allOf": [
+            { "$ref": "#/definitions/toolIdentity" },
+            { "properties": { "logical_name": { "const": "msvc_binary_inspector" }, "invocation_mode": { "const": "native" } } }
+          ]
+        }
+      }
+    },
+    "windowsSdk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "ucrt_version", "resource_compiler", "manifest_tool", "include_tree_sha256", "x64_lib_tree_sha256"],
+      "properties": {
+        "version": { "type": "string", "pattern": "^10\\.0\\.[0-9]+\\.0$" },
+        "ucrt_version": { "type": "string", "pattern": "^10\\.0\\.[0-9]+\\.0$" },
+        "resource_compiler": {
+          "allOf": [
+            { "$ref": "#/definitions/toolIdentity" },
+            { "properties": { "logical_name": { "const": "windows_resource_compiler" }, "invocation_mode": { "const": "native" } } }
+          ]
+        },
+        "manifest_tool": {
+          "allOf": [
+            { "$ref": "#/definitions/toolIdentity" },
+            { "properties": { "logical_name": { "const": "windows_manifest_tool" }, "invocation_mode": { "const": "native" } } }
+          ]
+        },
+        "include_tree_sha256": { "$ref": "#/definitions/sha256" },
+        "x64_lib_tree_sha256": { "$ref": "#/definitions/sha256" }
+      }
+    },
+    "visualStudioCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "instance_id",
+        "product_id",
+        "installation_version",
+        "installation_path",
+        "complete",
+        "launchable",
+        "reboot_required"
+      ],
+      "properties": {
+        "instance_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "product_id": { "type": "string", "pattern": "^Microsoft\\.VisualStudio\\.Product\\.[A-Za-z0-9._-]+$" },
+        "installation_version": { "type": "string", "pattern": "^17\\.[0-9]+(?:\\.[0-9]+){1,2}$" },
+        "installation_path": { "$ref": "#/definitions/tokenizedPath" },
+        "complete": { "type": "boolean" },
+        "launchable": { "type": "boolean" },
+        "reboot_required": { "type": "boolean" }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "loader_resolution_policy",
+        "ucrtbase",
+        "vcruntime",
+        "compiler_redist_vcruntime",
+        "debug_runtime_linked"
+      ],
+      "properties": {
+        "loader_resolution_policy": { "const": "windows-system32-safe-search-v1" },
+        "ucrtbase": {
+          "allOf": [
+            { "$ref": "#/definitions/fileIdentity" },
+            { "properties": { "logical_name": { "const": "loader_resolved_ucrtbase" } } }
+          ]
+        },
+        "vcruntime": {
+          "allOf": [
+            { "$ref": "#/definitions/fileIdentity" },
+            { "properties": { "logical_name": { "const": "loader_resolved_vcruntime" } } }
+          ]
+        },
+        "compiler_redist_vcruntime": {
+          "allOf": [
+            { "$ref": "#/definitions/fileIdentity" },
+            { "properties": { "logical_name": { "const": "compiler_redist_vcruntime" } } }
+          ]
+        },
+        "debug_runtime_linked": { "const": false }
+      }
+    },
+    "targetAbi": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rust_target", "object_format", "machine", "calling_convention", "pointer_width", "endianness", "c_runtime_linkage"],
+      "properties": {
+        "rust_target": { "const": "x86_64-pc-windows-msvc" },
+        "object_format": { "const": "PE-COFF" },
+        "machine": { "const": "AMD64" },
+        "calling_convention": { "const": "C" },
+        "pointer_width": { "const": 64 },
+        "endianness": { "const": "little" },
+        "c_runtime_linkage": { "const": "dynamic_release" }
+      }
+    },
+    "cargoBuildPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "locked",
+        "cargo_offline",
+        "fresh_target_directory",
+        "enabled_features",
+        "accelerator_features_enabled",
+        "compiler_wrappers",
+        "build_affecting_cargo_configs",
+        "python_processes",
+        "python_modules_or_packages",
+        "python_linked_imports",
+        "accelerator_tools_executed",
+        "accelerator_artifacts",
+        "accelerator_linked_imports",
+        "native_ml_backend_imports",
+        "permitted_generated_c_boundaries",
+        "cargo_tree_edges",
+        "activated_packages",
+        "activated_packages_sha256",
+        "owned_cargo_cache",
+        "quality_target_scans"
+      ],
+      "properties": {
+        "locked": { "const": true },
+        "cargo_offline": { "const": true },
+        "fresh_target_directory": { "const": true },
+        "enabled_features": { "const": ["cpu-reference"] },
+        "accelerator_features_enabled": { "const": [] },
+        "compiler_wrappers": { "const": [] },
+        "build_affecting_cargo_configs": { "const": [] },
+        "python_processes": { "const": [] },
+        "python_modules_or_packages": { "const": [] },
+        "python_linked_imports": { "const": [] },
+        "accelerator_tools_executed": { "const": [] },
+        "accelerator_artifacts": { "const": [] },
+        "accelerator_linked_imports": { "const": [] },
+        "native_ml_backend_imports": { "const": [] },
+        "cargo_tree_edges": { "const": ["normal", "build", "dev"] },
+        "activated_packages": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 512 }
+        },
+        "activated_packages_sha256": { "$ref": "#/definitions/sha256" },
+        "owned_cargo_cache": { "$ref": "#/definitions/ownedCargoCache" },
+        "permitted_generated_c_boundaries": {
+          "const": [
+            "tree-sitter-python@0.25.0-generated-c-parser",
+            "tree-sitter@0.25.8-c-runtime"
+          ]
+        },
+        "quality_target_scans": { "$ref": "#/definitions/qualityTargetScans" }
+      }
+    },
+    "ownedCargoCache": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "resolution_input_role",
+        "copied_to_owned_root",
+        "cargo_lock_package_count",
+        "locked_crates_io_package_count",
+        "archive_file_count",
+        "sparse_index_record_count",
+        "registry_config_file_count",
+        "admitted_python_source_package",
+        "resolver_only_provider_source_packages",
+        "file_count",
+        "total_bytes",
+        "manifest_sha256"
+      ],
+      "properties": {
+        "source": { "const": "cargo-lock-v4-crates-io-resolution-input-v1" },
+        "resolution_input_role": {
+          "const": "immutable-resolution-source-input-not-activated-compiled-or-linked-v1"
+        },
+        "copied_to_owned_root": { "const": true },
+        "cargo_lock_package_count": { "type": "integer", "minimum": 1 },
+        "locked_crates_io_package_count": { "type": "integer", "minimum": 1 },
+        "archive_file_count": { "type": "integer", "minimum": 1 },
+        "sparse_index_record_count": { "type": "integer", "minimum": 1 },
+        "registry_config_file_count": { "const": 1 },
+        "admitted_python_source_package": { "const": "tree-sitter-python@0.25.0" },
+        "resolver_only_provider_source_packages": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+@[A-Za-z0-9.+-]+$",
+            "minLength": 3,
+            "maxLength": 512
+          }
+        },
+        "file_count": { "type": "integer", "minimum": 1 },
+        "total_bytes": { "type": "integer", "minimum": 1 },
+        "manifest_sha256": { "$ref": "#/definitions/sha256" }
+      }
+    },
+    "qualityTargetScans": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": [
+        { "$ref": "#/definitions/fmtTargetScan" },
+        { "$ref": "#/definitions/clippyTargetScan" },
+        { "$ref": "#/definitions/testTargetScan" }
+      ],
+      "additionalItems": false
+    },
+    "targetArtifactScan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command",
+        "file_count",
+        "pe_file_count",
+        "manifest_sha256",
+        "python_artifacts",
+        "accelerator_artifacts",
+        "native_ml_backend_artifacts"
+      ],
+      "properties": {
+        "command": { "enum": ["fmt", "clippy", "test"] },
+        "file_count": { "type": "integer", "minimum": 0 },
+        "pe_file_count": { "type": "integer", "minimum": 0 },
+        "manifest_sha256": { "$ref": "#/definitions/sha256" },
+        "python_artifacts": { "const": [] },
+        "accelerator_artifacts": { "const": [] },
+        "native_ml_backend_artifacts": { "const": [] }
+      }
+    },
+    "fmtTargetScan": {
+      "allOf": [
+        { "$ref": "#/definitions/targetArtifactScan" },
+        { "properties": { "command": { "const": "fmt" } } }
+      ]
+    },
+    "clippyTargetScan": {
+      "allOf": [
+        { "$ref": "#/definitions/targetArtifactScan" },
+        {
+          "properties": {
+            "command": { "const": "clippy" },
+            "file_count": { "type": "integer", "minimum": 1 }
+          }
+        }
+      ]
+    },
+    "testTargetScan": {
+      "allOf": [
+        { "$ref": "#/definitions/targetArtifactScan" },
+        {
+          "properties": {
+            "command": { "const": "test" },
+            "file_count": { "type": "integer", "minimum": 1 }
+          }
+        }
+      ]
+    },
+    "qualityGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "commands"],
+      "properties": {
+        "status": { "const": "PASS" },
+        "commands": {
+          "const": [
+            { "argv": ["cargo", "fmt", "--all", "--", "--check"], "exit_code": 0 },
+            { "argv": ["cargo", "clippy", "--locked", "--all-targets", "--features", "cpu-reference", "--", "-D", "warnings"], "exit_code": 0 },
+            { "argv": ["cargo", "test", "--locked", "--features", "cpu-reference"], "exit_code": 0 }
+          ]
+        }
+      }
+    },
+    "toolchainIdentityStability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "before", "after", "stable"],
+      "properties": {
+        "algorithm": { "const": "sha256-qualified-files-and-selected-trees-v1" },
+        "before": { "$ref": "#/definitions/toolchainStabilitySnapshot" },
+        "after": { "$ref": "#/definitions/toolchainStabilitySnapshot" },
+        "stable": { "const": true }
+      }
+    },
+    "toolchainStabilitySnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selection_manifest_sha256",
+        "qualified_file_manifest_sha256",
+        "qualified_file_count",
+        "qualified_file_total_bytes",
+        "msvc_include_tree",
+        "msvc_x64_lib_tree",
+        "windows_sdk_include_tree",
+        "windows_sdk_x64_lib_tree",
+        "bundle_sha256"
+      ],
+      "properties": {
+        "selection_manifest_sha256": { "$ref": "#/definitions/sha256" },
+        "qualified_file_manifest_sha256": { "$ref": "#/definitions/sha256" },
+        "qualified_file_count": { "const": 19 },
+        "qualified_file_total_bytes": { "type": "integer", "minimum": 19 },
+        "msvc_include_tree": { "$ref": "#/definitions/treeIdentity" },
+        "msvc_x64_lib_tree": { "$ref": "#/definitions/treeIdentity" },
+        "windows_sdk_include_tree": { "$ref": "#/definitions/treeIdentity" },
+        "windows_sdk_x64_lib_tree": { "$ref": "#/definitions/treeIdentity" },
+        "bundle_sha256": { "$ref": "#/definitions/sha256" }
+      }
+    },
+    "treeIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "directory_count", "file_count", "total_bytes"],
+      "properties": {
+        "sha256": { "$ref": "#/definitions/sha256" },
+        "directory_count": { "type": "integer", "minimum": 1 },
+        "file_count": { "type": "integer", "minimum": 1 },
+        "total_bytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "inputStability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["before_sha256", "after_sha256", "stable"],
+      "properties": {
+        "before_sha256": { "$ref": "#/definitions/sha256" },
+        "after_sha256": { "$ref": "#/definitions/sha256" },
+        "stable": { "const": true }
+      }
+    },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "owned_temp_root_removed",
+        "fresh_target_removed",
+        "process_job_empty",
+        "persistent_state_mutation_requested",
+        "persistent_environment_redirected",
+        "persistent_environment_removed"
+      ],
+      "properties": {
+        "owned_temp_root_removed": { "const": true },
+        "fresh_target_removed": { "const": true },
+        "process_job_empty": { "const": true },
+        "persistent_state_mutation_requested": { "const": false },
+        "persistent_environment_redirected": { "const": true },
+        "persistent_environment_removed": { "const": true }
+      }
+    },
+    "deferredAdapters": {
+      "const": [
+        { "adapter": "linux-host", "status": "DEFERRED_POST_P16", "probed": false },
+        { "adapter": "macos-host", "status": "DEFERRED_POST_P16", "probed": false },
+        { "adapter": "gcc", "status": "DEFERRED_POST_P16", "probed": false },
+        { "adapter": "clang", "status": "DEFERRED_POST_P16", "probed": false },
+        { "adapter": "apple-clang", "status": "DEFERRED_POST_P16", "probed": false }
+      ]
+    },
+    "toolIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["logical_name", "path", "version", "sha256", "bytes", "invocation_mode"],
+      "properties": {
+        "logical_name": { "type": "string", "pattern": "^[a-z][a-z0-9_]+$" },
+        "path": { "$ref": "#/definitions/tokenizedPath" },
+        "version": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "sha256": { "$ref": "#/definitions/sha256" },
+        "bytes": { "type": "integer", "minimum": 1 },
+        "invocation_mode": { "enum": ["native", "c17", "c++20"] }
+      }
+    },
+    "fileIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["logical_name", "path", "version", "sha256", "bytes"],
+      "properties": {
+        "logical_name": { "type": "string", "pattern": "^[a-z][a-z0-9_]+$" },
+        "path": { "$ref": "#/definitions/tokenizedPath" },
+        "version": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "sha256": { "$ref": "#/definitions/sha256" },
+        "bytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "remediation"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$" },
+        "message": { "type": "string", "minLength": 1 },
+        "remediation": { "type": "string", "minLength": 1 }
+      }
+    },
+    "errors": { "type": "array", "items": { "$ref": "#/definitions/error" } },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "tokenizedPath": {
+      "type": "string",
+      "pattern": "^\\$\\{(?:RUSTUP_HOME|CARGO_HOME|VS_INSTALL|VC_TOOLS|WINDOWS_KITS|SYSTEM32|PROGRAM_FILES|PROGRAM_FILES_X86)\\}(?:/(?!\\.{1,2}(?:/|$))[A-Za-z0-9 ._()+-]+)*$"
+    }
+  }
+}

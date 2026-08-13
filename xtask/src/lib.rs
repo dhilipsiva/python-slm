@@ -1,10 +1,17 @@
 #![deny(unsafe_op_in_unsafe_fn)]
+#![recursion_limit = "256"]
 
 mod cli;
 mod error;
 mod hash;
+mod json_schema;
 mod p0;
 mod p0a;
+mod p1a;
+mod p1a_artifacts;
+mod p1a_process;
+mod p1a_receipt;
+mod p1a_windows;
 mod process;
 mod publication;
 mod time;

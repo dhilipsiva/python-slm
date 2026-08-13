@@ -1,5 +1,5 @@
 use crate::error::{Category, Result, XtaskError};
-use crate::{p0, p0a};
+use crate::{p0, p0a, p1a};
 use clap::{Parser, Subcommand};
 use serde_json::{Value, json};
 use std::ffi::OsString;
@@ -31,6 +31,23 @@ enum Command {
         #[arg(long)]
         profile: Option<String>,
     },
+    /// Qualify an implemented host or accelerator environment profile.
+    VerifyEnv {
+        #[arg(long)]
+        mode: String,
+        #[arg(long)]
+        profile: String,
+        #[arg(long)]
+        provider: Option<String>,
+        /// Select one exact VS 2022 instance when discovery is otherwise ambiguous.
+        #[arg(long, conflicts_with = "check_selected")]
+        vs_instance_id: Option<String>,
+        /// Revalidate the committed immutable selected P1A chain without probing the host.
+        #[arg(long)]
+        check_selected: bool,
+        #[arg(long, default_value = "docs/receipts/P1A-prototype-v2")]
+        output_root: PathBuf,
+    },
 }
 
 pub fn run(args: impl IntoIterator<Item = OsString>) -> Result<Value> {
@@ -42,14 +59,9 @@ pub fn run(args: impl IntoIterator<Item = OsString>) -> Result<Value> {
             "Use `cargo run --locked -p xtask --bin xtask -- --help`.",
         )
     })?;
-    let repository = std::env::current_dir().map_err(|error| {
-        XtaskError::environment(
-            "CURRENT_DIRECTORY_FAILED",
-            format!("could not read the current directory: {error}"),
-        )
-    })?;
     match arguments.command {
         Command::VerifyP0 => {
+            let repository = current_repository()?;
             let mut recorder = crate::process::Recorder::default();
             let identity = p0::verify(&repository, &mut recorder)?;
             Ok(json!({
@@ -67,6 +79,7 @@ pub fn run(args: impl IntoIterator<Item = OsString>) -> Result<Value> {
             finalize,
             profile,
         } => {
+            let repository = current_repository()?;
             if phase != "P0A" {
                 return Err(XtaskError::gate(
                     "PHASE_NOT_INSTALLED",
@@ -91,7 +104,47 @@ pub fn run(args: impl IntoIterator<Item = OsString>) -> Result<Value> {
                 p0a::prepare(&repository, &output_root)
             }
         }
+        Command::VerifyEnv {
+            mode,
+            profile,
+            provider,
+            vs_instance_id,
+            check_selected,
+            output_root,
+        } => {
+            require_p1a_host_selection(&mode, &profile, provider.as_deref())?;
+            let repository = current_repository()?;
+            if check_selected {
+                p1a::check_selected(&repository, &output_root)
+            } else {
+                p1a::qualify(&repository, &output_root, vs_instance_id.as_deref())
+            }
+        }
     }
+}
+
+fn current_repository() -> Result<PathBuf> {
+    std::env::current_dir().map_err(|error| {
+        XtaskError::environment(
+            "CURRENT_DIRECTORY_FAILED",
+            format!("could not read the current directory: {error}"),
+        )
+    })
+}
+
+fn require_p1a_host_selection(mode: &str, profile: &str, provider: Option<&str>) -> Result<()> {
+    if mode == "host" && profile == PROTOTYPE_PROFILE && provider.is_none() {
+        return Ok(());
+    }
+
+    let provider = provider.unwrap_or("none");
+    Err(XtaskError::gate(
+        "DEFERRED_POST_P16",
+        format!(
+            "environment tuple mode={mode}, profile={profile}, provider={provider} is designed but not implemented by P1A"
+        ),
+        "Use --mode host --profile prototype-windows-5090-v1 without --provider, or wait for the phase that implements the requested tuple.",
+    ))
 }
 
 #[cfg(test)]
@@ -134,6 +187,76 @@ mod tests {
             OsString::from("P0A"),
             OsString::from("--output-root"),
             OsString::from("elsewhere"),
+        ])
+        .unwrap_err();
+        assert_eq!(error.code, "OUTPUT_ROOT_INVALID");
+        assert_eq!(error.exit_code(), 2);
+    }
+
+    #[test]
+    fn defers_accelerator_mode_before_output_root_validation() {
+        let error = run([
+            OsString::from("xtask"),
+            OsString::from("verify-env"),
+            OsString::from("--mode"),
+            OsString::from("accelerator"),
+            OsString::from("--profile"),
+            OsString::from(PROTOTYPE_PROFILE),
+            OsString::from("--provider"),
+            OsString::from("cuda"),
+            OsString::from("--output-root"),
+            OsString::from("not-the-p1a-root"),
+        ])
+        .unwrap_err();
+        assert_eq!(error.code, "DEFERRED_POST_P16");
+        assert_eq!(error.exit_code(), 5);
+    }
+
+    #[test]
+    fn defers_nonprototype_host_before_output_root_validation() {
+        let error = run([
+            OsString::from("xtask"),
+            OsString::from("verify-env"),
+            OsString::from("--mode"),
+            OsString::from("host"),
+            OsString::from("--profile"),
+            OsString::from("portable-interface-v2"),
+            OsString::from("--output-root"),
+            OsString::from("not-the-p1a-root"),
+        ])
+        .unwrap_err();
+        assert_eq!(error.code, "DEFERRED_POST_P16");
+    }
+
+    #[test]
+    fn defers_provider_on_host_mode_before_output_root_validation() {
+        let error = run([
+            OsString::from("xtask"),
+            OsString::from("verify-env"),
+            OsString::from("--mode"),
+            OsString::from("host"),
+            OsString::from("--profile"),
+            OsString::from(PROTOTYPE_PROFILE),
+            OsString::from("--provider"),
+            OsString::from("cuda"),
+            OsString::from("--output-root"),
+            OsString::from("not-the-p1a-root"),
+        ])
+        .unwrap_err();
+        assert_eq!(error.code, "DEFERRED_POST_P16");
+    }
+
+    #[test]
+    fn exact_host_tuple_reaches_p1a_output_root_validation() {
+        let error = run([
+            OsString::from("xtask"),
+            OsString::from("verify-env"),
+            OsString::from("--mode"),
+            OsString::from("host"),
+            OsString::from("--profile"),
+            OsString::from(PROTOTYPE_PROFILE),
+            OsString::from("--output-root"),
+            OsString::from("not-the-p1a-root"),
         ])
         .unwrap_err();
         assert_eq!(error.code, "OUTPUT_ROOT_INVALID");

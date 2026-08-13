@@ -1,0 +1,394 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://python-slm.local/schemas/P1A-prototype-v2/python-slm-p1a-native-abi-probe-v1.schema.json",
+  "title": "python-slm P1A Rust to C and C++ ABI probe v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "phase_id",
+    "interface_id",
+    "profile_id",
+    "support_tier",
+    "status",
+    "result",
+    "errors"
+  ],
+  "properties": {
+    "schema": { "const": "python-slm-p1a-native-abi-probe-v1" },
+    "phase_id": { "const": "P1A" },
+    "interface_id": { "const": "portable-interface-v2" },
+    "profile_id": { "const": "prototype-windows-5090-v1" },
+    "support_tier": { "const": "implemented" },
+    "status": { "enum": ["PASS", "FAIL"] },
+    "result": {
+      "oneOf": [
+        { "$ref": "#/definitions/passResult" },
+        { "$ref": "#/definitions/failResult" }
+      ]
+    },
+    "errors": { "$ref": "#/definitions/errors" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "PASS" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "result": { "$ref": "#/definitions/passResult" },
+          "errors": { "maxItems": 0 }
+        }
+      },
+      "else": {
+        "properties": {
+          "result": { "$ref": "#/definitions/failResult" },
+          "errors": { "minItems": 1 }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "passResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "purpose",
+        "temp_root",
+        "fresh_native_build_directory",
+        "fresh_rust_target_directory",
+        "source_inputs",
+        "native_outputs",
+        "probe_executable",
+        "rust_c_probe",
+        "rust_cpp_probe",
+        "target_abi",
+        "binary_audit",
+        "input_stability",
+        "cleanup"
+      ],
+      "properties": {
+        "kind": { "const": "complete" },
+        "purpose": { "const": "permitted_future_accelerator_or_native_ml_ffi_shape_only" },
+        "temp_root": { "const": "${P1A_TEMP}" },
+        "fresh_native_build_directory": { "const": true },
+        "fresh_rust_target_directory": { "const": true },
+        "source_inputs": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/sourceInput" },
+          "allOf": [
+            { "contains": { "properties": { "language": { "const": "c17" } }, "required": ["language"] } },
+            { "contains": { "properties": { "language": { "const": "c++20" } }, "required": ["language"] } },
+            { "contains": { "properties": { "language": { "const": "rust2024" } }, "required": ["language"] } }
+          ]
+        },
+        "native_outputs": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/fileRef" },
+          "allOf": [
+            { "contains": { "properties": { "path": { "const": "native/p1a_c.obj" } }, "required": ["path"] } },
+            { "contains": { "properties": { "path": { "const": "native/p1a_cpp.obj" } }, "required": ["path"] } },
+            { "contains": { "properties": { "path": { "const": "native/p1a_c.lib" } }, "required": ["path"] } },
+            { "contains": { "properties": { "path": { "const": "native/p1a_cpp.lib" } }, "required": ["path"] } }
+          ]
+        },
+        "probe_executable": {
+          "allOf": [
+            { "$ref": "#/definitions/fileRef" },
+            { "properties": { "path": { "const": "rust-target/p1a_abi_probe.exe" } } }
+          ]
+        },
+        "rust_c_probe": {
+          "allOf": [
+            { "$ref": "#/definitions/probeResult" },
+            {
+              "properties": {
+                "symbol": { "const": "p1a_c_probe" },
+                "expected_value": { "const": 3137 },
+                "observed_value": { "const": 3137 }
+              }
+            }
+          ]
+        },
+        "rust_cpp_probe": {
+          "allOf": [
+            { "$ref": "#/definitions/probeResult" },
+            {
+              "properties": {
+                "symbol": { "const": "p1a_cpp_probe" },
+                "expected_value": { "const": 150 },
+                "observed_value": { "const": 150 }
+              }
+            }
+          ]
+        },
+        "target_abi": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["rust_target", "object_format", "machine", "calling_convention", "pointer_width", "endianness"],
+          "properties": {
+            "rust_target": { "const": "x86_64-pc-windows-msvc" },
+            "object_format": { "const": "PE-COFF" },
+            "machine": { "const": "AMD64" },
+            "calling_convention": { "const": "C" },
+            "pointer_width": { "const": 64 },
+            "endianness": { "const": "little" }
+          }
+        },
+        "binary_audit": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "pe_machine",
+            "imports",
+            "allowed_imports",
+            "import_classifications",
+            "python_imports",
+            "accelerator_imports",
+            "native_ml_backend_imports",
+            "debug_runtime_imports",
+            "unexpected_imports",
+            "generated_artifact_scan"
+          ],
+          "properties": {
+            "pe_machine": { "const": "AMD64" },
+            "imports": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": { "$ref": "#/definitions/allowedImportName" }
+            },
+            "allowed_imports": {
+              "const": [
+                "advapi32.dll",
+                "api-ms-win-core-synch-l1-2-0.dll",
+                "api-ms-win-crt-convert-l1-1-0.dll",
+                "api-ms-win-crt-environment-l1-1-0.dll",
+                "api-ms-win-crt-filesystem-l1-1-0.dll",
+                "api-ms-win-crt-heap-l1-1-0.dll",
+                "api-ms-win-crt-locale-l1-1-0.dll",
+                "api-ms-win-crt-math-l1-1-0.dll",
+                "api-ms-win-crt-multibyte-l1-1-0.dll",
+                "api-ms-win-crt-private-l1-1-0.dll",
+                "api-ms-win-crt-process-l1-1-0.dll",
+                "api-ms-win-crt-runtime-l1-1-0.dll",
+                "api-ms-win-crt-stdio-l1-1-0.dll",
+                "api-ms-win-crt-string-l1-1-0.dll",
+                "api-ms-win-crt-time-l1-1-0.dll",
+                "api-ms-win-crt-utility-l1-1-0.dll",
+                "bcrypt.dll",
+                "kernel32.dll",
+                "kernelbase.dll",
+                "ntdll.dll",
+                "shell32.dll",
+                "userenv.dll",
+                "vcruntime140.dll",
+                "ws2_32.dll"
+              ]
+            },
+            "import_classifications": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": { "$ref": "#/definitions/importClassification" }
+            },
+            "python_imports": { "const": [] },
+            "accelerator_imports": { "const": [] },
+            "native_ml_backend_imports": { "const": [] },
+            "debug_runtime_imports": { "const": [] },
+            "unexpected_imports": { "const": [] },
+            "generated_artifact_scan": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["python_artifacts", "accelerator_artifacts", "native_ml_backend_artifacts"],
+              "properties": {
+                "python_artifacts": { "const": [] },
+                "accelerator_artifacts": { "const": [] },
+                "native_ml_backend_artifacts": { "const": [] }
+              }
+            }
+          }
+        },
+        "input_stability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["before_sha256", "after_sha256", "stable"],
+          "properties": {
+            "before_sha256": { "$ref": "#/definitions/sha256" },
+            "after_sha256": { "$ref": "#/definitions/sha256" },
+            "stable": { "const": true }
+          }
+        },
+        "cleanup": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["owned_temp_root_removed", "process_job_empty", "persistent_state_mutation_requested"],
+          "properties": {
+            "owned_temp_root_removed": { "const": true },
+            "process_job_empty": { "const": true },
+            "persistent_state_mutation_requested": { "const": false }
+          }
+        }
+      }
+    },
+    "failResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "completed_checks", "failure_code"],
+      "properties": {
+        "kind": { "const": "incomplete_or_rejected" },
+        "completed_checks": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "temp_root_created",
+              "sources_written",
+              "c_compiled",
+              "cpp_compiled",
+              "native_archives_created",
+              "rust_linked",
+              "probe_executed",
+              "binary_audited",
+              "inputs_revalidated",
+              "cleanup_verified"
+            ]
+          }
+        },
+        "failure_code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$" }
+      }
+    },
+    "sourceInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "language", "sha256", "bytes"],
+      "properties": {
+        "path": { "type": "string", "pattern": "^sources/[A-Za-z0-9._+-]+$" },
+        "language": { "enum": ["c17", "c++20", "rust2024"] },
+        "sha256": { "$ref": "#/definitions/sha256" },
+        "bytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "probeResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "symbol",
+        "arguments",
+        "expected_value",
+        "observed_value",
+        "compiled",
+        "linked",
+        "executed",
+        "exit_code",
+        "expected_stdout",
+        "observed_stdout",
+        "expected_output_sha256",
+        "output_sha256",
+        "output_matches_expected"
+      ],
+      "properties": {
+        "symbol": { "enum": ["p1a_c_probe", "p1a_cpp_probe"] },
+        "arguments": { "const": [40, 2] },
+        "expected_value": { "type": "integer", "minimum": 0 },
+        "observed_value": { "type": "integer", "minimum": 0 },
+        "compiled": { "const": true },
+        "linked": { "const": true },
+        "executed": { "const": true },
+        "exit_code": { "const": 0 },
+        "expected_stdout": { "const": "P1A_ABI_PASS c=3137 cpp=150\n" },
+        "observed_stdout": { "const": "P1A_ABI_PASS c=3137 cpp=150\n" },
+        "expected_output_sha256": { "const": "89d1a4fea39a52632f01e703e0b97c6462edbd6971b43c969e692a8da66f7ab5" },
+        "output_sha256": { "const": "89d1a4fea39a52632f01e703e0b97c6462edbd6971b43c969e692a8da66f7ab5" },
+        "output_matches_expected": { "const": true }
+      }
+    },
+    "allowedImportName": {
+      "enum": [
+        "advapi32.dll",
+        "api-ms-win-core-synch-l1-2-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-filesystem-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-locale-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-multibyte-l1-1-0.dll",
+        "api-ms-win-crt-private-l1-1-0.dll",
+        "api-ms-win-crt-process-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-time-l1-1-0.dll",
+        "api-ms-win-crt-utility-l1-1-0.dll",
+        "bcrypt.dll",
+        "kernel32.dll",
+        "kernelbase.dll",
+        "ntdll.dll",
+        "shell32.dll",
+        "userenv.dll",
+        "vcruntime140.dll",
+        "ws2_32.dll"
+      ]
+    },
+    "importClassification": {
+      "oneOf": [
+        { "const": { "name": "advapi32.dll", "class": "windows_system" } },
+        { "const": { "name": "bcrypt.dll", "class": "windows_system" } },
+        { "const": { "name": "kernel32.dll", "class": "windows_system" } },
+        { "const": { "name": "kernelbase.dll", "class": "windows_system" } },
+        { "const": { "name": "ntdll.dll", "class": "windows_system" } },
+        { "const": { "name": "shell32.dll", "class": "windows_system" } },
+        { "const": { "name": "userenv.dll", "class": "windows_system" } },
+        { "const": { "name": "ws2_32.dll", "class": "windows_system" } },
+        { "const": { "name": "vcruntime140.dll", "class": "msvc_release_runtime" } },
+        { "const": { "name": "api-ms-win-core-synch-l1-2-0.dll", "class": "windows_system" } },
+        { "const": { "name": "api-ms-win-crt-convert-l1-1-0.dll", "class": "ucrt_release" } },
+        { "const": { "name": "api-ms-win-crt-environment-l1-1-0.dll", "class": "ucrt_release" } },
+        { "const": { "name": "api-ms-win-crt-filesystem-l1-1-0.dll", "class": "ucrt_release" } },
+        { "const": { "name": "api-ms-win-crt-heap-l1-1-0.dll", "class": "ucrt_release" } },
+        { "const": { "name": "api-ms-win-crt-locale-l1-1-0.dll", "class": "ucrt_release" } },
+        { "const": { "name": "api-ms-win-crt-math-l1-1-0.dll", "class": "ucrt_release" } },
+        { "const": { "name": "api-ms-win-crt-multibyte-l1-1-0.dll", "class": "ucrt_release" } },
+        { "const": { "name": "api-ms-win-crt-private-l1-1-0.dll", "class": "ucrt_release" } },
+        { "const": { "name": "api-ms-win-crt-process-l1-1-0.dll", "class": "ucrt_release" } },
+        { "const": { "name": "api-ms-win-crt-runtime-l1-1-0.dll", "class": "ucrt_release" } },
+        { "const": { "name": "api-ms-win-crt-stdio-l1-1-0.dll", "class": "ucrt_release" } },
+        { "const": { "name": "api-ms-win-crt-string-l1-1-0.dll", "class": "ucrt_release" } },
+        { "const": { "name": "api-ms-win-crt-time-l1-1-0.dll", "class": "ucrt_release" } },
+        { "const": { "name": "api-ms-win-crt-utility-l1-1-0.dll", "class": "ucrt_release" } }
+      ]
+    },
+    "fileRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "bytes"],
+      "properties": {
+        "path": { "$ref": "#/definitions/relativePath" },
+        "sha256": { "$ref": "#/definitions/sha256" },
+        "bytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "remediation"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$" },
+        "message": { "type": "string", "minLength": 1 },
+        "remediation": { "type": "string", "minLength": 1 }
+      }
+    },
+    "errors": { "type": "array", "items": { "$ref": "#/definitions/error" } },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "relativePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.{1,2}(?:/|$))[A-Za-z0-9_-][A-Za-z0-9._-]*(?:/[A-Za-z0-9_-][A-Za-z0-9._-]*)*$"
+    }
+  }
+}

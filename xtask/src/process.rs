@@ -7,7 +7,7 @@ use std::process::{Command, Output, Stdio};
 
 const MAX_CAPTURE_BYTES: usize = 16 * 1024 * 1024;
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct FileRef {
     pub path: String,
