@@ -1,0 +1,113 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://python-slm.local/schemas/P0A/python-slm-parser-boundary-v1.schema.json",
+  "title": "python-slm pinned Tree-sitter native parser boundary v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "tree_sitter",
+    "tree_sitter_python",
+    "runtime_sources",
+    "generated_sources",
+    "compatibility_corpus",
+    "python_codegen",
+    "normalized_build_flags",
+    "native_role",
+    "allowed_semantics"
+  ],
+  "properties": {
+    "schema": { "const": "python-slm-parser-boundary-v1" },
+    "tree_sitter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "package_checksum", "runtime_source_identity"],
+      "properties": {
+        "version": { "const": "0.25.8" },
+        "package_checksum": { "const": "6d7b8994f367f16e6fa14b5aebbcb350de5d7cbea82dc5b00ae997dd71680dd2" },
+        "runtime_source_identity": { "const": "crates.io:tree-sitter@0.25.8#6d7b8994f367f16e6fa14b5aebbcb350de5d7cbea82dc5b00ae997dd71680dd2" }
+      }
+    },
+    "tree_sitter_python": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "package_checksum", "language_abi_version"],
+      "properties": {
+        "version": { "const": "0.25.0" },
+        "package_checksum": { "const": "6bf85fd39652e740bf60f46f4cda9492c3a9ad75880575bf14960f775cb74a1c" },
+        "language_abi_version": { "const": 15 }
+      }
+    },
+    "runtime_sources": {
+      "const": [
+        { "path": "binding_rust/build.rs", "sha256": "6c1a090f4ac12621effce41a9bac54182b155f252a84b3bbb51cbcd58330593d" },
+        { "path": "include/tree_sitter/api.h", "sha256": "937c5389713f99318ac7adbdb3a95e9976bbd211e35e37ed5df878f29aa86c30" },
+        { "path": "src/lib.c", "sha256": "6bca070a6a70740c8e8af244af8a7311dbea09fbb60372376f5260facaf785f0" }
+      ]
+    },
+    "generated_sources": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": {
+            "enum": ["src/grammar.json", "src/node-types.json", "src/parser.c", "src/scanner.c", "bindings/rust/build.rs"]
+          },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      },
+      "allOf": [
+        { "contains": { "properties": { "path": { "const": "bindings/rust/build.rs" }, "sha256": { "const": "4e069992deffe54f04909739e954f581409c7d167cb5ba1f775717258751568f" } }, "required": ["path", "sha256"] } },
+        { "contains": { "properties": { "path": { "const": "src/grammar.json" }, "sha256": { "const": "2adc15e78f4dae293e85de1517c45bcee2f8b075fa30a083c658925b944afec4" } }, "required": ["path", "sha256"] } },
+        { "contains": { "properties": { "path": { "const": "src/node-types.json" }, "sha256": { "const": "a2456847bea3adff5b2222b2f7b03a870159470d8908622204e6eb29ee2fe45e" } }, "required": ["path", "sha256"] } },
+        { "contains": { "properties": { "path": { "const": "src/parser.c" }, "sha256": { "const": "a895f10b3cf7b2608f3283b43cd5cfed70971c7ee4a0136abbaaccbc4a7a25e0" } }, "required": ["path", "sha256"] } },
+        { "contains": { "properties": { "path": { "const": "src/scanner.c" }, "sha256": { "const": "6db82134ac2d4c90a1a1475487a625cface02662ebda9b7478cad9c7147e9afe" } }, "required": ["path", "sha256"] } }
+      ]
+    },
+    "compatibility_corpus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "const": "docs/schemas/portable-v2/tree-sitter-python-compatibility-v1.json" },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "python_codegen": { "const": false },
+    "normalized_build_flags": {
+      "const": {
+        "tree_sitter_runtime": [
+          "feature_bindgen=false",
+          "feature_wasm=false",
+          "flag_if_supported=-std=c11",
+          "flag_if_supported=-fvisibility=hidden",
+          "flag_if_supported=-Wshadow",
+          "flag_if_supported=-Wno-unused-parameter",
+          "flag_if_supported=-Wno-incompatible-pointer-types",
+          "include=src",
+          "include=src/wasm",
+          "include=include",
+          "define=_POSIX_C_SOURCE=200112L",
+          "define=_DEFAULT_SOURCE",
+          "warnings=false",
+          "file=src/lib.c"
+        ],
+        "tree_sitter_python": [
+          "std=c11",
+          "include=src",
+          "flag_if_supported=-Wno-unused-value",
+          "target_env=msvc:flag=-utf-8",
+          "file=src/parser.c",
+          "file=src/scanner.c"
+        ]
+      }
+    },
+    "native_role": { "const": "parser_only" },
+    "allowed_semantics": { "const": ["SOURCE-002", "SOURCE-003", "DEDUP-001", "DECONTAM-001"] }
+  }
+}

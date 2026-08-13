@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://python-slm.local/schemas/P0A/python-slm-p0a-approval-v1.schema.json",
+  "title": "python-slm P0A owner approval v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "phase_id",
+    "run_id",
+    "role",
+    "decision",
+    "owner_identity",
+    "review_reference",
+    "utc_timestamp",
+    "run_evidence_sha256",
+    "seal_sha256",
+    "explicit_dual_role_authority"
+  ],
+  "properties": {
+    "schema": { "const": "python-slm-p0a-approval-v1" },
+    "phase_id": { "const": "P0A" },
+    "run_id": { "$ref": "#/definitions/runId" },
+    "role": { "enum": ["technical", "data_governance"] },
+    "decision": { "enum": ["APPROVE", "REJECT"] },
+    "owner_identity": { "type": "string", "minLength": 1, "pattern": "^\\S(?:.*\\S)?$" },
+    "review_reference": { "type": "string", "minLength": 1, "pattern": "^\\S(?:.*\\S)?$" },
+    "utc_timestamp": { "$ref": "#/definitions/utcDateTime" },
+    "run_evidence_sha256": { "$ref": "#/definitions/sha256" },
+    "seal_sha256": { "$ref": "#/definitions/sha256" },
+    "explicit_dual_role_authority": { "type": "boolean" }
+  },
+  "definitions": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "runId": { "type": "string", "pattern": "^[0-9]{8}T[0-9]{9}Z-[0-9a-f]{24}$" },
+    "utcDateTime": { "type": "string", "format": "date-time", "pattern": "Z$" }
+  }
+}

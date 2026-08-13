@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://python-slm.local/schemas/P0A/python-slm-p0a-phase-pointer-v1.schema.json",
+  "title": "python-slm selected P0A acceptance pointer v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "phase_id", "interface_id", "profile_id", "acceptance_path", "acceptance_sha256", "updated_at"],
+  "properties": {
+    "schema": { "const": "python-slm-p0a-phase-pointer-v1" },
+    "phase_id": { "const": "P0A" },
+    "interface_id": { "const": "portable-interface-v2" },
+    "profile_id": { "const": "prototype-windows-5090-v1" },
+    "acceptance_path": { "type": "string", "pattern": "^acceptances/[0-9]{8}\\.json$" },
+    "acceptance_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "updated_at": { "type": "string", "format": "date-time", "pattern": "Z$" }
+  }
+}

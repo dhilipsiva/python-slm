@@ -1,3 +1,7 @@
+[workspace]
+members = [".", "xtask"]
+resolver = "3"
+
 [package]
 name = "rust-llm-pretrain"
 version = "0.1.0"

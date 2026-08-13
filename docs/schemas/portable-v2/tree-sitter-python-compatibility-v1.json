@@ -1,0 +1,79 @@
+{
+  "schema": "python-slm-tree-sitter-python-compatibility-v1",
+  "tree_sitter_version": "0.25.8",
+  "tree_sitter_python_version": "0.25.0",
+  "language_abi_version": 15,
+  "cst_format": "tree_sitter_node_to_sexp_v1",
+  "lexical_format": "DEDUP-001-kind-and-exact-text-v1",
+  "purpose": "P0A freezes exact input, CST, comment ranges, generated-marker classification, and DEDUP-001 lexical output; P5 must reproduce and extend these outputs before production use.",
+  "cases": [
+    {
+      "id": "shebang-cookie-string",
+      "source_base64": "IyEvdXNyL2Jpbi9lbnYgcHl0aG9uMwojIGNvZGluZzogdXRmLTgKeCA9ICIjIG5vdCBjb21tZW50Igo=",
+      "source_sha256": "ac786aa8ab06f59210bbaf8a184b0a3ac01c48019fad9add95a9cc2eb425718a",
+      "expected_cst_sexp": "(module (comment) (comment) (expression_statement (assignment left: (identifier) right: (string (string_start) (string_content) (string_end)))))",
+      "expected_has_error": false,
+      "comment_ranges": [[0, 22], [23, 38]],
+      "generated_marker_in_comment_header": false,
+      "string_literal_is_comment": false,
+      "expected_lexical_tokens": [
+        { "kind": "identifier", "text_hex": "78" },
+        { "kind": "=", "text_hex": "3d" },
+        { "kind": "string", "text_hex": "2223206e6f7420636f6d6d656e7422" }
+      ]
+    },
+    {
+      "id": "generated-comment",
+      "source_base64": "IyBnZW5lcmF0ZWQgYnkgdG9vbAp2YWx1ZSA9IDEK",
+      "source_sha256": "09b2fddc7e019da0d160dea5721fae362ddac15a4df95a15cb71ee7d33c0f975",
+      "expected_cst_sexp": "(module (comment) (expression_statement (assignment left: (identifier) right: (integer))))",
+      "expected_has_error": false,
+      "comment_ranges": [[0, 19]],
+      "generated_marker_in_comment_header": true,
+      "string_literal_is_comment": false,
+      "expected_lexical_tokens": [
+        { "kind": "identifier", "text_hex": "76616c7565" },
+        { "kind": "=", "text_hex": "3d" },
+        { "kind": "integer", "text_hex": "31" }
+      ]
+    },
+    {
+      "id": "generated-string-not-comment",
+      "source_base64": "bWVzc2FnZSA9ICJnZW5lcmF0ZWQgYnkgdG9vbCIKdmFsdWUgPSAxCg==",
+      "source_sha256": "93b0aa47e5af9b3b4bb711b6490c6037026355a752c5fc241b6d9450da4c8df9",
+      "expected_cst_sexp": "(module (expression_statement (assignment left: (identifier) right: (string (string_start) (string_content) (string_end)))) (expression_statement (assignment left: (identifier) right: (integer))))",
+      "expected_has_error": false,
+      "comment_ranges": [],
+      "generated_marker_in_comment_header": false,
+      "string_literal_is_comment": false,
+      "expected_lexical_tokens": [
+        { "kind": "identifier", "text_hex": "6d657373616765" },
+        { "kind": "=", "text_hex": "3d" },
+        { "kind": "string", "text_hex": "2267656e65726174656420627920746f6f6c22" },
+        { "kind": "identifier", "text_hex": "76616c7565" },
+        { "kind": "=", "text_hex": "3d" },
+        { "kind": "integer", "text_hex": "31" }
+      ]
+    },
+    {
+      "id": "docstring-and-tail-comment",
+      "source_base64": "ZGVmIGYoKToKICAgICIiImRvY3N0cmluZyIiIgogICAgcmV0dXJuIDEgICMgdGFpbAo=",
+      "source_sha256": "c1b99a8d238e6e161be1faaa106295a1fbcf55e8544b08b0e592709988fe964b",
+      "expected_cst_sexp": "(module (function_definition name: (identifier) parameters: (parameters) body: (block (expression_statement (string (string_start) (string_content) (string_end))) (return_statement (integer)) (comment))))",
+      "expected_has_error": false,
+      "comment_ranges": [[43, 49]],
+      "generated_marker_in_comment_header": false,
+      "string_literal_is_comment": false,
+      "expected_lexical_tokens": [
+        { "kind": "def", "text_hex": "646566" },
+        { "kind": "identifier", "text_hex": "66" },
+        { "kind": "(", "text_hex": "28" },
+        { "kind": ")", "text_hex": "29" },
+        { "kind": ":", "text_hex": "3a" },
+        { "kind": "string", "text_hex": "222222646f63737472696e67222222" },
+        { "kind": "return", "text_hex": "72657475726e" },
+        { "kind": "integer", "text_hex": "31" }
+      ]
+    }
+  ]
+}

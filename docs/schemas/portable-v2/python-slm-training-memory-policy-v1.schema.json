@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://python-slm.local/schemas/portable-v2/python-slm-training-memory-policy-v1.schema.json",
+  "title": "python-slm prototype persistent training-memory qualification policy v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "profile_id",
+    "model_preset",
+    "parameter_count",
+    "bytes_per_parameter",
+    "unaligned_bytes",
+    "alignment_bytes",
+    "minimum_accelerator_bytes",
+    "included_state",
+    "excluded_state"
+  ],
+  "properties": {
+    "schema": { "const": "python-slm-training-memory-policy-v1" },
+    "profile_id": { "const": "prototype-windows-5090-v1" },
+    "model_preset": { "const": "gqa-135m-v1" },
+    "parameter_count": { "const": 135285504 },
+    "bytes_per_parameter": { "const": 20 },
+    "unaligned_bytes": { "const": 2705710080 },
+    "alignment_bytes": { "const": 268435456 },
+    "minimum_accelerator_bytes": { "const": 2952790016 },
+    "included_state": {
+      "const": [
+        "bf16_parameters_2P",
+        "bf16_gradients_2P",
+        "fp32_master_parameters_4P",
+        "fp32_adam_first_moment_4P",
+        "fp32_adam_second_moment_4P",
+        "persistent_state_margin_4P"
+      ]
+    },
+    "excluded_state": {
+      "const": [
+        "activations",
+        "temporary_workspaces",
+        "runtime_or_allocator_overhead"
+      ]
+    }
+  }
+}

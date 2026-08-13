@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://python-slm.local/schemas/P0A/python-slm-p0a-source-identity-v1.schema.json",
+  "title": "python-slm P0A source identity v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "commit",
+    "tree",
+    "branch",
+    "dirty",
+    "cargo_lock_sha256",
+    "verifier_source_sha256",
+    "schema_bundle_sha256"
+  ],
+  "properties": {
+    "schema": { "const": "python-slm-p0a-source-identity-v1" },
+    "commit": { "$ref": "#/definitions/gitSha" },
+    "tree": { "$ref": "#/definitions/gitSha" },
+    "branch": { "type": "string", "minLength": 1 },
+    "dirty": { "const": false },
+    "cargo_lock_sha256": { "$ref": "#/definitions/sha256" },
+    "verifier_source_sha256": { "$ref": "#/definitions/sha256" },
+    "schema_bundle_sha256": { "$ref": "#/definitions/sha256" }
+  },
+  "definitions": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "gitSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
+  }
+}

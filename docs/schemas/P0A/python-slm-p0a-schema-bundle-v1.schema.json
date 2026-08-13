@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://python-slm.local/schemas/P0A/python-slm-p0a-schema-bundle-v1.schema.json",
+  "title": "python-slm P0A schema bundle v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "entries", "bundle_sha256"],
+  "properties": {
+    "schema": { "const": "python-slm-p0a-schema-bundle-v1" },
+    "entries": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": {
+            "enum": [
+              "docs/schemas/P0A/python-slm-p0a-approval-v1.schema.json",
+              "docs/schemas/P0A/python-slm-p0a-phase-acceptance-v1.schema.json",
+              "docs/schemas/P0A/python-slm-p0a-phase-evidence-v1.schema.json",
+              "docs/schemas/P0A/python-slm-p0a-phase-pointer-v1.schema.json",
+              "docs/schemas/P0A/python-slm-p0a-schema-bundle-v1.schema.json",
+              "docs/schemas/P0A/python-slm-p0a-source-identity-v1.schema.json",
+              "docs/schemas/P0A/python-slm-p0-dependency-v1.schema.json",
+              "docs/schemas/P0A/python-slm-parser-boundary-v1.schema.json",
+              "docs/schemas/portable-v2/python-slm-prototype-profile-v1.schema.json",
+              "docs/schemas/portable-v2/python-slm-prototype-sla-v1.schema.json",
+              "docs/schemas/portable-v2/python-slm-training-memory-policy-v1.schema.json",
+              "docs/schemas/portable-v2/tree-sitter-python-compatibility-v1.json"
+            ]
+          },
+          "sha256": { "$ref": "#/definitions/sha256" }
+        }
+      },
+      "allOf": [
+        { "contains": { "properties": { "path": { "const": "docs/schemas/P0A/python-slm-p0a-approval-v1.schema.json" } }, "required": ["path"] } },
+        { "contains": { "properties": { "path": { "const": "docs/schemas/P0A/python-slm-p0a-phase-acceptance-v1.schema.json" } }, "required": ["path"] } },
+        { "contains": { "properties": { "path": { "const": "docs/schemas/P0A/python-slm-p0a-phase-evidence-v1.schema.json" } }, "required": ["path"] } },
+        { "contains": { "properties": { "path": { "const": "docs/schemas/P0A/python-slm-p0a-phase-pointer-v1.schema.json" } }, "required": ["path"] } },
+        { "contains": { "properties": { "path": { "const": "docs/schemas/P0A/python-slm-p0a-schema-bundle-v1.schema.json" } }, "required": ["path"] } },
+        { "contains": { "properties": { "path": { "const": "docs/schemas/P0A/python-slm-p0a-source-identity-v1.schema.json" } }, "required": ["path"] } },
+        { "contains": { "properties": { "path": { "const": "docs/schemas/P0A/python-slm-p0-dependency-v1.schema.json" } }, "required": ["path"] } },
+        { "contains": { "properties": { "path": { "const": "docs/schemas/P0A/python-slm-parser-boundary-v1.schema.json" } }, "required": ["path"] } },
+        { "contains": { "properties": { "path": { "const": "docs/schemas/portable-v2/python-slm-prototype-profile-v1.schema.json" } }, "required": ["path"] } },
+        { "contains": { "properties": { "path": { "const": "docs/schemas/portable-v2/python-slm-prototype-sla-v1.schema.json" } }, "required": ["path"] } },
+        { "contains": { "properties": { "path": { "const": "docs/schemas/portable-v2/python-slm-training-memory-policy-v1.schema.json" } }, "required": ["path"] } },
+        { "contains": { "properties": { "path": { "const": "docs/schemas/portable-v2/tree-sitter-python-compatibility-v1.json" } }, "required": ["path"] } }
+      ]
+    },
+    "bundle_sha256": { "$ref": "#/definitions/sha256" }
+  },
+  "definitions": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

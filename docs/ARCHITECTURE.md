@@ -1,359 +1,377 @@
-# Zero-Python Rust Pre-Training Architecture
+# Prototype-First Zero-Python Portable Architecture
 
-Status: target design for the clean rebuild. The existing `src/`, `build.rs`, and
-root configuration files are reference evidence only; they are not the implementation
-baseline. `docs/rebuild-contract.md` is the normative Phase 0 refinement and `TODO.md`
-is the ordered execution specification. A conflict among these documents is a stop
-condition. The Phase 0 receipt is `PASS`, with both technical and data-governance owner
-approvals recorded. Its signed receipt activates Change Control while the sealed contract
-and machine-evidence snapshots retain their historical pre-approval status fields.
+Status: prospective v2 target design pending selected P0A acceptance.
 
-## Scope and Success Contract
+`docs/rebuild-contract.md` and its signed P0 receipt remain immutable historical v1
+authority. On P0A acceptance, `docs/rebuild-contract-v2.md`,
+`docs/decision-ledger-v2.md`, and
+`docs/adr/0000-prototype-first-portable-interface.md` govern this architecture. The amended
+`TODO.md` defines execution order and literal gates as part of the same P0A candidate.
+A conflict is a stop condition.
 
-Build a Windows-native, zero-Python pipeline that curates authorized Python source,
-trains a qualified 32K byte-level BPE tokenizer, materializes enough governed token IDs
-to supply exactly 2,000,000,000 valid non-padding next-token training targets without
-corpus-end wrap, and pre-trains the canonical 135,285,504-parameter decoder on one
-RTX 5090.
+The existing Rust crate, root configurations, `build.rs`, kernels, schemas, and receipts
+are evidence, not the rebuild implementation baseline. Historical P0, P1A, P1B, and P2
+artifacts are never rewritten or reinterpreted.
 
-"Zero Python" means no Python interpreter, Python package, or Python subprocess in
-build, curation, tokenization, training, or qualification. Rust owns the control plane.
-NVIDIA libraries and a small, feature-gated C/CUDA ABI are permitted. This is not a
-literal all-Rust binary: CUDA and Tree-sitter include native code.
+## Scope and Success Boundary
 
-After corpus materialization, the eight-hour timer starts immediately before the trainer
-opens the frozen artifacts. It includes artifact-integrity verification, startup and model
-initialization, any JIT/autotuning incurred by the run, data loading, all
-forward/backward/optimizer work, configured evaluation, synchronization, checkpointing,
-final-checkpoint durability, and any recovery downtime. Completion requires exactly
-2,000,000,000 valid predicted targets and the final durable checkpoint within 28,800
-seconds. The canonical training prefix contains 2,000,000,001 stored IDs, exposing exactly
-2,000,000,000 consumed real inputs and valid targets with zero boundary exclusions.
-Runtime padding inputs and masked targets, stored unused tail, and unmaterialized
-documents/bytes are separate counters; a short-run projection only gates entry to the
-full run.
+Build a zero-Python pipeline that curates authorized Python source, trains a deterministic
+32K byte-level BPE tokenizer, materializes enough governed token IDs for exactly
+`2,000,000,000` valid next-token training targets, and pretrains the canonical
+`135,285,504`-parameter decoder with zero overshoot and a fully durable resumable final
+checkpoint.
 
-## Research Disposition
+The first full implementation and run use only `prototype-windows-5090-v1`: native
+Windows x86_64, AMD Ryzen 9 9950X3D, Rust `x86_64-pc-windows-msvc`, the qualified VS 2022
+x64 MSVC/Windows SDK toolchain, one NVIDIA GeForce RTX 5090 SM120 with dedicated VRAM,
+and CUDA. Its internal host and accelerator boundaries are provider-neutral from the first
+rebuild scaffold. Linux/macOS host-data portability follows only after prototype quality
+acceptance; AMD and Apple accelerator qualification follows host portability.
 
-All 12 files in `docs/research/` were reviewed.
+Support is always labeled with the stable wire values `designed`, `implemented`,
+`tuple_qualified`, or `full_run_qualified`. Evidence for one exact tuple does not prove another tuple or a
+Cartesian platform/provider matrix. Until P16A is accepted, selecting Linux, macOS,
+ROCm/HIP/AMD, or Metal/Apple Silicon fails before provider discovery or persistent
+mutation with stable capability code `DEFERRED_POST_P16`; it never falls back or reports
+stub success. The code names the post-P16 capability class; P16A is the earliest execution
+authority.
 
-| Classification | Files | Use |
-|---|---|---|
-| Architecture | `We’ll produce a detailed specificat.txt`, `This is tight but feasible. 2B toke.txt`, `Rust LLM Pre-Training Pipeline.md`, `deep-research-report.md`, `deep-research-report(2).md`, `Conclusion A pure-Rust pipeline is.txt`, `# Pure-Rust LLM Pre-Training Pipeli.txt` | Requirements, candidate designs, and validation gates |
-| Prompt chains | `We’ll interpret “Antigenic code too.txt`, `Untitled.txt`, `The ordered prompt chain below driv.txt`, `In Antigravity the workflow is Plan.txt`, `Rust LLM Pipeline Agentic Prompts.md` | Phase and verification patterns |
+## Zero-Python and Native Boundaries
 
-`deep-research-report(2).md` is the primary synthesis, supplemented by
-`deep-research-report.md`. The prompt-card structure from
-`The ordered prompt chain below driv.txt` is retained. Code fragments in the research
-files are non-normative: several contain concrete shape, iteration, serialization,
-label-shift, or accumulation defects and must not be copied.
+No Python interpreter, executable, package, module, wheel, build backend, code generator,
+embedded runtime, or Python-launched subprocess is part of build, data preparation,
+tokenization, training, qualification, verification, or receipt publication. Python source
+is input data only.
 
-`Conclusion A pure-Rust pipeline is.txt` is a secondary summary. The remaining four
-architecture drafts are rejected as implementation sources: they variously miscount the
-model, misidentify the GPU architecture, conflate Stack-v2 identifiers with content,
-label pageable memory as pinned, prescribe Hopper-only attention, or assert unmeasured
-throughput. Their sound high-level sequencing is retained only where independently
-validated or explicitly marked as a qualification gate below.
+Rust owns product orchestration, platform process/filesystem adapters, general data
+transformation, tokenizer/storage logic, model/trainer control, checkpointing,
+verification, and publication. A platform shell script is never a normative entry point.
 
-## Architecture Decisions and Validation Gates
+Native code is permitted only inside pinned, audited, feature-gated boundaries:
 
-| Topic | Decision |
-|---|---|
-| Model size | Canonical preset is 135,285,504 parameters: vocab 32,000; width 768; `d_ff=2432`; 12 layers; 12 query and 4 KV heads; untied output head; no biases. The `d_ff=2048` preset is explicitly 124,668,672, not 135M. |
-| GPU target | RTX 5090 is compute capability 12.0/SM120. Native compilation needs an SM120-capable toolkit; CUDA 12.8 is the minimum 12.x release with SM120 compiler support. Pin the version actually qualified. |
-| Backend | Select Burn, Candle, or a lower-level path on the target Windows host using synchronized BF16 primitive, one-layer, and full training-step forward/backward benchmarks reporting numerical parity, p50/p95 latency, throughput, and peak VRAM. No framework is approved by documentation alone. |
-| Attention | Build a causal-GQA reference first, then a measured SM120-compatible fused forward/backward path. Upstream FlashAttention-3 is Hopper-specific. FlashAttention-4 names Blackwell but currently uses a Python/CuTeDSL package, so neither is a zero-Python Windows baseline. |
-| Precision | BF16 parameters and activations with FP32 accumulation for BF16 GEMMs, RMSNorm, softmax, loss, and gradient reductions; FP32 Adam moments and master weights. Any narrower layout requires forward, gradient, resume, and short loss-curve parity. FP8 remains an isolated later experiment with explicit scaling and layout contracts. |
-| Data source | The Stack v2 records are identifiers/provenance, not source content. Use a separate, authorized Software Heritage content adapter. Also support genuinely content-bearing Parquet. |
-| GPU input | `mmap` is CPU/page-cache access, not CUDA-pinned memory. Bulk-gather into reusable contiguous host buffers; benchmark pageable transfer against a bounded two/three-slot page-locked ring and adopt pinning only if end-to-end trainer throughput improves. |
-| Deduplication | Define similarity over sets of lexical-token 5-grams after a versioned dedup-only normalization. Use 256-component seeded MinHash/LSH for candidate retrieval and exact shingle Jaccard for the `>0.85` decision. LSH recall must be measured; never claim exhaustive removal without evidence. |
-| Throughput | The arithmetic floor is 69,444.44 valid predicted targets/s. Entry to the full run requires at least 75K synchronized steady-state targets/s for 30–60 minutes, preferably 80K, plus a whole-run projection below 28,800 seconds including every SLA-clock overhead. Projection alone never passes the SLA. |
+- CUDA, HIP/ROCm, and Metal kernels or standard native ML libraries behind narrow Rust
+  adapters;
+- `tree-sitter-python 0.25.0` generated C parser/runtime solely behind the Rust data-policy
+  boundary for `SOURCE-002`, `SOURCE-003`, `DEDUP-001`, and `DECONTAM-001`.
 
-Verified facts cover model arithmetic, the target GPU's compute capability, the CUDA
-compiler floor, and the Phase 1 Windows/MSVC/CUDA environment boundary recorded below.
-Backend selection, model/kernel numerical parity, memory-efficient backward, transfer
-strategy, authorized corpus access/yield, loss stability, model/trainer VRAM, sustained
-throughput, and eight-hour completion remain unqualified gates.
+The parser boundary pins and hashes grammar source, generated C and scanner, runtime,
+ABI, normalized per-host build flags, and a compatibility corpus with expected CST,
+comment-range, and lexical-token outputs. The build never generates parser code and never
+invokes Python. C and C++ never own orchestration or unrelated data transformation.
+
+CPU/data-only builds discover and link no accelerator SDK, provider runtime, native ML
+backend, or accelerator kernel.
+
+## Canonical Model and Arithmetic
+
+The canonical `gqa-135m-v1` model is bias-free and pre-normalized:
+
+- vocabulary 32,000;
+- width 768;
+- FFN width 2,432;
+- 12 decoder layers;
+- 12 query heads and 4 KV heads;
+- head width 64;
+- context length 2,048;
+- untied token embedding and LM head.
+
+Its exact count is:
+
+```text
+token embedding                         32,000 * 768 = 24,576,000
+untied LM head                          32,000 * 768 = 24,576,000
+attention per layer  768*768 + 2*(768*256) + 768*768 = 1,572,864
+SwiGLU per layer                         3*(768*2,432) = 5,603,328
+two norms per layer                              2*768 = 1,536
+twelve layers               12*(1,572,864+5,603,328+1,536) = 86,132,736
+final norm                                            768
+total                                            135,285,504
+```
+
+The `gqa-124m-ref-v1` configuration has FFN width 2,048 and exactly `124,668,672`
+parameters. It is never the canonical default.
+
+Canonical storage is BF16 for parameters and activations with the frozen FP32-sensitive
+accumulations and FP32 optimizer/master state. A scalar BF16/FP32 oracle fixes operation,
+accumulation, reduction, contraction, and rounding order. Every parameter-gradient
+artifact must equal its canonical IEEE-754 reference bytes. Forward/loss diagnostics may
+use one predeclared provider-independent table; no tolerance waives exact gradients.
+
+## Minimum Accelerator Compatibility Gate
+
+The provider-neutral environment floor is derived only from the canonical parameter
+count:
+
+```text
+P = 135,285,504
+Q = 256 MiB = 268,435,456 bytes
+raw = 20 * P = 2,705,710,080 bytes
+minimum_accelerator_bytes = align_up(raw, Q)
+                          = ((raw + Q - 1) / Q) * Q
+                          = 2,952,790,016 bytes
+```
+
+Qualification allocates at least that many accelerator-visible bytes in a fresh process,
+runs and synchronizes a sentinel round trip, releases the allocation, and verifies return
+to the recorded baseline. Dedicated VRAM and unified memory are reported separately. This
+is an environment compatibility floor, not proof of final training sufficiency, peak
+memory, performance, or stability.
+
+## Fixed SLA and Admission Gate
+
+The final technical prototype run has a fixed completion SLA of `28,800` seconds. Entry
+requires a fixed whole-run-equivalent projection of at most `25,920` seconds. The latter
+is exactly 90 percent of the former and is an admission gate, not a substitute for the
+actual run.
+
+Corpus acquisition, governance, curation, tokenizer training, and token-corpus
+materialization occur before the clock. The clock starts immediately before the trainer
+opens and re-verifies the frozen artifacts. It includes verification, startup,
+initialization, run-time compilation/autotuning, loading, all training work, configured
+held-out evaluation, synchronization, checkpointing, final durability, and recovery
+downtime. It is a suspend-inclusive monotonic wall clock: host suspend/system sleep and
+resumed-execution downtime count, and active-process CPU time cannot substitute for it.
+It ends only after the final checkpoint is durable.
+
+The admission projection includes every charged overhead using synchronized measurement
+or frozen count scaling. Calibration and roofline evidence may select a configuration and
+diagnose risk; they never redefine `25,920` or `28,800` after measurement. Exactly five
+fresh-process samples per overhead class feed the exact `O_bound` formula frozen in the v2
+contract; admission requires both `R_qual >= R_required` and
+`ceil(2,000,000,000 / R_qual + O_bound) <= 25,920`. Synchronized compute, memory bandwidth,
+operational intensity, roofline, and efficiency remain diagnostic; 85-percent bandwidth
+efficiency is not an independent gate.
 
 ## System Architecture
 
 ```mermaid
 flowchart LR
-    A["Source metadata and manifests"] --> B["Authorized bounded content fetch"]
-    B --> C["Decode plus provenance and hash"]
-    C --> D["CST, quality, license, PII and secret policy"]
-    D --> E["Exact hash plus MinHash/LSH plus exact Jaccard"]
-    E --> F["Pinned benchmark decontamination"]
-    F --> G["Repository/duplicate-component 98/1/1 split"]
-    G --> H["Capped deterministic tokenizer sample"]
-    H --> I["Qualified 32K byte-level BPE"]
-    G --> J["Tokenize immutable train and held-out splits"]
-    I --> J
-    J --> K["Immutable u16le shards, indexes and manifests"]
-    K --> L["mmap bulk-span sampler"]
-    L --> M["Reusable contiguous host staging"]
-    M --> N["Qualified pageable or pinned H2D"]
-    N --> O["BF16 model and fused loss"]
-    O --> P["AdamW, telemetry and atomic resumable checkpoint"]
+    A["Governed source metadata"] --> B["Authorized bounded content fetch"]
+    B --> C["Decode, provenance and raw/decoded hashes"]
+    C --> D["Pinned Tree-sitter policy boundary"]
+    D --> E["License, removal, PII and secret policy"]
+    E --> F["Exact hash plus MinHash/LSH plus exact Jaccard"]
+    F --> G["Pinned benchmark decontamination"]
+    G --> H["Repository/duplicate-component split"]
+    H --> I["Deterministic capped tokenizer sample"]
+    I --> J["Qualified 32K byte-level BPE"]
+    H --> K["Immutable train and held-out token artifacts"]
+    J --> K
+    K --> L["Portable mmap bulk-span loader"]
+    L --> M["Provider-neutral staging/memory adapter"]
+    M --> N["CUDA, ROCm/HIP or Metal backend adapter"]
+    N --> O["BF16 model, fused loss and AdamW"]
+    O --> P["Atomic byte-identical resumable checkpoints"]
+    P --> Q["Hash-linked qualification and release receipts"]
 ```
 
-Start as one Cargo package with strict module boundaries. Split crates only when an
-observed build, ownership, or dependency problem justifies it.
+Use one product Cargo package plus one isolated developer-only `xtask` workspace member,
+with strict internal boundaries:
 
 ```text
 src/
   main.rs       one installed python-slm executable
   commands/     plan, curate, train-tokenizer, tokenize, inspect, bench, train
-  config/       versioned typed configuration and validation
-  data/         source adapters, provenance, filters, dedup, splits
-  tokenizer/    sampling, BPE training, artifact validation
-  storage/      u16le format, manifests, indexes, mmap loader
-  model/        config, reference math, GQA, RoPE, RMSNorm, SwiGLU
-  backend/      selected framework plus optional CUDA boundary
-  train/        staging, optimizer, schedule, checkpoint, metrics
-tests/          synthetic end-to-end and backend parity tests
-benches/        ingestion, dedup, transfer, attention, full-step benchmarks
-scripts/        environment verification and reproducible qualification
+  config/       closed versioned configuration and validation
+  platform/     host process, filesystem, toolchain and dynamic-library adapters
+  data/         source, policy, provenance, dedup, decontamination and splits
+  parser/       safe pinned Tree-sitter policy boundary
+  tokenizer/    deterministic sampling, BPE and artifact validation
+  storage/      u16le shards, manifests, indexes and portable mmap loader
+  model/        canonical config, scalar oracle, GQA, RoPE, RMSNorm and SwiGLU
+  backend/      provider-neutral traits and isolated cuda/rocm/metal adapters
+  train/        staging, optimizer, schedule, evaluation, checkpoint and telemetry
+tests/          synthetic, platform, parser, backend and resume parity
+benches/        ingestion, transfer/memory, kernels and synchronized full step
+xtask/           isolated developer-only qualification package and entry point
 ```
 
-CPU builds must neither discover nor link CUDA. Native probes and custom kernels are
-feature-gated. CLI subcommands are independently restartable and consume immutable,
-versioned artifacts rather than hidden process state. Mutating production subcommands
-require explicit versioned JSON configurations whose schemas reject unknown fields.
-Handled success and failure follow `CLI-001`, `CONFIG-001`, and `ERROR-001`: one terminal
-success JSON object on stdout, typed JSONL errors on stderr, and fixed exit categories.
+The product subcommands consume immutable artifacts rather than hidden process state.
+Production configurations reject unknown fields and hidden defaults. Handled success and
+failure keep one terminal success JSON object on stdout, typed JSONL diagnostics on
+stderr, and the fixed exit categories.
 
-Any custom native path uses a small versioned `extern "C"` ABI. Its safe Rust wrapper
-validates dtype, device, shape, stride, alignment, lengths, and stream compatibility;
-ownership/borrow guards keep allocations and streams alive through asynchronous
-completion. Native code returns CUDA status values and never unwinds across the boundary.
-Kernel builds emit an SM120 image and a PTX fallback when supported by the qualified
-toolchain.
+## Host and Accelerator Abstractions
+
+Host adapters may differ internally for process creation, process-tree containment,
+timeouts/cancellation, filesystem handles, path containment, descriptor identity,
+durability sync, atomic rename, dynamic-library inspection, and toolchain discovery. They
+must expose identical public semantics and cleanup guarantees.
+
+Accelerator adapters expose exact provider/device selection, allocation, copies or unified
+access, synchronization, event/fence lifecycle, tensor operations, deterministic-mode
+state, and native-library identity. A safe Rust boundary validates dtype, provider,
+device, shape, stride, alignment, lengths, and stream/queue/command-buffer compatibility.
+Ownership guards retain resources through asynchronous completion. Native errors are
+mapped to public typed categories without losing provider detail in redacted evidence.
+
+Provider-specific fallback representations are emitted only where the SDK supports them.
+PTX is a CUDA representation, not a generic portability requirement. Discrete CUDA/ROCm
+paths compare pageable, bounded registered/page-locked, and asynchronous rings. Apple
+unified memory compares shared/managed/private buffer and command synchronization paths
+without calling shared access an H2D copy.
 
 ## Data and Artifact Contracts
 
-Each source record carries a stable source ID, an always-present derived repository-group
-ID, source snapshot, declared license/provenance including explicit unknown, removal-list
-version, and declared encoding. A provider repository ID may be absent; `SOURCE-002`
-defines the conservative fallback grouping and unambiguous identifier serialization. The
-governed raw artifact binds the original bytes to their raw SHA-256. A
-successful deterministic decode creates canonical UTF-8 bytes and a decoded SHA-256; an
-unsupported or invalid declared encoding is rejected with a reason code, never silently
-replacement-decoded. In version 1, accepted curated bytes equal decoded bytes and their
-hashes match; tokenizer-visible transformation is prohibited. The original raw artifact
-remains immutable.
+The v1 source authorization, provenance, encoding, license, removal, sensitive-data,
+deduplication, decontamination, split, tokenizer, storage, and role-ledger decisions remain
+unchanged unless explicitly superseded by the v2 ledger.
 
-Version 1 accepts only strict UTF-8/ASCII Python 3 under `tree-sitter-python 0.25.0`, with
-the BOM/cookie rules in `SOURCE-002`, and canonical decoded size `100..=1,000,000` decimal
-bytes. The `permissive-v1` SPDX allowlist is exactly `0BSD`, `Apache-2.0`,
-`BSD-2-Clause`, `BSD-3-Clause`, `BSL-1.0`, `ISC`, `MIT`, `MIT-0`, `Python-2.0`, and
-`Zlib`; missing, conflicting, exception-bearing, copyleft, or otherwise unapproved
-expressions fail according to `GOV-001`.
+Accepted source is strict UTF-8/ASCII Python 3 under pinned
+`tree-sitter-python 0.25.0`, with the frozen BOM/cookie rules and canonical decoded size
+`100..=1,000,000` decimal bytes. Comment byte accounting and generated-marker scanning use
+actual pinned comment nodes. Docstrings are not comments. Parser syntax acceptance never
+proves safety, quality, license, provenance, or absence of sensitive material.
 
-Credentials come only from named environment variables. Fetching uses HTTPS, timeouts,
-retries, bounded concurrency, resumable caches, declared size limits, and checksums.
-Redirects are bounded and revalidated; credentials never cross origins; local, loopback,
-and link-local targets require an explicit fixture mode. Manifest paths are relative and
-cannot escape their artifact root. Public network services are never used by normal tests.
+Dedup uses exact curated hashes first, then the frozen lexical-token 5-gram definition,
+256 deterministic affine MinHash components, 32 bands by 8 rows for candidate retrieval,
+and exact Jaccard strictly greater than `0.85` for the final near-duplicate decision. LSH
+does not make the exact decision. Deterministic custom byte-level BPE, its 256-byte
+alphabet, exact 32,000 IDs, special IDs, round trip, sample caps, and byte-identical repeat
+build remain unchanged.
 
-I/O runs on Tokio; CPU-heavy parsing and hashing run in a bounded Rayon pool. Every
-channel and batch has a configured memory limit. One Tree-sitter parser belongs to
-each worker, and emitted order is canonical rather than completion-order dependent. The
-curation policy records reason-coded decisions and covers encoding,
-minimum and maximum size, Python dialect, syntax errors, actual comment-node bytes,
-generated markers found independently inside each Tree-sitter comment-node intersection
-with canonical byte range `[0,8192)`, license/removal rules, and the `sensitive-v1`
-PII/secret policy. Confirmed findings reject the whole document, uncertain findings are
-quarantined, and v1 never rewrites tokenizer-visible source. Benchmark decontamination
-precedes the deterministic repository/duplicate-connected-component 98/1/1 split. The
-split algorithm, component identity, and EvalPlus registry/version/hash are artifact
-inputs.
+Token artifacts use immutable raw `u16le` shards, closed manifests, and document/sequence
+indexes. Writers create same-volume partial generations, sync data and metadata, and
+publish manifest-last without overwrite. Readers reject path escapes and enforce a
+portable backing-file immutability invariant through stable handle/descriptor identity,
+size/metadata checks, and full-hash revalidation at defined read boundaries. Inode identity
+alone is insufficient.
 
-Deduplication is partitioned or disk-backed at production scale. Its lexical tokenizer,
-normalization, 256 fixed domain-separated affine MinHash components, 32-band by 8-row LSH
-layout, exact-Jaccard threshold, and representative policy are defined by `DEDUP-001..003`.
-Candidate recall and final precision must pass the sealed 10,000-pair qualification suite.
-The tokenizer sample contains only deduplicated, decontaminated training documents. It
-uses the `TOKSAMPLE-001` SHA-256 ranking, a 10,000,000-byte repository-group cap, and a
-2,000,000,000-byte global cap; a qualified sample contains 1,999,000,000 through
-2,000,000,000 complete-document bytes. BPE seeds all 256 byte symbols, uses minimum merge
-frequency two, and applies no case folding, Unicode normalization, or whitespace stripping.
-Qualification requires exactly 32,000
-contiguous IDs, `max_id = 31,999`, zero unknown IDs for supported source,
-byte-roundtrip over curated UTF-8 source with special-token injection disabled, and a
-repetitive-input overflow regression. Two clean runs over the same ordered input manifest
-must produce byte-identical tokenizer artifacts. The canonical special IDs are
-`<pad>=0`, `<s>=1`, `</s>=2`, and `<unk>=3`; `</s>` separates documents.
+The training prefix has exactly `2,000,000,001` stored IDs and exposes exactly
+`2,000,000,000` consumed real inputs and valid targets with zero boundary exclusions.
+Unused tail, unmaterialized documents/bytes, runtime PAD inputs, and masked targets are
+separate counters. Complete 2,048-target spans are deterministically shuffled once; the
+final 1,024-target span remains last and is padded/masked only at runtime.
 
-Token artifacts are immutable raw little-endian `u16` shards plus a versioned JSON
-manifest and document/sequence indexes. The manifest records tokenizer, source,
-configuration, split, and shard hashes; global offsets; token counts; endianness; special
-IDs; and document-boundary policy. Writers create unique same-volume partial files,
-sync, and atomically finalize without overwriting existing artifacts. Readers verify
-versions, IDs, lengths, and hashes before mapping and keep files read-only;
-post-verification external mutation is a prohibited precondition, not something claimed
-detectable in real time. Readers interpret IDs with explicit little-endian decoding; a
-zero-copy cast is permitted only after compile-time little-endian and runtime
-alignment/even-length checks. A 2,048-token causal sample consumes a 2,049-token logical
-span: inputs are `t[0..2048]`, targets are `t[1..2049]`. Samples may cross physical shard
-boundaries using global manifest offsets, but never wrap at corpus end. Exactly one EOS is
-stored after every document; EOS-to-next-document transitions are ordinary valid targets
-and positions do not reset at EOS. Materialization stops after the first complete document
-whose EOS reaches at least 2,000,000,001 IDs. The prefix is contracted training data and
-only that document's remainder is stored unused tail; later documents are counted but not
-materialized. The prefix yields 976,562 full 2,048-target spans and one final 1,024-target
-span. The final span adds 1,024 runtime PAD inputs and masked targets. The fixed
-`SPAN-001` shuffle orders only full spans without replacement and keeps the partial span
-last.
+## Training and Resume
 
-## Model and Training Contracts
+The model uses causal 12Q/4KV GQA without repeated K/V materialization, adjacent-pair RoPE
+base 10,000 reset at sample start, inclusive causal masking across EOS, FP32-accumulating
+RMSNorm epsilon `1e-5`, SwiGLU, and chunked or fused cross-entropy that avoids retaining
+full `[B,L,V]` logits.
 
-The canonical model is bias-free and pre-normalized. Head width is 64. Query head `q`
-maps to KV head `floor(q/3)`, so groups `0..2`, `3..5`, `6..8`, and `9..11` map to KV
-heads `0..3`. The optimized path addresses
-KV heads directly rather than materializing three copies. RoPE uses base 10,000, adjacent
-pairs `(2i, 2i+1)`, positions `[0, 2048)`, and resets at each sample start. RMSNorm uses
-epsilon `1e-5` with FP32 sum-of-squares accumulation.
-SwiGLU is `down(SiLU(gate(x)) * up(x))`. The mask is inclusive lower-triangular: query
-`i` may attend valid key `j` iff `j <= i`; EOS does not reset attention. Every optimized
-operation has a deterministic reference and dtype-specific parity tolerance.
+The optimizer, decay groups, clipping, accumulation, schedule, final partial update, fixed
+evaluation cadence, and checkpoint retention remain frozen by the decision ledger. A full
+optimizer update represents exactly 65,536 valid targets. The run has 30,517 full updates
+and one 37,888-target final update, for 30,518 total and zero overshoot.
 
-The RoPE pairing/layout convention is explicit in configuration and parity fixtures,
-never inherited from a backend default. Canonical dropout is zero. Matrix and embedding
-weights initialize from `Normal(0, 0.02)` and norm scales initialize to one; there is no
-residual-specific scaling. `INIT-001` and `PARAM-001` fix parameter names, initialization
-order, per-preset ChaCha12/StandardNormal seed, rounding, and initialized-artifact hashes.
+Every checkpoint is an atomic completed-boundary generation containing parameters, FP32
+master/moments, optimizer, scheduler, scaler if used, host/device RNG, exact span-manifest
+identity and next cursor, counters, configurations, backend-visible deterministic state,
+environment identity, and artifact hashes. A resumed execution must be byte-for-byte
+identical to uninterrupted execution for every subsequent tensor/state, gradient,
+evaluation result, counter, cursor, and checkpoint. Mismatched environment, backend,
+configuration, span, or artifact identities fail closed.
 
-Do not materialize avoidable `[B, L, V]` logits: at batch 16, length 2,048, vocabulary
-32K, BF16 logits alone occupy about 1.95 GiB. Use chunked or fused cross-entropy.
-Likewise, the production attention backward must be memory-efficient; the quadratic
-reference graph is only a correctness oracle.
+## Prototype, Quality and Portability Sequence
 
-The canonical recipe uses AdamW `beta1=0.9`, `beta2=0.95`, `eps=1e-8`, decoupled weight
-decay `0.1`, and FP32 global-L2 gradient clipping at `1.0`. Embedding, LM-head, attention,
-and FFN matrices decay; norm scales do not. `OPT-001` fixes the bias correction, epsilon
-placement, decay equation, clipping order, and BF16 master-weight update. A full optimizer
-update contains 65,536 valid targets. The run has 30,517 full updates and one final
-37,888-target update, for 30,518 total. The first 1,000 updates warm linearly to `2.5e-3`;
-cosine decay thereafter makes update 30,518 exactly `2.5e-4`. Scheduler steps advance on
-optimizer updates, never microsteps.
+```mermaid
+flowchart LR
+    A["P1-P16 Windows/NVIDIA technical prototype"] --> B["P16A prototype quality acceptance"]
+    B --> C["P17 host/data portability"]
+    C --> D["P18 exact provider tuple matrix"]
+    B --> E["P19 optional model/budget amendment"]
+```
 
-Autotuning chooses microbatch/accumulation pairs while preserving 65,536 valid targets per
-full update. Loss is normalized by the actual accumulated target count, gradients are
-zeroed once per update, and clipping occurs after accumulation and before AdamW. The final
-partial update is normalized by 37,888 targets and never duplicates or overshoots. Full
-spans use the deterministic `SPAN-001` order; the partial span stays last.
+### P1 through P16
 
-At a completed optimizer boundary, a restart checkpoint atomically captures model
-parameters, optimizer/master/moment state, scheduler and optimizer step, loss-scaling
-state, RNG state, dataloader order and cursor, exact valid-predicted-target count, and all
-relevant artifact/configuration hashes. An interrupted run must match an uninterrupted run
-within a predeclared BF16 tolerance. Checkpoints occur after the first completed update
-crossing each 100M-target threshold and at completion. Retention keeps the latest two plus
-the first generations at or after 500M, 1B, 1.5B, and final 2B targets.
+The prototype path qualifies only `prototype-windows-5090-v1`. P16
+is the technical two-billion-target receipt and must pass actual durable elapsed time
+`<=28,800` seconds after admission projection `<=25,920` seconds. It does not approve
+model quality and does not unlock P17 or P19.
 
-A fixed, immutable 1,000,000-target validation sample reports mean next-token loss and
-perplexity before update one and after the first completed update crossing each 100M-target
-threshold, including completion. Its selection and order are fixed by `EVAL-001`. Held-out
-targets never increment the training valid-target count.
-Evaluation and checkpointing are mandatory in the final run and their overhead is always
-inside the SLA clock; no arbitrary loss target is invented after seeing results.
+### P16A
 
-## Verification and Qualification
+Before P15 begins, freeze and hash the complete P16A quality pack: immutable held-out
+validation/test manifest; exact aggregate-loss and perplexity calculation; initialized-
+model checkpoint identity and aggregate held-out loss; frozen unigram model/artifact and
+aggregate held-out loss; exact predicate; qualitative prompt/sample pack; deterministic
+generation settings; output schema; rubric; and receipt fields.
+The exact pack, prompt/sample, decoding, output-schema, and rubric hashes require a named
+owner approval before P15 begins; that approval is separate from approval of P16A results.
+After P16, a fresh process
+loads the selected final checkpoint. Its aggregate held-out loss must be finite and
+strictly below both the initialized-model and frozen-unigram aggregate losses, and its
+aggregate held-out perplexity must be finite. It also emits outputs for the frozen
+qualitative pack. A named owner then records explicit quality approval with identity,
+signature/reference, and UTC timestamp. No quality-pack byte changes after P15 begins.
+P16A alone unlocks P17 or optional P19.
 
-1. CPU unit/reference tests cover configuration, filters, dedup determinism, formats,
-   parameter counts, model math, optimizer updates, and schedule boundaries.
-2. CUDA tests compare every custom/fused forward and backward operation with the
-   reference implementation.
-3. A synthetic corpus exercises the full no-Python pipeline through checkpoint resume.
-4. Performance suites are isolated from correctness CI and emit machine-readable JSON.
-5. Runs advance through 1M and 100M valid predicted targets, then 30 minutes and 60
-   minutes, before 2B.
+### P17
 
-Every rung records synchronized throughput, p50/p95 latency, loader stalls, checkpoint
-time, host RAM, peak allocated/reserved VRAM, loss, gradient norm, and non-finite values.
-Frozen-code qualification reports loader, kernel-only, steady-state trainer, and
-whole-run-equivalent rates separately.
+P17 implements and qualifies host/data behavior on one final source identity across
+Windows x86_64 MSVC, Linux x86_64 GNU, and macOS arm64 Apple. The complete CPU/data and
+synthetic pipeline runs natively, with Python canaries and parser/path/mutation/crash/
+cleanup fixtures. Provider-independent data artifacts and hashes are byte-identical. P17
+does not qualify an accelerator or a two-billion-target run on the changed source.
 
-The final `PROV-001` receipt records exactly 2,000,000,000 valid predicted targets, zero
-overshoot, total elapsed wall clock below 28,800 seconds, and final-checkpoint
-synchronization and durability inside that clock. It includes approved contract and ledger
-hashes; frozen source-tree hash; Git commit and dirty status; `Cargo.lock`; toolchain,
-hardware, backend/kernel, configuration, tokenizer, corpus, split, source/removal approval,
-telemetry, benchmark, log, and final-checkpoint hashes; peak VRAM; loss/evaluation
-diagnostics; all non-overlapping stored/prefix/tail/unmaterialized/input/padding/target/
-boundary/update counters; and checkpoint/evaluation counts.
+### P18
+
+P18 depends explicitly on both P16A and P17 and freezes an exact tuple manifest before
+measurements. Four lanes are mandatory on the final source: Windows/NVIDIA CUDA
+regression, Linux/NVIDIA CUDA, Linux/AMD ROCm/HIP, and macOS arm64/Apple Silicon Metal.
+Each tuple independently passes native launch, dependency isolation, literal canonical
+gradient bytes, exact state round trip, byte-identical resume, provider-appropriate memory
+path, synthetic E2E, cleanup, synchronized calibration, and qualification ladder. P18 does
+not imply unlisted tuples, equal performance, cross-provider checkpoint migration, or 2B
+completion on AMD/Apple.
+
+### P19
+
+P19 is optional, depends directly on P16A, and is reserved for increasing model size,
+valid-target count, or time budget. It creates a new contract/ledger/ADR and reruns affected
+gates. It is not portability work and not a portable-source P16 rerun.
+
+## Verification and Receipt Model
+
+Correctness, environment compatibility, deterministic resume, memory, sustained
+performance, model quality, host portability, accelerator tuple qualification, and full
+run are separate claims and separate evidence.
+
+Normal CPU/data CI runs on native Windows, Linux, and macOS profiles once P17 owns that
+matrix. Accelerator jobs are separately provisioned and always report one exact tuple.
+No external CI runner is registered or invoked without explicit authorization. Local
+native execution of the same `xtask` case is acceptable evidence.
+
+Every immutable run binds exact argv, cwd, source/tree/dirty state, `Cargo.lock`, contract,
+ledger, ADR, architecture, schemas, parser bundle, configurations, artifacts, host and
+accelerator identities, native dependencies, transcripts, exit codes, gates, cleanup, and
+seal. Failed and superseded runs remain immutable and never move a selected pointer.
+Aggregate portability acceptance binds a frozen matrix manifest and every child receipt
+hash from one common source identity.
+
+The final prototype provenance receipt includes every v2 `PROV-001` identity and role
+counter, the exact `2,952,790,016`-byte environment memory floor, admission projection,
+actual continuous elapsed time, and durable final checkpoint. P16A adds the pre-P15
+quality-pack hash, both baseline identities/losses, final aggregate loss/perplexity,
+qualitative output hashes, and owner approval. Later portability
+receipts cite P16A but do not reinterpret its source or full-run scope.
 
 ## Explicit Non-Goals
 
-- Counting corpus acquisition or curation inside the eight-hour training SLA.
-- Treating current reference tests as GPU-performance evidence.
-- Making FA3, FP8, CUTLASS, a fixed microbatch, or 28 GiB occupancy a prerequisite.
-- Calling mmap, Arrow buffers, or `Bytes` CUDA-pinned without registration and proof.
-- All-pairs deduplication, estimated-MinHash threshold decisions, or unbounded in-memory
-  indexes.
-- Treating Tree-sitter syntax acceptance as evidence that code is safe, useful, licensed,
-  or free of sensitive material.
-- Copying research pseudocode or inventing commands for an unverified agent product.
+- Qualifying every operating-system/provider combination before one prototype is complete.
+- Treating a feature flag, compile check, advertised capacity, or documentation as tuple
+  qualification.
+- Treating P16 technical completion as model-quality approval.
+- Treating P17/P18 as a portable two-billion-target receipt.
+- Cross-provider in-flight checkpoint migration without a separate contract.
+- Changing the canonical model or time budget during portability; that belongs only to P19.
+- Calling mmap, ordinary vectors, shared buffers, or unified memory page-locked transfer.
+- Relaxing gradient bytes, deterministic resume, governance, hash, or accounting gates for
+  a new provider.
 
-## Validation Record — 2026-08-11
+## Historical Validation Record
 
-The authoritative Phase 0 machine-evidence run is
-`20260811T074740Z-d5008e94`. Its 68-file seal is
-`184dc926bb9e5e2963a61182398580f7dedbf5aa5992f062dacfc6db6f1430f5`;
-the contract and decision-ledger hashes are respectively
+Historical v1 evidence is preserved in immutable receipt paths. The authoritative P0
+machine run remains `20260811T074740Z-d5008e94`, sealed by
+`184dc926bb9e5e2963a61182398580f7dedbf5aa5992f062dacfc6db6f1430f5`.
+The v1 contract and ledger hashes remain
 `fc2c60b52fdd7c524e0da06bb03972a4d523c21ad5536cba536185435bd44ad4`
 and `8349d8a3e06d96d6921889de5534715e7b2f7439caf7e06558a97652a8890c8d`.
-All 30 captured commands passed. The signed Phase 0 receipt is committed at
-`86fb1e4cc68efeb651e5362c4aca85c2827d8e4d` with SHA-256
-`f08c6a41658ff287e238d6a96c4f2c874975964202c3eeced2bc0bc21f308904`; it records both
-owner approvals, is `PASS`, and covers reconciliation commit
-`245f5f71eb3a76b3ce8e7c42228c00167803947c`. These results validate only the existing
-reference checkout and local host; they do not qualify the rebuild, GPU training path, or
-eight-hour objective.
-This architecture and `TODO.md` reconciliation is a separate change set from the capture.
-The seal still authenticates its frozen contract bytes and reference observations, but it
-does not attest to the reconciled documentation tree; the signed technical approval
-separately records review of that commit.
 
-- `cargo test --locked --features cpu-reference`: 22 passed.
-- `cargo run --locked -- plan`: confirmed 124,668,672 parameters for `d_ff=2048`, the
-  69,444.44 valid-predicted-targets/s floor, 1.95 GiB BF16 logits, and a fail-closed
-  production gate.
-- `cargo run --locked -- plan --gqa-135m`: confirmed 135,285,504 parameters.
-
-### Phase 1 Environment Qualification
-
-Owner review of implementation commit
-`d0b7307611897cde203490634b33abdb8e74c9e9` marks P1B complete. The approved P1B
-acceptance binds the P1A regression run selected at qualification time. These are the
-selected receipt identities:
-
-| Phase | Selected run | Pointer SHA-256 | Acceptance SHA-256 | Evidence SHA-256 | Seal SHA-256 | Environment SHA-256 |
-|---|---|---|---|---|---|---|
-| P1A | `20260811T174150772Z-17e8222a9d394ce08c11f61f` | `056978d93a11ff1ca92456de9a588c79d5ae5fd2db3f5d3753a9b85b12680753` | `8c47159f9b06224e4092a8a97568fc29bd8d3d28ac09a17387941fb34852e685` | `2d8f42c047ab1376c26f6313b8877d15b1554a56efea314380beae8add409b08` | `9fb3ee856159dd7ef2e35691479cc27f0020424767201c08a6278026fd27f83b` | `a3a9cf14e01f2c2f9687a5569ab67e126c8bd5664378578e47261a80db1dfa4e` |
-| P1B | `20260811T174734119Z-7e7135b7cb794eb791c0e607` | `3996de1da05b842688526684f870f7af4c353ad16f408e11957c9fc57bca7cd4` | `87254f78309854d9562fc0c1d3ee8e4759049fdf6429e49488e45b97982b5334` | `de3c9fcbb67b0338f1415045cbc82e671630db47f064092f01131dd55758d810` | `ce7ad7ff4f9bedc97e8f5443c42b7520eb7c7a34852a7e941388273c7a2dbcd6` | `68232385423942b525f142c54ffc5b32473925896f05a05f9e8a6bb508e2da1d` |
-
-P1B qualified CUDA Toolkit 13.1.0 (`nvcc` 13.1.80), driver 610.88,
-Visual Studio 2022 17.14.23 with MSVC 19.44.35222.0, Windows SDK 10.0.26100.0,
-and one `NVIDIA GeForce RTX 5090` at compute capability 12.0. Inspection found native
-`sm_120` SASS and `compute_120` PTX; both the mixed image and PTX-only fallback launched,
-synchronized, and returned the fixed sentinel through the required CUDA, cuBLAS, and
-cuBLASLt boundary. This qualifies environment compatibility only. It does not select a
-backend or establish model/kernel correctness, parity, training VRAM, throughput, or the
-eight-hour objective.
-
-Earlier P0 observations that the CUDA graph compile-checked and the host exposed an RTX
-5090 remain historical reference context. P0 itself did not qualify a device launch or
-native MSVC/CUDA link; the selected P1B receipt above supplies that later environment
-evidence without changing P0's scope.
-
-Primary-source checks: [NVIDIA GPU compute capabilities](https://developer.nvidia.com/cuda/gpus),
-[CUDA 12.8 SM120 release notes](https://docs.nvidia.com/cuda/archive/12.8.0/cuda-toolkit-release-notes/index.html#new-features),
-[NVIDIA pinned-memory guidance](https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html#pinned-memory),
-[The Stack v2 dataset card](https://huggingface.co/datasets/bigcode/the-stack-v2/blob/main/README.md),
-[Burn releases](https://github.com/Tracel-AI/burn/releases),
-[Candle README](https://github.com/huggingface/candle/blob/main/README.md),
-[FlashAttention repository](https://github.com/Dao-AILab/flash-attention),
-[Parquet 59.1 async reader](https://docs.rs/parquet/59.1.0/parquet/arrow/async_reader/), and
-[Tokenizers 0.23.1 Rust BPE API](https://docs.rs/tokenizers/0.23.1/tokenizers/models/bpe/).
+Historical selected P1A/P1B evidence qualified one Windows/MSVC/CUDA Toolkit 13.1,
+driver 610.88, RTX 5090 SM120 environment. It demonstrated native `sm_120`, supported PTX
+fallback launch, synchronization, and required CUDA library boundaries. It did not select
+a rebuilt backend or prove model parity, training memory, throughput, SLA completion,
+quality, Linux/macOS behavior, AMD/Apple support, or portable release status. Historical
+P2 attempts likewise remain attempts and are not reinterpreted as v2 qualification.

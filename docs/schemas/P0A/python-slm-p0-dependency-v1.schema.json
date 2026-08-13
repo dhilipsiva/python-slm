@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://python-slm.local/schemas/P0A/python-slm-p0-dependency-v1.schema.json",
+  "title": "python-slm immutable P0 dependency v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "status",
+    "baseline_commit",
+    "receipt_commit",
+    "receipt_sha256",
+    "contract_sha256",
+    "decision_ledger_sha256",
+    "reconciliation_commit",
+    "reconciliation_tree",
+    "run_id",
+    "seal_sha256",
+    "historical_cargo_lock_sha256",
+    "oracle_commit",
+    "oracle_normalized_sha256",
+    "verified_at_source_commit"
+  ],
+  "properties": {
+    "schema": { "const": "python-slm-p0-dependency-v1" },
+    "status": { "const": "PASS" },
+    "baseline_commit": { "const": "b1ebb455cdae94bbb9fc54f246cdf2758eedf1d1" },
+    "receipt_commit": { "const": "86fb1e4cc68efeb651e5362c4aca85c2827d8e4d" },
+    "receipt_sha256": { "const": "f08c6a41658ff287e238d6a96c4f2c874975964202c3eeced2bc0bc21f308904" },
+    "contract_sha256": { "const": "fc2c60b52fdd7c524e0da06bb03972a4d523c21ad5536cba536185435bd44ad4" },
+    "decision_ledger_sha256": { "const": "8349d8a3e06d96d6921889de5534715e7b2f7439caf7e06558a97652a8890c8d" },
+    "reconciliation_commit": { "const": "245f5f71eb3a76b3ce8e7c42228c00167803947c" },
+    "reconciliation_tree": { "const": "c7a322bc77aebab6a5117708f2b74d34365c7336" },
+    "run_id": { "const": "20260811T074740Z-d5008e94" },
+    "seal_sha256": { "const": "184dc926bb9e5e2963a61182398580f7dedbf5aa5992f062dacfc6db6f1430f5" },
+    "historical_cargo_lock_sha256": { "const": "c0a5e1afe02e252a22cca8bf07ab37fb2a25844210d2d5ce2e1e6082e497a28c" },
+    "oracle_commit": { "const": "804cdcec24996895c469f54593a5aa79a4cd706a" },
+    "oracle_normalized_sha256": { "const": "ffaa3b309e31782c95bfed1d4c37eb4b56427bc878c3d796f99d8663de53fe46" },
+    "verified_at_source_commit": { "$ref": "#/definitions/gitSha" }
+  },
+  "definitions": {
+    "gitSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://python-slm.local/schemas/portable-v2/python-slm-prototype-sla-v1.schema.json",
+  "title": "python-slm fixed prototype training SLA v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "profile_id",
+    "model_preset",
+    "valid_training_targets",
+    "sla_seconds",
+    "admission_seconds",
+    "actual_elapsed_limit_ns",
+    "fresh_samples_per_overhead_class",
+    "overhead_formula",
+    "overhead_admissibility_predicate",
+    "required_rate_formula",
+    "rate_admissibility_predicate",
+    "admission_formula",
+    "clock_start",
+    "clock_stop",
+    "recovery_downtime_counts",
+    "suspend_inclusive_clock"
+  ],
+  "properties": {
+    "schema": { "const": "python-slm-prototype-sla-v1" },
+    "profile_id": { "const": "prototype-windows-5090-v1" },
+    "model_preset": { "const": "gqa-135m-v1" },
+    "valid_training_targets": { "const": 2000000000 },
+    "sla_seconds": { "const": 28800 },
+    "admission_seconds": { "const": 25920 },
+    "actual_elapsed_limit_ns": { "const": 28800000000000 },
+    "fresh_samples_per_overhead_class": { "const": 5 },
+    "overhead_formula": {
+      "const": "max_of_5_fresh_runs(startup+verification+initialization+jit_autotune)+evaluation_count*max_of_5_fresh_runs(evaluation)+nonfinal_checkpoint_count*max_of_5_fresh_runs(nonfinal_checkpoint)+max_of_5_fresh_runs(final_durable_save)"
+    },
+    "overhead_admissibility_predicate": { "const": "O_bound<25920" },
+    "required_rate_formula": { "const": "2000000000/(25920-O_bound)" },
+    "rate_admissibility_predicate": { "const": "R_qual>=R_required" },
+    "admission_formula": { "const": "ceil(2000000000/R_qual+O_bound)<=25920" },
+    "clock_start": { "const": "immediately_before_frozen_artifact_verification_and_open" },
+    "clock_stop": { "const": "after_final_checkpoint_is_durable" },
+    "recovery_downtime_counts": { "const": true },
+    "suspend_inclusive_clock": { "const": "monotonic_wall_clock_includes_host_suspend_system_sleep_and_resumed_execution_downtime" }
+  }
+}

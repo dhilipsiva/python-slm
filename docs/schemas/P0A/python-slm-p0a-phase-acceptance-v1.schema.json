@@ -1,0 +1,80 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://python-slm.local/schemas/P0A/python-slm-p0a-phase-acceptance-v1.schema.json",
+  "title": "python-slm owner-approved P0A acceptance v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "phase_id",
+    "interface_id",
+    "profile_id",
+    "sequence",
+    "status",
+    "acceptance_kind",
+    "run_path",
+    "run_evidence_sha256",
+    "seal_path",
+    "seal_sha256",
+    "approvals",
+    "approval_commit",
+    "preapproval_commit",
+    "todo_preapproval_sha256",
+    "previous_acceptance_sha256",
+    "created_at"
+  ],
+  "properties": {
+    "schema": { "const": "python-slm-p0a-phase-acceptance-v1" },
+    "phase_id": { "const": "P0A" },
+    "interface_id": { "const": "portable-interface-v2" },
+    "profile_id": { "const": "prototype-windows-5090-v1" },
+    "sequence": { "type": "integer", "minimum": 1, "maximum": 99999999 },
+    "status": { "const": "PASS" },
+    "acceptance_kind": { "const": "owner_approved_contract_amendment" },
+    "run_path": { "type": "string", "pattern": "^runs/[0-9]{8}T[0-9]{9}Z-[0-9a-f]{24}$" },
+    "run_evidence_sha256": { "$ref": "#/definitions/sha256" },
+    "seal_path": { "type": "string", "pattern": "^runs/[0-9]{8}T[0-9]{9}Z-[0-9a-f]{24}/SHA256SUMS$" },
+    "seal_sha256": { "$ref": "#/definitions/sha256" },
+    "approvals": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role", "decision", "path", "sha256"],
+        "properties": {
+          "role": { "enum": ["technical", "data_governance"] },
+          "decision": { "const": "APPROVE" },
+          "path": { "type": "string", "pattern": "^approvals/(?:technical|data-governance)-[0-9]{8}\\.json$" },
+          "sha256": { "$ref": "#/definitions/sha256" }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "role": { "const": "technical" } }, "required": ["role"] },
+            "then": { "properties": { "path": { "pattern": "^approvals/technical-[0-9]{8}\\.json$" } } }
+          },
+          {
+            "if": { "properties": { "role": { "const": "data_governance" } }, "required": ["role"] },
+            "then": { "properties": { "path": { "pattern": "^approvals/data-governance-[0-9]{8}\\.json$" } } }
+          }
+        ]
+      },
+      "allOf": [
+        { "contains": { "properties": { "role": { "const": "technical" } }, "required": ["role"] } },
+        { "contains": { "properties": { "role": { "const": "data_governance" } }, "required": ["role"] } }
+      ]
+    },
+    "approval_commit": { "$ref": "#/definitions/gitSha" },
+    "preapproval_commit": { "$ref": "#/definitions/gitSha" },
+    "todo_preapproval_sha256": { "$ref": "#/definitions/sha256" },
+    "previous_acceptance_sha256": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+    "created_at": { "$ref": "#/definitions/utcDateTime" }
+  },
+  "definitions": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "gitSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "utcDateTime": { "type": "string", "format": "date-time", "pattern": "Z$" }
+  }
+}

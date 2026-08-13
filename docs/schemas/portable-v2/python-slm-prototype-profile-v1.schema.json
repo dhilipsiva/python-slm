@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://python-slm.local/schemas/portable-v2/python-slm-prototype-profile-v1.schema.json",
+  "title": "python-slm prototype-first portable interface profile v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "interface_id",
+    "profile_id",
+    "support_tier",
+    "host",
+    "accelerator",
+    "model",
+    "deferred_profiles"
+  ],
+  "properties": {
+    "schema": { "const": "python-slm-prototype-profile-v1" },
+    "interface_id": { "const": "portable-interface-v2" },
+    "profile_id": { "const": "prototype-windows-5090-v1" },
+    "support_tier": { "enum": ["designed", "implemented", "tuple_qualified", "full_run_qualified"] },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os_family", "architecture", "rust_target", "cpu_model", "c_cpp_toolchain"],
+      "properties": {
+        "os_family": { "const": "windows" },
+        "architecture": { "const": "x86_64" },
+        "rust_target": { "const": "x86_64-pc-windows-msvc" },
+        "cpu_model": { "const": "AMD Ryzen 9 9950X3D 16-Core Processor" },
+        "c_cpp_toolchain": { "const": "msvc" }
+      }
+    },
+    "accelerator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "vendor", "device_model", "compute_capability", "architecture", "memory_model"],
+      "properties": {
+        "provider": { "const": "cuda" },
+        "vendor": { "const": "nvidia" },
+        "device_model": { "const": "NVIDIA GeForce RTX 5090" },
+        "compute_capability": { "const": "12.0" },
+        "architecture": { "const": "sm_120" },
+        "memory_model": { "const": "dedicated" }
+      }
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["preset", "parameter_count", "valid_training_targets"],
+      "properties": {
+        "preset": { "const": "gqa-135m-v1" },
+        "parameter_count": { "const": 135285504 },
+        "valid_training_targets": { "const": 2000000000 }
+      }
+    },
+    "deferred_profiles": {
+      "const": [
+        { "capability": "linux-host", "status": "DEFERRED_POST_P16", "earliest_phase": "P17" },
+        { "capability": "macos-host", "status": "DEFERRED_POST_P16", "earliest_phase": "P17" },
+        { "capability": "gcc-clang-host-toolchains", "status": "DEFERRED_POST_P16", "earliest_phase": "P17" },
+        { "capability": "cuda-on-linux", "status": "DEFERRED_POST_P16", "earliest_phase": "P18" },
+        { "capability": "rocm-hip-amd", "status": "DEFERRED_POST_P16", "earliest_phase": "P18" },
+        { "capability": "metal-apple-silicon", "status": "DEFERRED_POST_P16", "earliest_phase": "P18" }
+      ]
+    }
+  }
+}
