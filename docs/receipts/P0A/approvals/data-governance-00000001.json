@@ -1,0 +1,13 @@
+{
+  "schema": "python-slm-p0a-approval-v1",
+  "phase_id": "P0A",
+  "run_id": "20260813T101021174Z-183c59f73ecbc2803cccb0e8",
+  "role": "data_governance",
+  "decision": "APPROVE",
+  "owner_identity": "dhilipsiva",
+  "review_reference": "codex-task:019fee98-6d38-7253-90a9-189b1fe7f04d#data-governance-approval",
+  "utc_timestamp": "2026-08-13T10:27:50Z",
+  "run_evidence_sha256": "bca3b518113cad36af75b849a1605f880be76feef5dd887b5f10c7861a5936ff",
+  "seal_sha256": "c7a7c76d8376737d7e461da148abde76fae6d494ebfd4f8a66bf67b4845b89b6",
+  "explicit_dual_role_authority": true
+}
