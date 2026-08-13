@@ -2293,27 +2293,11 @@ pub fn finalize(repository: &Path, supplied_root: &Path) -> Result<Value> {
     publication::require_no_follow_tree(&output_root)?;
     let mut recorder = Recorder::default();
     p0::verify(repository, &mut recorder)?;
-    let (sequence, technical_path, technical, governance_path, governance) =
+    let (approval_sequence, technical_path, technical, governance_path, governance) =
         load_latest_approval_pair(&output_root)?;
     validate_approval_pair(&technical, &governance)?;
-    let existing_acceptance_path = output_root.join(format!("acceptances/{sequence:08}.json"));
-    recover_acceptance_temporary(&existing_acceptance_path)?;
-    let existing_acceptance = existing_acceptance_path
-        .is_file()
-        .then(|| {
-            read_json_closed::<Acceptance>(&existing_acceptance_path, "P0A_ACCEPTANCE_JSON_INVALID")
-        })
-        .transpose()?;
-    let approval_commit = if let Some(acceptance) = &existing_acceptance {
-        acceptance.approval_commit.clone()
-    } else {
-        git_line(
-            &mut recorder,
-            repository,
-            &["rev-parse", "HEAD"],
-            "APPROVAL_COMMIT_INVALID",
-        )?
-    };
+    recover_all_acceptance_temporaries(&output_root)?;
+    let next_sequence = next_acceptance_sequence(&output_root)?;
 
     let run_id = technical.run_id.clone();
     let run_root = output_root.join("runs").join(&run_id);
@@ -2328,15 +2312,6 @@ pub fn finalize(repository: &Path, supplied_root: &Path) -> Result<Value> {
             "owner approvals do not bind the exact validated run evidence and seal",
         ));
     }
-    require_approval_commit(
-        repository,
-        &mut recorder,
-        &approval_commit,
-        &technical_path,
-        &governance_path,
-        &run.preapproval_commit,
-    )?;
-
     let approval_refs = vec![
         ApprovalRef {
             role: "technical".to_owned(),
@@ -2351,12 +2326,68 @@ pub fn finalize(repository: &Path, supplied_root: &Path) -> Result<Value> {
             sha256: hash::file(&governance_path)?,
         },
     ];
+    let observed_approval_sequence = approval_reference_sequence(&approval_refs)?;
+    if observed_approval_sequence != approval_sequence {
+        return Err(XtaskError::integrity(
+            "P0A_APPROVAL_SEQUENCE_INVALID",
+            "approval references do not match the selected approval attempt",
+        ));
+    }
+
+    let retained_acceptance = if next_sequence > 1 {
+        let path = output_root.join(format!("acceptances/{:08}.json", next_sequence - 1));
+        Some(read_json_closed::<Acceptance>(
+            &path,
+            "P0A_ACCEPTANCE_JSON_INVALID",
+        )?)
+    } else {
+        None
+    };
+    let matching_retained = retained_acceptance.as_ref().is_some_and(|acceptance| {
+        acceptance.approvals == approval_refs
+            && acceptance.run_path == format!("runs/{run_id}")
+            && acceptance.run_evidence_sha256 == run.evidence_sha256
+            && acceptance.seal_sha256 == run.seal_sha256
+            && acceptance.preapproval_commit == run.preapproval_commit
+            && acceptance.todo_preapproval_sha256 == run.todo_preapproval_sha256
+    });
+    let publication_sequence = if matching_retained {
+        next_sequence - 1
+    } else {
+        require_selected_predecessor_for_new_acceptance(
+            &output_root,
+            retained_acceptance.as_ref(),
+            next_sequence,
+            approval_sequence,
+        )?;
+        next_sequence
+    };
+    let existing_acceptance = matching_retained.then_some(retained_acceptance.as_ref().unwrap());
+    let approval_commit = existing_acceptance.map_or_else(
+        || {
+            git_line(
+                &mut recorder,
+                repository,
+                &["rev-parse", "HEAD"],
+                "APPROVAL_COMMIT_INVALID",
+            )
+        },
+        |acceptance| Ok(acceptance.approval_commit.clone()),
+    )?;
+    require_approval_commit(
+        repository,
+        &mut recorder,
+        &approval_commit,
+        &technical_path,
+        &governance_path,
+        &run.preapproval_commit,
+    )?;
     if let Some(existing) = existing_acceptance.as_ref()
         && let Some(result) = recover_or_complete_publication(
             repository,
             &mut recorder,
             &output_root,
-            sequence,
+            publication_sequence,
             existing,
             &approval_commit,
             &approval_refs,
@@ -2369,15 +2400,6 @@ pub fn finalize(repository: &Path, supplied_root: &Path) -> Result<Value> {
     require_repository_clean(repository, &mut recorder)?;
 
     publication::create_dir_all(&output_root.join("acceptances"))?;
-    let next_sequence = next_acceptance_sequence(&output_root)?;
-    if sequence != next_sequence {
-        return Err(XtaskError::integrity(
-            "P0A_APPROVAL_SEQUENCE_INVALID",
-            format!(
-                "approval sequence {sequence:08} does not match acceptance sequence {next_sequence:08}"
-            ),
-        ));
-    }
     let previous_acceptance_sha256 = load_previous_acceptance_hash(&output_root, next_sequence)?;
     let (created_at, _, _) = time::now();
     let acceptance = Acceptance {
@@ -3596,6 +3618,12 @@ fn load_latest_approval_pair(
             ));
         }
         let sequence: u32 = digits.parse().expect("eight digits parse");
+        if sequence == 0 {
+            return Err(XtaskError::integrity(
+                "P0A_APPROVAL_PATH_INVALID",
+                "approval attempt sequence zero is reserved",
+            ));
+        }
         let approval: Approval = read_json_closed(&entry.path(), "P0A_APPROVAL_JSON_INVALID")?;
         let target = if role == "technical" {
             &mut technical
@@ -3609,12 +3637,20 @@ fn load_latest_approval_pair(
             ));
         }
     }
-    let pairs: Vec<u32> = technical
-        .keys()
-        .filter(|key| governance.contains_key(key))
-        .copied()
-        .collect();
-    let sequence = *pairs.last().ok_or_else(|| {
+    let technical_sequences: Vec<u32> = technical.keys().copied().collect();
+    let governance_sequences: Vec<u32> = governance.keys().copied().collect();
+    if technical_sequences != governance_sequences
+        || technical_sequences
+            .iter()
+            .enumerate()
+            .any(|(index, sequence)| *sequence != index as u32 + 1)
+    {
+        return Err(XtaskError::integrity(
+            "P0A_APPROVAL_SEQUENCE_INVALID",
+            "approval attempts must be complete paired sequences beginning at one",
+        ));
+    }
+    let sequence = *technical_sequences.last().ok_or_else(|| {
         XtaskError::gate(
             "P0A_OWNER_APPROVALS_REQUIRED",
             "both technical and data-governance approval JSONs are required",
@@ -3862,6 +3898,48 @@ fn load_previous_acceptance_hash(output_root: &Path, next: u32) -> Result<Option
     Ok(Some(hash::file(&path)?))
 }
 
+fn require_selected_predecessor_for_new_acceptance(
+    output_root: &Path,
+    retained: Option<&Acceptance>,
+    next: u32,
+    approval_sequence: u32,
+) -> Result<()> {
+    if next == 1 {
+        if retained.is_some() || output_root.join("evidence.json").exists() {
+            return Err(XtaskError::integrity(
+                "P0A_PUBLICATION_STATE_INDETERMINATE",
+                "genesis acceptance has an unexpected retained predecessor or pointer",
+            ));
+        }
+        return Ok(());
+    }
+    let predecessor = retained.ok_or_else(|| {
+        XtaskError::integrity(
+            "P0A_PUBLICATION_STATE_INDETERMINATE",
+            "non-genesis acceptance has no retained predecessor",
+        )
+    })?;
+    validate_acceptance_shape(predecessor)?;
+    if predecessor.sequence + 1 != next {
+        return Err(XtaskError::integrity(
+            "P0A_PUBLICATION_STATE_INDETERMINATE",
+            "retained predecessor sequence does not precede the new acceptance",
+        ));
+    }
+    require_approval_sequence_successor(
+        approval_reference_sequence(&predecessor.approvals)?,
+        approval_sequence,
+    )?;
+    let pointer = load_pointer(output_root)?;
+    validate_selected_acceptance(output_root, &pointer, predecessor)?;
+    hash::require_file(
+        &output_root.join(&pointer.acceptance_path),
+        &pointer.acceptance_sha256,
+        "P0A_POINTER_ACCEPTANCE_HASH_MISMATCH",
+    )?;
+    Ok(())
+}
+
 fn recover_acceptance_temporary(acceptance_path: &Path) -> Result<()> {
     let Some(parent) = acceptance_path.parent() else {
         return Err(XtaskError::integrity(
@@ -3920,6 +3998,33 @@ fn recover_acceptance_temporary(acceptance_path: &Path) -> Result<()> {
             "P0A_ACCEPTANCE_TEMP_RECOVERY_FAILED",
             "could not remove owned acceptance temporary",
         )?;
+    }
+    Ok(())
+}
+
+fn recover_all_acceptance_temporaries(output_root: &Path) -> Result<()> {
+    let directory = output_root.join("acceptances");
+    if !directory.exists() {
+        return Ok(());
+    }
+    let mut finals = BTreeSet::new();
+    for entry in fs::read_dir(&directory).io_context(
+        "P0A_ACCEPTANCE_TEMP_RECOVERY_FAILED",
+        "could not enumerate acceptance temporaries before sequence validation",
+    )? {
+        let entry = entry.io_context(
+            "P0A_ACCEPTANCE_TEMP_RECOVERY_FAILED",
+            "could not read acceptance temporary entry",
+        )?;
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let Some((base, _)) = name.split_once(".tmp-acceptance-") else {
+            continue;
+        };
+        parse_acceptance_path(&format!("acceptances/{base}"))?;
+        finals.insert(directory.join(base));
+    }
+    for path in finals {
+        recover_acceptance_temporary(&path)?;
     }
     Ok(())
 }
@@ -4120,8 +4225,7 @@ fn validate_acceptance_shape(acceptance: &Acceptance) -> Result<()> {
     let run_path_valid = run_id.is_some_and(valid_run_id)
         && acceptance.run_path == format!("runs/{}", run_id.unwrap());
     let expected_seal = format!("{}/SHA256SUMS", acceptance.run_path);
-    let expected_technical = format!("approvals/technical-{:08}.json", acceptance.sequence);
-    let expected_governance = format!("approvals/data-governance-{:08}.json", acceptance.sequence);
+    let approval_sequence = approval_reference_sequence(&acceptance.approvals).ok();
     if acceptance.schema != "python-slm-p0a-phase-acceptance-v1"
         || acceptance.phase_id != "P0A"
         || acceptance.interface_id != INTERFACE_ID
@@ -4136,12 +4240,11 @@ fn validate_acceptance_shape(acceptance: &Acceptance) -> Result<()> {
         || acceptance.approvals.len() != 2
         || acceptance.approvals[0].role != "technical"
         || acceptance.approvals[0].decision != "APPROVE"
-        || acceptance.approvals[0].path != expected_technical
         || !hash::is_lower_sha256(&acceptance.approvals[0].sha256)
         || acceptance.approvals[1].role != "data_governance"
         || acceptance.approvals[1].decision != "APPROVE"
-        || acceptance.approvals[1].path != expected_governance
         || !hash::is_lower_sha256(&acceptance.approvals[1].sha256)
+        || approval_sequence.is_none()
         || !valid_git_sha(&acceptance.approval_commit)
         || !valid_git_sha(&acceptance.preapproval_commit)
         || !hash::is_lower_sha256(&acceptance.todo_preapproval_sha256)
@@ -4154,6 +4257,70 @@ fn validate_acceptance_shape(acceptance: &Acceptance) -> Result<()> {
         return Err(XtaskError::integrity(
             "P0A_ACCEPTANCE_INVALID",
             "P0A acceptance is malformed",
+        ));
+    }
+    Ok(())
+}
+
+fn parse_approval_path(value: &str, role: &str) -> Result<u32> {
+    let prefix = match role {
+        "technical" => "approvals/technical-",
+        "data_governance" => "approvals/data-governance-",
+        _ => {
+            return Err(XtaskError::integrity(
+                "P0A_APPROVAL_PATH_INVALID",
+                "approval role is not recognized",
+            ));
+        }
+    };
+    let digits = value
+        .strip_prefix(prefix)
+        .and_then(|name| name.strip_suffix(".json"))
+        .ok_or_else(|| {
+            XtaskError::integrity(
+                "P0A_APPROVAL_PATH_INVALID",
+                format!("malformed {role} approval path {value}"),
+            )
+        })?;
+    if digits.len() != 8 || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err(XtaskError::integrity(
+            "P0A_APPROVAL_PATH_INVALID",
+            format!("malformed {role} approval path {value}"),
+        ));
+    }
+    let sequence: u32 = digits.parse().expect("eight digits parse");
+    if sequence == 0 {
+        return Err(XtaskError::integrity(
+            "P0A_APPROVAL_PATH_INVALID",
+            "approval attempt sequence zero is reserved",
+        ));
+    }
+    Ok(sequence)
+}
+
+fn approval_reference_sequence(approvals: &[ApprovalRef]) -> Result<u32> {
+    if approvals.len() != 2 {
+        return Err(XtaskError::integrity(
+            "P0A_APPROVAL_PATH_INVALID",
+            "exactly two approval references are required",
+        ));
+    }
+    let technical = parse_approval_path(&approvals[0].path, "technical")?;
+    let governance = parse_approval_path(&approvals[1].path, "data_governance")?;
+    if technical != governance {
+        return Err(XtaskError::integrity(
+            "P0A_APPROVAL_SEQUENCE_INVALID",
+            "technical and data-governance approvals use different attempt sequences",
+        ));
+    }
+    Ok(technical)
+}
+
+fn require_approval_sequence_successor(previous: u32, current: u32) -> Result<()> {
+    if previous >= current {
+        return Err(XtaskError::integrity(
+            "P0A_APPROVAL_SEQUENCE_REPLAY",
+            "acceptance chain reuses or rolls back an approval attempt sequence",
         ));
     }
     Ok(())
@@ -4277,7 +4444,12 @@ fn validate_acceptance_chain(
             expected_previous,
             "P0A_ACCEPTANCE_CHAIN_HASH_MISMATCH",
         )?;
-        current = read_json_closed(&previous_path, "P0A_ACCEPTANCE_JSON_INVALID")?;
+        let previous: Acceptance = read_json_closed(&previous_path, "P0A_ACCEPTANCE_JSON_INVALID")?;
+        validate_acceptance_shape(&previous)?;
+        let current_approval_sequence = approval_reference_sequence(&current.approvals)?;
+        let previous_approval_sequence = approval_reference_sequence(&previous.approvals)?;
+        require_approval_sequence_successor(previous_approval_sequence, current_approval_sequence)?;
+        current = previous;
     }
     Ok(())
 }
@@ -4544,12 +4716,25 @@ fn require_json_string(value: &Value, pointer: &str, expected: &str) -> Result<(
 }
 
 fn slash_relative(root: &Path, path: &Path) -> Result<String> {
-    path.strip_prefix(root)
+    let canonical_root = fs::canonicalize(root).io_context(
+        "P0A_PATH_CANONICALIZATION_FAILED",
+        format!("could not canonicalize containment root {}", root.display()),
+    )?;
+    let canonical_path = fs::canonicalize(path).io_context(
+        "P0A_PATH_CANONICALIZATION_FAILED",
+        format!("could not canonicalize retained path {}", path.display()),
+    )?;
+    canonical_path
+        .strip_prefix(&canonical_root)
         .map(|value| value.to_string_lossy().replace('\\', "/"))
         .map_err(|_| {
             XtaskError::integrity(
                 "P0A_PATH_CONTAINMENT_INVALID",
-                format!("{} is outside {}", path.display(), root.display()),
+                format!(
+                    "{} is outside {}",
+                    canonical_path.display(),
+                    canonical_root.display()
+                ),
             )
         })
 }
@@ -5377,10 +5562,20 @@ mod tests {
     }
 
     #[test]
-    fn acceptance_paths_are_bound_to_role_and_sequence() {
+    fn acceptance_paths_are_bound_to_role_and_approval_attempt() {
         let mut acceptance = sample_acceptance(1);
         validate_acceptance_shape(&acceptance).unwrap();
         acceptance.approvals[0].path = "approvals/technical-00000002.json".to_owned();
+        acceptance.approvals[1].path = "approvals/data-governance-00000002.json".to_owned();
+        validate_acceptance_shape(&acceptance).unwrap();
+        acceptance.approvals[1].path = "approvals/data-governance-00000003.json".to_owned();
+        assert_eq!(
+            validate_acceptance_shape(&acceptance).unwrap_err().code,
+            "P0A_ACCEPTANCE_INVALID"
+        );
+        acceptance = sample_acceptance(1);
+        acceptance.approvals[0].path = "approvals/technical-00000000.json".to_owned();
+        acceptance.approvals[1].path = "approvals/data-governance-00000000.json".to_owned();
         assert_eq!(
             validate_acceptance_shape(&acceptance).unwrap_err().code,
             "P0A_ACCEPTANCE_INVALID"
@@ -5390,6 +5585,94 @@ mod tests {
         assert_eq!(
             validate_acceptance_shape(&acceptance).unwrap_err().code,
             "P0A_ACCEPTANCE_INVALID"
+        );
+    }
+
+    #[test]
+    fn approval_attempt_sequence_must_advance_across_acceptances() {
+        assert_eq!(
+            require_approval_sequence_successor(2, 2).unwrap_err().code,
+            "P0A_APPROVAL_SEQUENCE_REPLAY"
+        );
+        assert_eq!(
+            require_approval_sequence_successor(3, 2).unwrap_err().code,
+            "P0A_APPROVAL_SEQUENCE_REPLAY"
+        );
+        require_approval_sequence_successor(1, 2).unwrap();
+    }
+
+    #[test]
+    fn new_acceptance_uses_selected_predecessor_but_genesis_can_follow_failed_approvals() {
+        let genesis = tempfile::tempdir().unwrap();
+        require_selected_predecessor_for_new_acceptance(genesis.path(), None, 1, 2).unwrap();
+
+        let temp = tempfile::tempdir().unwrap();
+        let acceptances = temp.path().join("acceptances");
+        fs::create_dir(&acceptances).unwrap();
+        let predecessor = sample_acceptance(1);
+        let predecessor_path = acceptances.join("00000001.json");
+        publication::write_json_new(&predecessor_path, &predecessor).unwrap();
+        let predecessor_hash = hash::file(&predecessor_path).unwrap();
+        let pointer = Pointer {
+            schema: "python-slm-p0a-phase-pointer-v1".to_owned(),
+            phase_id: "P0A".to_owned(),
+            interface_id: INTERFACE_ID.to_owned(),
+            profile_id: PROFILE_ID.to_owned(),
+            acceptance_path: "acceptances/00000001.json".to_owned(),
+            acceptance_sha256: predecessor_hash,
+            updated_at: predecessor.created_at.clone(),
+        };
+        publication::write_json_new(&temp.path().join("evidence.json"), &pointer).unwrap();
+        require_selected_predecessor_for_new_acceptance(temp.path(), Some(&predecessor), 2, 2)
+            .unwrap();
+        assert_eq!(
+            require_selected_predecessor_for_new_acceptance(temp.path(), Some(&predecessor), 2, 1,)
+                .unwrap_err()
+                .code,
+            "P0A_APPROVAL_SEQUENCE_REPLAY"
+        );
+    }
+
+    #[test]
+    fn acceptance_temp_recovery_precedes_sequence_enumeration() {
+        let temp = tempfile::tempdir().unwrap();
+        let acceptances = temp.path().join("acceptances");
+        fs::create_dir(&acceptances).unwrap();
+        let partial = acceptances.join("00000001.json.tmp-acceptance-123-456");
+        publication::write_new(&partial, b"partial").unwrap();
+        recover_all_acceptance_temporaries(temp.path()).unwrap();
+        assert!(!partial.exists());
+        assert_eq!(next_acceptance_sequence(temp.path()).unwrap(), 1);
+
+        let final_path = acceptances.join("00000001.json");
+        publication::write_new(&final_path, b"{}\n").unwrap();
+        let redundant = acceptances.join("00000001.json.tmp-acceptance-123-789");
+        publication::write_new(&redundant, b"{}\n").unwrap();
+        recover_all_acceptance_temporaries(temp.path()).unwrap();
+        assert!(final_path.exists());
+        assert!(!redundant.exists());
+        assert_eq!(next_acceptance_sequence(temp.path()).unwrap(), 2);
+    }
+
+    #[test]
+    fn slash_relative_canonicalizes_both_sides_before_containment() {
+        let temp = tempfile::tempdir().unwrap();
+        let inside = temp.path().join("nested");
+        fs::create_dir(&inside).unwrap();
+        let retained = inside.join("approval.json");
+        publication::write_new(&retained, b"{}\n").unwrap();
+        let canonical_retained = fs::canonicalize(&retained).unwrap();
+        assert_eq!(
+            slash_relative(temp.path(), &canonical_retained).unwrap(),
+            "nested/approval.json"
+        );
+
+        let outside = tempfile::tempdir().unwrap();
+        let outside_file = outside.path().join("approval.json");
+        publication::write_new(&outside_file, b"{}\n").unwrap();
+        assert_eq!(
+            slash_relative(temp.path(), &outside_file).unwrap_err().code,
+            "P0A_PATH_CONTAINMENT_INVALID"
         );
     }
 

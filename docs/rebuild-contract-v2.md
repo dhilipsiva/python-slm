@@ -273,6 +273,10 @@ P0A requires separate named technical and data-governance decisions with identit
 explicit `APPROVE` or `REJECT`, signatures or review references, and UTC timestamps. One
 person may fill both roles only when their dual authority and two distinct decisions are
 recorded. P16A separately requires the named quality-owner approval described above.
+Approval attempts use a create-new counter independent of acceptance sequencing. Failed or
+superseded approval attempts remain immutable and do not consume an acceptance number; every
+acceptance binds one exact same approval-attempt-sequence role pair by path, hash, and
+approval commit.
 
 No checklist edit, receipt, or machine output is self-approving. Any later decision change
 requires the applicable owner-approved amendment, a new identity, and rerun of the owning

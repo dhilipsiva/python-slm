@@ -270,6 +270,10 @@ Prompt:
 > validates that final commit as exactly the one-line `[ ]` to `[x]` P0A change over the
 > pointer commit parent, with no other byte changed. Later phase checkbox commits do not
 > retroactively invalidate the already validated P0A lifecycle.
+> Approval attempts and acceptances have independent create-new counters: a failed or
+> superseded approval attempt remains immutable without consuming an acceptance number, and
+> every acceptance binds the exact same approval-attempt-sequence role pair by path, hash,
+> and commit.
 >
 > Freeze `profile_id = "prototype-windows-5090-v1"` as the only supported and required
 > P1A–P16A execution profile: native Windows x86_64; AMD Ryzen 9 9950X3D; Rust
