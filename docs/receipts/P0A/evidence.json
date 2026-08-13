@@ -1,0 +1,9 @@
+{
+  "schema": "python-slm-p0a-phase-pointer-v1",
+  "phase_id": "P0A",
+  "interface_id": "portable-interface-v2",
+  "profile_id": "prototype-windows-5090-v1",
+  "acceptance_path": "acceptances/00000001.json",
+  "acceptance_sha256": "31434001719f50de1abfa06dd84200ffb8e1f0947e08c8673f6413c08dbc4fb4",
+  "updated_at": "2026-08-13T11:59:08.863780800Z"
+}
