@@ -2362,7 +2362,8 @@ pub fn finalize(repository: &Path, supplied_root: &Path) -> Result<Value> {
         )?;
         next_sequence
     };
-    let existing_acceptance = matching_retained.then_some(retained_acceptance.as_ref().unwrap());
+    let existing_acceptance =
+        select_matching_retained_acceptance(retained_acceptance.as_ref(), matching_retained);
     let approval_commit = existing_acceptance.map_or_else(
         || {
             git_line(
@@ -3938,6 +3939,13 @@ fn require_selected_predecessor_for_new_acceptance(
         "P0A_POINTER_ACCEPTANCE_HASH_MISMATCH",
     )?;
     Ok(())
+}
+
+fn select_matching_retained_acceptance(
+    retained: Option<&Acceptance>,
+    matches_current_approval: bool,
+) -> Option<&Acceptance> {
+    retained.filter(|_| matches_current_approval)
 }
 
 fn recover_acceptance_temporary(acceptance_path: &Path) -> Result<()> {
@@ -5599,6 +5607,19 @@ mod tests {
             "P0A_APPROVAL_SEQUENCE_REPLAY"
         );
         require_approval_sequence_successor(1, 2).unwrap();
+    }
+
+    #[test]
+    fn retained_acceptance_selection_is_lazy_for_genesis_and_mismatch() {
+        assert!(select_matching_retained_acceptance(None, false).is_none());
+        assert!(select_matching_retained_acceptance(None, true).is_none());
+
+        let acceptance = sample_acceptance(1);
+        assert!(select_matching_retained_acceptance(Some(&acceptance), false).is_none());
+        assert_eq!(
+            select_matching_retained_acceptance(Some(&acceptance), true),
+            Some(&acceptance)
+        );
     }
 
     #[test]
