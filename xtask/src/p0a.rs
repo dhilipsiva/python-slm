@@ -5623,6 +5623,82 @@ mod tests {
     }
 
     #[test]
+    fn genesis_finalize_from_second_approval_attempt_is_idempotent() {
+        let source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .to_path_buf();
+        let temp = tempfile::tempdir().unwrap();
+        let repository = temp.path().join("repository");
+        let source_text = source.to_string_lossy().into_owned();
+        let source_git_text = source.join(".git").to_string_lossy().into_owned();
+        let repository_text = repository.to_string_lossy().into_owned();
+        let mut setup = Recorder::default();
+        let clone = setup
+            .run_git(
+                &source,
+                &[
+                    "-c",
+                    &format!("safe.directory={source_git_text}"),
+                    "clone",
+                    "--no-hardlinks",
+                    "--quiet",
+                    source_text.as_str(),
+                    repository_text.as_str(),
+                ],
+            )
+            .unwrap();
+        assert!(
+            clone.status.success(),
+            "clone failed: status={:?}, stderr={}",
+            clone.status.code(),
+            String::from_utf8_lossy(&clone.stderr)
+        );
+        git_ok(
+            &mut setup,
+            &repository,
+            &[
+                "checkout",
+                "-B",
+                "main",
+                "62962e189a8dd9a103c4e0cc150e42ea8aa77d28",
+            ],
+        );
+
+        let first = finalize(&repository, Path::new(OUTPUT_ROOT)).unwrap();
+        assert_eq!(first["status"], "PASS");
+        assert_eq!(first["acceptance_path"], "acceptances/00000001.json");
+        let output_root = repository.join(OUTPUT_ROOT);
+        let acceptance_path = output_root.join("acceptances/00000001.json");
+        let acceptance: Acceptance =
+            read_json_closed(&acceptance_path, "TEST_ACCEPTANCE_INVALID").unwrap();
+        assert_eq!(acceptance.sequence, 1);
+        assert_eq!(
+            approval_reference_sequence(&acceptance.approvals).unwrap(),
+            2
+        );
+        assert!(acceptance.previous_acceptance_sha256.is_none());
+        let pointer = load_pointer(&output_root).unwrap();
+        assert_eq!(pointer.acceptance_path, "acceptances/00000001.json");
+        assert_eq!(
+            pointer.acceptance_sha256,
+            hash::file(&acceptance_path).unwrap()
+        );
+        assert!(!output_root.join("acceptances/00000002.json").exists());
+        let acceptance_before = fs::read(&acceptance_path).unwrap();
+        let pointer_before = fs::read(output_root.join("evidence.json")).unwrap();
+
+        let second = finalize(&repository, Path::new(OUTPUT_ROOT)).unwrap();
+        assert_eq!(second, first);
+        assert_eq!(fs::read(&acceptance_path).unwrap(), acceptance_before);
+        assert_eq!(
+            fs::read(output_root.join("evidence.json")).unwrap(),
+            pointer_before
+        );
+        assert!(!output_root.join("acceptances/00000002.json").exists());
+    }
+
+    #[test]
     fn new_acceptance_uses_selected_predecessor_but_genesis_can_follow_failed_approvals() {
         let genesis = tempfile::tempdir().unwrap();
         require_selected_predecessor_for_new_acceptance(genesis.path(), None, 1, 2).unwrap();
