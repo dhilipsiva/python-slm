@@ -1,0 +1,13 @@
+{
+  "schema": "python-slm-p0a-approval-v1",
+  "phase_id": "P0A",
+  "run_id": "20260813T105441939Z-0485a9c7dbe9ab2e31179f75",
+  "role": "technical",
+  "decision": "APPROVE",
+  "owner_identity": "dhilipsiva",
+  "review_reference": "codex-task:019fee98-6d38-7253-90a9-189b1fe7f04d#technical-approval-2",
+  "utc_timestamp": "2026-08-13T10:59:40Z",
+  "run_evidence_sha256": "1229f5ea26aad5149640d188e882214a8a4e5a93ef7325bf2d251bd4cc086c92",
+  "seal_sha256": "2faf34bf3f4f8560177979266c103a01157ad2d9d8143bb0a041ef0afe4526e8",
+  "explicit_dual_role_authority": true
+}
