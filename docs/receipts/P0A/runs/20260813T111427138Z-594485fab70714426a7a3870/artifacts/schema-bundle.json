@@ -1,0 +1,54 @@
+{
+  "schema": "python-slm-p0a-schema-bundle-v1",
+  "entries": [
+    {
+      "path": "docs/schemas/P0A/python-slm-p0-dependency-v1.schema.json",
+      "sha256": "6ba0547319ff6bb0cf22ae267f9e378a7dca60bd2759afb0bd8273779468da1d"
+    },
+    {
+      "path": "docs/schemas/P0A/python-slm-p0a-approval-v1.schema.json",
+      "sha256": "ab84e66abb5415bebfd0ed711f3e1f30e8243acc3e83437c1c4de11c4d78672a"
+    },
+    {
+      "path": "docs/schemas/P0A/python-slm-p0a-phase-acceptance-v1.schema.json",
+      "sha256": "50e88b8a8978c6b91dafb725dc573c62e6046232a37d7a3395641bf33f9dc2db"
+    },
+    {
+      "path": "docs/schemas/P0A/python-slm-p0a-phase-evidence-v1.schema.json",
+      "sha256": "8768898c8706a389b314851019ff74d3762f5460c60bce7b34ecd5bc51be1a67"
+    },
+    {
+      "path": "docs/schemas/P0A/python-slm-p0a-phase-pointer-v1.schema.json",
+      "sha256": "94f8f12ec7df4a389073c6f2939705411c7e9e83793e1a792a878dd9ea2815d6"
+    },
+    {
+      "path": "docs/schemas/P0A/python-slm-p0a-schema-bundle-v1.schema.json",
+      "sha256": "dc26d8cae8ff555841fbd274e7d46c61037ed18a6d3ddb03a23adc7a86c92bdb"
+    },
+    {
+      "path": "docs/schemas/P0A/python-slm-p0a-source-identity-v1.schema.json",
+      "sha256": "0cfedc46ba94e2f8a112c40523a3e0c783c5e0d8945900083423470dbbf41384"
+    },
+    {
+      "path": "docs/schemas/P0A/python-slm-parser-boundary-v1.schema.json",
+      "sha256": "b948bc1d1b79b63dce102980a1fb84aeab51e0c9fa99958c3a1c8a1b2148b7f8"
+    },
+    {
+      "path": "docs/schemas/portable-v2/python-slm-prototype-profile-v1.schema.json",
+      "sha256": "078749c04ae065b937ee810c4e1fe6e82ac37d0f1093f70b4a02c5c33cef6046"
+    },
+    {
+      "path": "docs/schemas/portable-v2/python-slm-prototype-sla-v1.schema.json",
+      "sha256": "7ac2e543af7afa49ee378cfccaf18de237ea558c6d97bfc2aa06175204021149"
+    },
+    {
+      "path": "docs/schemas/portable-v2/python-slm-training-memory-policy-v1.schema.json",
+      "sha256": "09502d239d31140780a7073c40cd38d73636a8dd42b5c963e3ea691ed4da5e33"
+    },
+    {
+      "path": "docs/schemas/portable-v2/tree-sitter-python-compatibility-v1.json",
+      "sha256": "2ab794ee66b0e7c6e37de2331b0bc2cdb30e1994e5ce92939f9008706c3e846a"
+    }
+  ],
+  "bundle_sha256": "115bf6976a2769e8e720b587813d94e3fa2d1e8fce121ec628844fc05573b807"
+}

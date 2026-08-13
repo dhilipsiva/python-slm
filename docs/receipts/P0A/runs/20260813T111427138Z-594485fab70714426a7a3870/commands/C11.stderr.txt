@@ -1,0 +1,1 @@
+warning: unable to access '${HOME}/.config/git/ignore': Permission denied

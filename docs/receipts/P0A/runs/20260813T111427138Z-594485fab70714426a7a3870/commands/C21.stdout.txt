@@ -1,0 +1,11 @@
+{
+  "audit_result": "PASS",
+  "audit_scope": "xtask_locked_runtime_and_build_dependency_closure",
+  "metadata_json_parse": "PASS",
+  "package_count": 650,
+  "raw_metadata_retained": false,
+  "raw_stdout_bytes": 3156438,
+  "raw_stdout_sha256": "bcc02b9bd4ed4efcee20a91c0a28644e4d544e51ee8d1608f82ca31d1aa26d11",
+  "resolve_node_count": 650,
+  "schema": "python-slm-cargo-metadata-audit-summary-v1"
+}

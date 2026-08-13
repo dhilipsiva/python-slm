@@ -1,0 +1,87 @@
+{
+  "allowed_semantics": [
+    "SOURCE-002",
+    "SOURCE-003",
+    "DEDUP-001",
+    "DECONTAM-001"
+  ],
+  "compatibility_corpus": {
+    "path": "docs/schemas/portable-v2/tree-sitter-python-compatibility-v1.json",
+    "sha256": "2ab794ee66b0e7c6e37de2331b0bc2cdb30e1994e5ce92939f9008706c3e846a"
+  },
+  "generated_sources": [
+    {
+      "path": "bindings/rust/build.rs",
+      "sha256": "4e069992deffe54f04909739e954f581409c7d167cb5ba1f775717258751568f"
+    },
+    {
+      "path": "src/grammar.json",
+      "sha256": "2adc15e78f4dae293e85de1517c45bcee2f8b075fa30a083c658925b944afec4"
+    },
+    {
+      "path": "src/node-types.json",
+      "sha256": "a2456847bea3adff5b2222b2f7b03a870159470d8908622204e6eb29ee2fe45e"
+    },
+    {
+      "path": "src/parser.c",
+      "sha256": "a895f10b3cf7b2608f3283b43cd5cfed70971c7ee4a0136abbaaccbc4a7a25e0"
+    },
+    {
+      "path": "src/scanner.c",
+      "sha256": "6db82134ac2d4c90a1a1475487a625cface02662ebda9b7478cad9c7147e9afe"
+    }
+  ],
+  "native_role": "parser_only",
+  "normalized_build_flags": {
+    "tree_sitter_python": [
+      "std=c11",
+      "include=src",
+      "flag_if_supported=-Wno-unused-value",
+      "target_env=msvc:flag=-utf-8",
+      "file=src/parser.c",
+      "file=src/scanner.c"
+    ],
+    "tree_sitter_runtime": [
+      "feature_bindgen=false",
+      "feature_wasm=false",
+      "flag_if_supported=-std=c11",
+      "flag_if_supported=-fvisibility=hidden",
+      "flag_if_supported=-Wshadow",
+      "flag_if_supported=-Wno-unused-parameter",
+      "flag_if_supported=-Wno-incompatible-pointer-types",
+      "include=src",
+      "include=src/wasm",
+      "include=include",
+      "define=_POSIX_C_SOURCE=200112L",
+      "define=_DEFAULT_SOURCE",
+      "warnings=false",
+      "file=src/lib.c"
+    ]
+  },
+  "python_codegen": false,
+  "runtime_sources": [
+    {
+      "path": "binding_rust/build.rs",
+      "sha256": "6c1a090f4ac12621effce41a9bac54182b155f252a84b3bbb51cbcd58330593d"
+    },
+    {
+      "path": "include/tree_sitter/api.h",
+      "sha256": "937c5389713f99318ac7adbdb3a95e9976bbd211e35e37ed5df878f29aa86c30"
+    },
+    {
+      "path": "src/lib.c",
+      "sha256": "6bca070a6a70740c8e8af244af8a7311dbea09fbb60372376f5260facaf785f0"
+    }
+  ],
+  "schema": "python-slm-parser-boundary-v1",
+  "tree_sitter": {
+    "package_checksum": "6d7b8994f367f16e6fa14b5aebbcb350de5d7cbea82dc5b00ae997dd71680dd2",
+    "runtime_source_identity": "crates.io:tree-sitter@0.25.8#6d7b8994f367f16e6fa14b5aebbcb350de5d7cbea82dc5b00ae997dd71680dd2",
+    "version": "0.25.8"
+  },
+  "tree_sitter_python": {
+    "language_abi_version": 15,
+    "package_checksum": "6bf85fd39652e740bf60f46f4cda9492c3a9ad75880575bf14960f775cb74a1c",
+    "version": "0.25.0"
+  }
+}
