@@ -7,6 +7,7 @@ $module = Import-Module -Name $modulePath -Force -PassThru
 $script:Passed = 0
 $script:Failed = 0
 $script:Failures = [Collections.Generic.List[string]]::new()
+$moduleAudit=[pscustomobject][ordered]@{method='toolhelp32';audited_process_count=1;successful_snapshots=1;failed_snapshots=0;last_error=$null}
 
 function Invoke-P2Test {
     param([Parameter(Mandatory)][string]$Name, [Parameter(Mandatory)][scriptblock]$Body)
@@ -146,11 +147,49 @@ try {
         Assert-P2Test ($cargo -ceq 'set CARGO_PKG_AUTHORS=<redacted-authors>&& set NEXT=1') 'Cargo author identity list was not fully redacted'
     }
     Invoke-P2Test 'WinPS5 process runner canonicalizes the parent environment' {
-        $result = Invoke-P2Process -FilePath $env:ComSpec -ArgumentList @('/d', '/c', 'echo P2_PROCESS_OK') `
+        $result = Invoke-P2Process -FilePath $env:ComSpec -ArgumentList @('/d', '/c', 'echo P2_PROCESS_OK & ping -n 2 127.0.0.1 >nul') `
             -WorkingDirectory $repositoryRoot -Environment @{ P2_CHILD_MARKER = 'present' } -TimeoutSeconds 10
         Assert-P2Test (-not $result.timed_out) 'process runner timed out'
         Assert-P2Test ($result.exit_code -eq 0) 'process runner failed'
         Assert-P2Test ($result.stdout.Trim() -ceq 'P2_PROCESS_OK') 'process stdout mismatch'
+        Assert-P2Test ($result.module_audit.method-ceq'toolhelp32'-and$result.module_audit.audited_process_count-ge1-and$result.module_audit.successful_snapshots-ge$result.module_audit.audited_process_count-and$result.module_audit.failed_snapshots-eq0-and@($result.loaded_modules).Count-gt0) 'process module audit was not complete'
+    }
+    Invoke-P2Test 'process module audit covers a helper that outlives its parent' {
+        $root=Join-Path ([IO.Path]::GetTempPath()) ('p2-module-tree-'+[Guid]::NewGuid().ToString('N'))
+        try{
+            [void][IO.Directory]::CreateDirectory($root);$child=Join-Path $root 'child.ps1';$parent=Join-Path $root 'parent.ps1';$ready=Join-Path $root 'child.ready'
+            Write-P2Utf8LfFile $child @'
+param([Parameter(Mandatory)][string]$Ready)
+Start-Sleep -Milliseconds 200
+Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public static class P2LoadKnownDll {[DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)]public static extern IntPtr LoadLibrary(string path);}'
+$handle=[P2LoadKnownDll]::LoadLibrary((Join-Path $env:SystemRoot 'System32\winhttp.dll'))
+if($handle-eq[IntPtr]::Zero){exit 7}
+[IO.File]::WriteAllText($Ready,'ready')
+Start-Sleep -Milliseconds 700
+'@ -CreateNew
+            Write-P2Utf8LfFile $parent @'
+param([Parameter(Mandatory)][string]$Child,[Parameter(Mandatory)][string]$Ready)
+$exe=(Get-Command powershell.exe -ErrorAction Stop).Source
+$start=[Diagnostics.ProcessStartInfo]::new($exe,"-NoProfile -ExecutionPolicy Bypass -File `"$Child`" -Ready `"$Ready`"")
+$start.UseShellExecute=$false;$null=[Diagnostics.Process]::Start($start)
+$deadline=[DateTime]::UtcNow.AddSeconds(5)
+while(-not(Test-Path -LiteralPath $Ready)){if([DateTime]::UtcNow-ge$deadline){exit 8};Start-Sleep -Milliseconds 25}
+'@ -CreateNew
+            $powershell=(Get-Command powershell.exe -ErrorAction Stop).Source
+            $result=Invoke-P2Process -FilePath $powershell -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',$parent,'-Child',$child,'-Ready',$ready) `
+                -WorkingDirectory $repositoryRoot -TimeoutSeconds 20
+            $known=[IO.Path]::GetFullPath((Join-Path $env:SystemRoot 'System32\winhttp.dll'))
+            Assert-P2Test (-not$result.timed_out-and$result.exit_code-eq0-and-not$result.unexpected_descendants) 'helper process tree did not drain cleanly'
+            Assert-P2Test ($result.module_audit.audited_process_count-ge2-and$result.module_audit.failed_snapshots-eq0) `
+                "helper PID audit mismatch (audited=$($result.module_audit.audited_process_count), successful=$($result.module_audit.successful_snapshots), failed=$($result.module_audit.failed_snapshots), error=$($result.module_audit.last_error))"
+            Assert-P2Test ($known-in@($result.loaded_modules)) 'helper-only known DLL was absent from the process-tree audit'
+        }finally{if(Test-Path $root){Remove-Item $root -Recurse -Force}}
+    }
+    Invoke-P2Test 'candidate failure emitter preserves schema-null command identity' {
+        $failure=&$module {Get-P2CandidateFailure -Message 'runtime provenance failed' -CommandId $null -Code RUNTIME_PROVENANCE_FAILED -Category 3}
+        Assert-P2Test ($null-eq$failure.command_id) 'null candidate command identity became an empty string'
+        $threw=$false;try{$null=&$module {Get-P2CandidateFailure -Message 'bad' -CommandId ''}}catch{$threw=$true}
+        Assert-P2Test $threw 'explicit empty candidate command identity was accepted'
     }
     Invoke-P2Test 'fresh WinPS5 import resolves monitor construction and provenance' {
         $root=Join-Path ([IO.Path]::GetTempPath()) ('p2-fresh-native-'+[Guid]::NewGuid().ToString('N'))
@@ -276,7 +315,7 @@ $m=Import-Module -Name $ModulePath -Force -PassThru
     Invoke-P2Test 'runtime provenance rejects CUDA DLL outside qualified roots' {
         $root=Join-Path ([IO.Path]::GetTempPath()) ('p2-dll-'+[Guid]::NewGuid().ToString('N'))
         try{[void][IO.Directory]::CreateDirectory($root);$dll=Join-Path $root 'cudart64_13.dll';Write-P2Utf8LfFile $dll 'fake' -CreateNew
-            $p=Get-P2LoadedModuleProvenance -LoadedModules @($dll) -CudaToolkitRoot (Join-Path $root 'toolkit') -WindowsRoot $env:SystemRoot
+            $p=Get-P2LoadedModuleProvenance -LoadedModules @($dll) -CudaToolkitRoot (Join-Path $root 'toolkit') -WindowsRoot $env:SystemRoot -ModuleAudit $moduleAudit -DriverPackageAnchor '${WINDOWS}/System32/DriverStore/FileRepository/fake'
             Assert-P2Test (-not $p.all_allowed) 'foreign CUDA DLL accepted'}finally{if(Test-Path $root){Remove-Item $root -Recurse -Force}}
     }
     Invoke-P2Test 'CPU isolation detects CUDA and Python evidence' {
@@ -341,6 +380,9 @@ $m=Import-Module -Name $ModulePath -Force -PassThru
         $valid=[pscustomobject]@{pid=42;name='vctip';path=(Join-Path $toolsRoot 'bin\Hostx64\x64\vctip.exe')}
         $accepted=&$module {param($record,$root) Test-P2QualifiedVctipProcessSet -Processes @($record) -Environment @{VCToolsInstallDir=$root}} $valid $toolsRoot
         Assert-P2Test $accepted 'qualified vctip process was rejected'
+        $upper=[pscustomobject]@{pid=42;name='VCTIP';path=(Join-Path $toolsRoot 'bin\Hostx64\x64\VCTIP.EXE')}
+        $accepted=&$module {param($record,$root) Test-P2QualifiedVctipProcessSet -Processes @($record) -Environment @{VCToolsInstallDir=$root}} $upper $toolsRoot
+        Assert-P2Test $accepted 'uppercase qualified VCTIP process was rejected'
         foreach($invalid in @(
                 [pscustomobject]@{pid=42;name='powershell';path=$valid.path},
                 [pscustomobject]@{pid=42;name='vctip';path='C:\Windows\System32\vctip.exe'},
@@ -353,7 +395,7 @@ $m=Import-Module -Name $ModulePath -Force -PassThru
         $empty=&$module { ConvertTo-P2InvocationProjection -Invocations @() }
         Assert-P2Test (@($empty.results).Count-eq0-and@($empty.references).Count-eq0-and@($empty.runtime_provenance).Count-eq0) 'empty invocation projection failed'
         $valid=[pscustomobject]@{result=[pscustomobject]@{status='PASS'};reference=[pscustomobject]@{path='candidate-results/burn.json'}
-            runtime_provenance=[pscustomobject]@{loaded_modules=@();qualified_roots=@();all_allowed=$true}}
+            runtime_provenance=[pscustomobject]@{audit_method='toolhelp32';audited_process_count=1;successful_snapshot_count=1;failed_snapshot_count=0;loaded_modules=@();qualified_roots=@();all_allowed=$true}}
         $projected=&$module {param($value)ConvertTo-P2InvocationProjection -Invocations @($value)} $valid
         Assert-P2Test (@($projected.results).Count-eq1-and@($projected.references).Count-eq1-and@($projected.runtime_provenance).Count-eq1) 'valid invocation projection failed'
         $invalid=[pscustomobject]@{result=$valid.result;reference=$valid.reference};$threw=$false
@@ -362,7 +404,7 @@ $m=Import-Module -Name $ModulePath -Force -PassThru
     }
     Invoke-P2Test 'failed candidate aggregation accepts canonical empty benchmark evidence' {
         $runtime=&$module { Merge-P2RuntimeProvenance -Records @() }
-        Assert-P2Test ($runtime.all_allowed-and@($runtime.loaded_modules).Count-eq0-and@($runtime.qualified_roots).Count-eq0) 'empty runtime provenance merge failed'
+        Assert-P2Test ((-not$runtime.all_allowed)-and$runtime.audit_method-ceq'toolhelp32'-and$runtime.audited_process_count-eq0-and@($runtime.loaded_modules).Count-eq0-and@($runtime.qualified_roots).Count-eq0) 'empty runtime provenance merge failed closed'
         $failure=[pscustomobject]@{code='CANDIDATE_RESULT_FAILED';category=5;message='candidate failed before benchmarks';command_id='C18'}
         $aggregate=&$module {param($runtime,$failure) New-P2CandidateAggregate -CandidateId burn-cubecl -CpuSmoke $null -Allocation $null -Correctness $null `
             -BenchmarkRounds @() -NvmlMeasurements @() -Summary $null -RuntimeProvenance $runtime -Failures @($failure)} $runtime $failure
@@ -437,7 +479,7 @@ $m=Import-Module -Name $ModulePath -Force -PassThru
         try{[void][IO.Directory]::CreateDirectory($root)
             $base=[pscustomobject][ordered]@{schema='python-slm-backend-candidate-aggregate-v1';candidate_id='candle';role='framework';status='FAIL'
                 cpu_smoke=$null;allocation=$null;correctness=$null;benchmark_rounds=@();nvml_measurements=@();summary=$null
-                runtime_provenance=[pscustomobject][ordered]@{loaded_modules=@();qualified_roots=@();all_allowed=$true}
+                runtime_provenance=[pscustomobject][ordered]@{audit_method='toolhelp32';audited_process_count=1;successful_snapshot_count=1;failed_snapshot_count=0;loaded_modules=@();qualified_roots=@();all_allowed=$true}
                 failures=@([pscustomobject][ordered]@{code='CANDIDATE_FAILED';category=5;message='bounded failure';command_id='C42'})}
             $null=&$module {param($v,$r)Assert-P2CandidateAggregate $v $r} $base $root
             $mutations=@(
@@ -448,7 +490,7 @@ $m=Import-Module -Name $ModulePath -Force -PassThru
                 {param($v)$v.nvml_measurements=@([pscustomobject]@{command_id='C42';round=2;workload='projection';baseline_samples=20;baseline_interval_ms=50;sample_interval_ms=20;total_bytes=1000;baseline_bytes=100;peak_bytes=200;delta_bytes=100;sample_count=1;max_gap_ms=101;baseline_foreign_process_count=0;maximum_foreign_process_count=0;error=$null})})
             foreach($mutation in $mutations){$value=Copy-P2TestObject $base;&$mutation $value;$threw=$false;try{$null=&$module {param($v,$r)Assert-P2CandidateAggregate $v $r} $value $root}catch{$threw=$true}
                 Assert-P2Test $threw 'malformed failed aggregate was accepted'}
-            $notRun=&$module {New-P2NotRunAggregate candle framework};$notRun.runtime_provenance=[pscustomobject]@{loaded_modules=@();qualified_roots=@();all_allowed=$true};$threw=$false
+            $notRun=&$module {New-P2NotRunAggregate candle framework};$notRun.runtime_provenance=[pscustomobject]@{audit_method='toolhelp32';audited_process_count=1;successful_snapshot_count=1;failed_snapshot_count=0;loaded_modules=@();qualified_roots=@();all_allowed=$true};$threw=$false
             try{$null=&$module {param($v,$r)Assert-P2CandidateAggregate $v $r} $notRun $root}catch{$threw=$true};Assert-P2Test $threw 'NOT_RUN aggregate retained runtime evidence'
         }finally{if(Test-Path $root){Remove-Item $root -Recurse -Force}}
     }
@@ -579,15 +621,64 @@ $m=Import-Module -Name $ModulePath -Force -PassThru
         }
     }
     Invoke-P2Test 'runtime provenance requires GPU boundary but CPU forbids it' {
-        $emptyGpu=Get-P2LoadedModuleProvenance -LoadedModules @() -CudaToolkitRoot $repositoryRoot -WindowsRoot $env:SystemRoot -CandidateId burn-cubecl
+        $emptyGpu=Get-P2LoadedModuleProvenance -LoadedModules @() -CudaToolkitRoot $repositoryRoot -WindowsRoot $env:SystemRoot -ModuleAudit $moduleAudit -DriverPackageAnchor '${WINDOWS}/System32/DriverStore/FileRepository/fake' -CandidateId burn-cubecl
         Assert-P2Test (-not$emptyGpu.all_allowed) 'empty GPU provenance accepted'
-        $emptyCpu=Get-P2LoadedModuleProvenance -LoadedModules @() -CudaToolkitRoot $repositoryRoot -WindowsRoot $env:SystemRoot -CandidateId burn-cubecl -CpuMode
+        $emptyCpu=Get-P2LoadedModuleProvenance -LoadedModules @() -CudaToolkitRoot $repositoryRoot -WindowsRoot $env:SystemRoot -ModuleAudit $moduleAudit -DriverPackageAnchor '${WINDOWS}/System32/DriverStore/FileRepository/fake' -CandidateId burn-cubecl -CpuMode
         Assert-P2Test $emptyCpu.all_allowed 'clean CPU provenance rejected'
+        $failedAudit=Copy-P2TestObject $moduleAudit;$failedAudit.successful_snapshots=0;$failedAudit.failed_snapshots=1;$failedAudit.last_error='Win32Exception'
+        $failed=Get-P2LoadedModuleProvenance -LoadedModules @() -CudaToolkitRoot $repositoryRoot -WindowsRoot $env:SystemRoot -ModuleAudit $failedAudit -DriverPackageAnchor '${WINDOWS}/System32/DriverStore/FileRepository/fake' -CandidateId burn-cubecl -CpuMode
+        Assert-P2Test (-not$failed.all_allowed) 'failed module snapshot audit was accepted'
+    }
+    Invoke-P2Test 'live driver inventory is P1B anchored signed and complete' {
+        $manifest=Get-Content (Join-Path $repositoryRoot 'docs\receipts\P1B\runs\20260811T174734119Z-7e7135b7cb794eb791c0e607\artifacts\environment.json') -Raw|ConvertFrom-Json
+        $null=&$module {Initialize-P2NativeInterop;[P2NvmlMonitor]::EnsureQualifiedLibrary();[P2CudaHealth]::Probe()}
+        $inventory=&$module {param($v)Get-P2QualifiedDriverModuleInventory $v $env:SystemRoot} $manifest
+        Assert-P2Test (&$module {param($i)Assert-P2DriverModuleInventory $i} $inventory) 'closed driver inventory validator rejected the live inventory'
+        Assert-P2Test ([string]$inventory.package_anchor-cmatch'^\$\{WINDOWS\}/System32/DriverStore/FileRepository/[^/]+$') 'driver package anchor is not canonical'
+        $paths=@($inventory.observed_modules.path)
+        Assert-P2Test ('${WINDOWS}/System32/nvcuda.dll'-in$paths-and@($paths|Where-Object{$_-match'/nvcuda64\.dll$'}).Count-eq1) 'driver inventory lacks required CUDA loader pair'
+        Assert-P2Test (@($inventory.observed_modules).Count-ge2-and@($paths|Sort-Object -Unique).Count-eq$paths.Count) 'observed driver module inventory is empty or duplicated'
+        foreach($record in @($inventory.observed_modules)){
+            $resolved=&$module {param($t,$a)Resolve-P2RetainedRuntimeModule $t $env:CUDA_PATH $env:SystemRoot $a} $record.path $inventory.package_anchor
+            Assert-P2Test ((Get-P2Sha256 $resolved)-ceq[string]$record.sha256) 'driver inventory record does not live-rehash'
+        }
+        $duplicate=Copy-P2TestObject $inventory;$duplicate.observed_modules=@($duplicate.observed_modules)+@($duplicate.observed_modules[0])
+        $threw=$false;try{$null=&$module {param($i)Assert-P2DriverModuleInventory $i} $duplicate}catch{$threw=$true}
+        Assert-P2Test $threw 'duplicate host driver inventory path was accepted'
+        $missing=Copy-P2TestObject $inventory;$missing.observed_modules=@($missing.observed_modules|Where-Object path -ne '${WINDOWS}/System32/nvcuda.dll')
+        $threw=$false;try{$null=&$module {param($i)Assert-P2DriverModuleInventory $i} $missing}catch{$threw=$true}
+        Assert-P2Test $threw 'host driver inventory without nvcuda.dll was accepted'
+    }
+    Invoke-P2Test 'retained runtime resolver rejects second packages and arbitrary System32 modules' {
+        $manifest=Get-Content (Join-Path $repositoryRoot 'docs\receipts\P1B\runs\20260811T174734119Z-7e7135b7cb794eb791c0e607\artifacts\environment.json') -Raw|ConvertFrom-Json
+        $inventory=&$module {param($v)Initialize-P2NativeInterop;$null=[P2NvmlMonitor]::EnsureQualifiedLibrary();$null=[P2CudaHealth]::Probe();Get-P2QualifiedDriverModuleInventory $v $env:SystemRoot} $manifest
+        foreach($token in @('${WINDOWS}/System32/DriverStore/FileRepository/other-package/nvcuda64.dll','${WINDOWS}/System32/kernel32.dll')){
+            $threw=$false;try{$null=&$module {param($t,$a)Resolve-P2RetainedRuntimeModule $t $env:CUDA_PATH $env:SystemRoot $a} $token $inventory.package_anchor}catch{$threw=$true}
+            Assert-P2Test $threw "unqualified retained runtime token was accepted: $token"
+        }
+    }
+    Invoke-P2Test 'acceptance runtime validator rejects hash package and System32 mutations' {
+        $manifest=Get-Content (Join-Path $repositoryRoot 'docs\receipts\P1B\runs\20260811T174734119Z-7e7135b7cb794eb791c0e607\artifacts\environment.json') -Raw|ConvertFrom-Json
+        $inventory=&$module {param($v)Initialize-P2NativeInterop;$null=[P2NvmlMonitor]::EnsureQualifiedLibrary();$null=[P2CudaHealth]::Probe();Get-P2QualifiedDriverModuleInventory $v $env:SystemRoot} $manifest
+        $expected=@{};foreach($record in @($inventory.observed_modules)){$expected[[string]$record.path]=[string]$record.sha256}
+        $records=Copy-P2TestObject @($inventory.observed_modules)
+        Assert-P2Test (&$module {param($r,$e,$i)Assert-P2RetainedRuntimeModules $r burn-cubecl $e $i $env:CUDA_PATH $env:SystemRoot} $records $expected $inventory) 'acceptance runtime validator rejected live retained modules'
+        $wrong=Copy-P2TestObject $records;$wrong[0].sha256='0'*64
+        $threw=$false;try{$null=&$module {param($r,$e,$i)Assert-P2RetainedRuntimeModules $r burn-cubecl $e $i $env:CUDA_PATH $env:SystemRoot} $wrong $expected $inventory}catch{$threw=$true}
+        Assert-P2Test $threw 'acceptance runtime validator accepted a wrong live hash'
+        $second=Copy-P2TestObject $records;$packageIndex=0..($second.Count-1)|Where-Object{$second[$_].path-match'/nvcuda64\.dll$'}|Select-Object -First 1
+        $second[$packageIndex].path='${WINDOWS}/System32/DriverStore/FileRepository/other-package/nvcuda64.dll'
+        $threw=$false;try{$null=&$module {param($r,$e,$i)Assert-P2RetainedRuntimeModules $r burn-cubecl $e $i $env:CUDA_PATH $env:SystemRoot} $second $expected $inventory}catch{$threw=$true}
+        Assert-P2Test $threw 'acceptance runtime validator accepted a second driver package'
+        $system=Copy-P2TestObject $records;$systemIndex=0..($system.Count-1)|Where-Object{$system[$_].path-ceq'${WINDOWS}/System32/nvcuda.dll'}|Select-Object -First 1
+        $system[$systemIndex].path='${WINDOWS}/System32/kernel32.dll';$system[$systemIndex].sha256=Get-P2Sha256 (Join-Path $env:SystemRoot 'System32\kernel32.dll')
+        $threw=$false;try{$null=&$module {param($r,$e,$i)Assert-P2RetainedRuntimeModules $r burn-cubecl $e $i $env:CUDA_PATH $env:SystemRoot} $system $expected $inventory}catch{$threw=$true}
+        Assert-P2Test $threw 'acceptance runtime validator accepted an arbitrary System32 DLL'
     }
     Invoke-P2Test 'Candle runtime provenance rejects dynamically loaded cuDNN' {
         $root=Join-Path ([IO.Path]::GetTempPath()) ('p2-cudnn-'+[Guid]::NewGuid().ToString('N'))
         try{[void][IO.Directory]::CreateDirectory($root);$dll=Join-Path $root 'cudnn64_9.dll';Write-P2Utf8LfFile $dll 'fake' -CreateNew
-            $p=Get-P2LoadedModuleProvenance -LoadedModules @($dll) -CudaToolkitRoot $root -WindowsRoot $env:SystemRoot -CandidateId candle
+            $p=Get-P2LoadedModuleProvenance -LoadedModules @($dll) -CudaToolkitRoot $root -WindowsRoot $env:SystemRoot -ModuleAudit $moduleAudit -DriverPackageAnchor '${WINDOWS}/System32/DriverStore/FileRepository/fake' -CandidateId candle
             Assert-P2Test (-not$p.all_allowed) 'Candle dynamically loaded cuDNN was accepted'
         }finally{if(Test-Path $root){Remove-Item $root -Recurse -Force}}
     }
@@ -700,7 +791,7 @@ burn.workspace = true
         $root=Join-Path ([IO.Path]::GetTempPath()) ('p2-runtime-boundary-'+[Guid]::NewGuid().ToString('N'))
         try{[void][IO.Directory]::CreateDirectory($root)
             foreach($leaf in @('python311.dll','libpython312.dll','nvml.dll','nvcuda.dll')){Write-P2Utf8LfFile (Join-Path $root $leaf) 'fake' -CreateNew}
-            foreach($leaf in @('python311.dll','libpython312.dll','nvml.dll','nvcuda.dll')){$p=Get-P2LoadedModuleProvenance -LoadedModules @((Join-Path $root $leaf)) -CudaToolkitRoot $root -WindowsRoot $env:SystemRoot -CandidateId candle
+            foreach($leaf in @('python311.dll','libpython312.dll','nvml.dll','nvcuda.dll')){$p=Get-P2LoadedModuleProvenance -LoadedModules @((Join-Path $root $leaf)) -CudaToolkitRoot $root -WindowsRoot $env:SystemRoot -ModuleAudit $moduleAudit -DriverPackageAnchor '${WINDOWS}/System32/DriverStore/FileRepository/fake' -CandidateId candle
                 Assert-P2Test (-not$p.all_allowed) "copied or Python module was accepted: $leaf"}
         }finally{if(Test-Path $root){Remove-Item $root -Recurse -Force}}
     }

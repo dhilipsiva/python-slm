@@ -1,0 +1,104 @@
+{
+    "schema":  "python-slm-p2-host-state-v1",
+    "status":  "PASS",
+    "gpu":  "NVIDIA GeForce RTX 5090",
+    "compute_capability":  "12.0",
+    "driver_version":  "610.88",
+    "cuda_toolkit_version":  "13.1.0",
+    "foreign_gpu_process_count":  0,
+    "nvml_library":  {
+                         "path":  "${WINDOWS}/System32/nvml.dll",
+                         "sha256":  "029885fa79dcae6c6dd0a5cf41bf4300464834e864c985d44dc07538fb06670e",
+                         "provenance":  "p2_live_system32_driver_boundary"
+                     },
+    "cuda_health_recoveries":  [
+                                   {
+                                       "candidate_id":  "candle",
+                                       "failed_command_id":  "C22",
+                                       "trigger":  "candidate_result_fail",
+                                       "result":  "PASS"
+                                   }
+                               ],
+    "benchmark_monitor_checks":  [
+                                     {
+                                         "candidate_id":  "burn-cubecl",
+                                         "measurement":  {
+                                                             "command_id":  "C23",
+                                                             "round":  1,
+                                                             "workload":  "projection",
+                                                             "baseline_samples":  20,
+                                                             "baseline_interval_ms":  50,
+                                                             "sample_interval_ms":  20,
+                                                             "total_bytes":  34190917632,
+                                                             "baseline_bytes":  440401920,
+                                                             "peak_bytes":  5281902592,
+                                                             "delta_bytes":  4841500672,
+                                                             "sample_count":  2298,
+                                                             "max_gap_ms":  64,
+                                                             "baseline_foreign_process_count":  0,
+                                                             "maximum_foreign_process_count":  0,
+                                                             "error":  null
+                                                         }
+                                     },
+                                     {
+                                         "candidate_id":  "burn-cubecl",
+                                         "measurement":  {
+                                                             "command_id":  "C24",
+                                                             "round":  4,
+                                                             "workload":  "projection",
+                                                             "baseline_samples":  20,
+                                                             "baseline_interval_ms":  50,
+                                                             "sample_interval_ms":  20,
+                                                             "total_bytes":  34190917632,
+                                                             "baseline_bytes":  440401920,
+                                                             "peak_bytes":  5281902592,
+                                                             "delta_bytes":  4841500672,
+                                                             "sample_count":  2297,
+                                                             "max_gap_ms":  63,
+                                                             "baseline_foreign_process_count":  0,
+                                                             "maximum_foreign_process_count":  0,
+                                                             "error":  null
+                                                         }
+                                     },
+                                     {
+                                         "candidate_id":  "burn-cubecl",
+                                         "measurement":  {
+                                                             "command_id":  "C25",
+                                                             "round":  1,
+                                                             "workload":  "ffn-expansion",
+                                                             "baseline_samples":  20,
+                                                             "baseline_interval_ms":  50,
+                                                             "sample_interval_ms":  20,
+                                                             "total_bytes":  34190917632,
+                                                             "baseline_bytes":  440401920,
+                                                             "peak_bytes":  5281902592,
+                                                             "delta_bytes":  4841500672,
+                                                             "sample_count":  2400,
+                                                             "max_gap_ms":  66,
+                                                             "baseline_foreign_process_count":  0,
+                                                             "maximum_foreign_process_count":  0,
+                                                             "error":  null
+                                                         }
+                                     },
+                                     {
+                                         "candidate_id":  "burn-cubecl",
+                                         "measurement":  {
+                                                             "command_id":  "C26",
+                                                             "round":  4,
+                                                             "workload":  "ffn-expansion",
+                                                             "baseline_samples":  20,
+                                                             "baseline_interval_ms":  50,
+                                                             "sample_interval_ms":  20,
+                                                             "total_bytes":  34190917632,
+                                                             "baseline_bytes":  440401920,
+                                                             "peak_bytes":  5281902592,
+                                                             "delta_bytes":  4841500672,
+                                                             "sample_count":  2393,
+                                                             "max_gap_ms":  63,
+                                                             "baseline_foreign_process_count":  0,
+                                                             "maximum_foreign_process_count":  0,
+                                                             "error":  null
+                                                         }
+                                     }
+                                 ]
+}

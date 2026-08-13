@@ -1,29 +1,59 @@
 # Clean-Rebuild Execution Plan
 
 Dependencies, not phase numbers, define admissible order. Never start a phase before its
-dependencies pass. The GPU/backend track (P1B–P2), data track (P3–P9A), and CPU model
-track (P3–P9B) may run in parallel where dependencies permit. The existing Rust code is
+dependencies pass. The accelerator/backend track (P1B–P2), data track (P3–P9A), and CPU
+model track (P3–P9B) may run in parallel where dependencies permit. The existing Rust code is
 reference evidence, not code to copy. `AGENTS.md` governs work,
 `docs/rebuild-contract.md` records the approved Phase 0 product decisions,
 `docs/receipts/P0.md` is their signed approval authority, and `docs/ARCHITECTURE.md`
-defines the target design. A conflict is a stop condition.
+defines the currently approved target design. Once P0A passes, its selected
+`docs/rebuild-contract-v2.md`, portable architecture ADR, revised architecture hash, and
+decision-ledger hash become the active amendment authority. A conflict is a stop condition.
+
+This revision starts the `portable-v2` qualification epoch. The earlier P1A and P1B
+acceptances remain immutable historical evidence for one Windows/MSVC/CUDA/SM120/RTX 5090
+tuple, and all existing P2 attempts remain immutable historical attempts. None satisfies a
+`portable-v2` dependency. New P1A, P1B, and P2 evidence is published under
+`docs/receipts/P1A-v2`, `docs/receipts/P1B-v2`, and `docs/receipts/P2-v2`; old schemas,
+runs, acceptances, pointers, and seals are never rewritten or reinterpreted.
 
 ## Operating Rules
 
 - Start every phase by reading `AGENTS.md`, `docs/rebuild-contract.md`,
   `docs/ARCHITECTURE.md`, this file, `git status`, and every dependency's authoritative
-  acceptance record plus its referenced immutable run. Preserve unrelated work.
+  acceptance record plus its referenced immutable run. After P0A, also read and validate
+  the selected P0A contract amendment, portable architecture ADR, revised architecture,
+  decision ledger, schema bundle, and owner-approval commit. Preserve unrelated work.
 - Do not run `cargo new`, `git init`, create a nested repository, broadly stage files,
   auto-commit, or tag. Use the existing repository.
 - Implement only the active phase. Do not hide failed gates with fallbacks, relaxed
   assertions, ignored errors, or claims based on unexecuted commands.
 - Normal tests are offline, deterministic, bounded, and credential-free. No Python
-  executable or Python package is part of the build or pipeline.
+  interpreter, executable, package, module, build backend, code generator, embedded
+  runtime, or Python-launched subprocess is part of or invoked by the build, data
+  preparation, verification, receipt, or training pipeline. Python-language source is
+  input data only.
+- Rust owns CLI orchestration, data preparation, tokenization, storage, model/training
+  control, checkpointing, verification, and receipt publication. C and C++ are permitted
+  only inside pinned, audited, feature-gated hardware-accelerated kernels, standard native
+  ML libraries, and native accelerator or graphics API bridges such as CUDA, HIP/ROCm,
+  and Metal, plus the pinned Tree-sitter generated C parser/runtime used solely for the
+  frozen Python CST, comment, and lexical-token semantics. No native component may own
+  orchestration or general data transformation. Accelerator components expose a narrow
+  ABI, propagate native errors, retain resources through asynchronous completion, and are
+  absent from CPU-only builds; the parser exception is independently pinned and audited.
+- Host-specific process, filesystem, dynamic-library, compiler, and accelerator mechanisms
+  exist only behind internal Rust abstractions. Public argv, schemas, exit categories,
+  atomic publication, redaction, process-tree containment, cleanup, and receipt semantics
+  are identical on Linux, macOS, and Windows. Rust invokes platform tools directly; a
+  platform shell script is never a normative entry point.
 - Every attempt writes create-new
   `docs/receipts/<phase-id>/runs/<run-id>/evidence.json` using the closed schema named by
-  its phase card, with exact command transcripts and hashes. P1A retains the published v1
-  receipt schemas; P1B uses the v2 phase-evidence, acceptance, and pointer schemas plus the
-  CUDA-environment-manifest v1 schema. Failed and superseded runs remain immutable and are
+  its phase card, with exact command transcripts and hashes. Historical P1A retains its
+  published v1 receipt schemas; historical P1B retains its published v2 schemas and CUDA
+  manifest. The
+  `portable-v2` phases use new closed, provider-neutral schema versions without changing
+  any published schema. Failed and superseded runs remain immutable and are
   never selected. A reviewed passing run gets a create-new `acceptances/<sequence>.json`
   record; the root `evidence.json` is an atomically replaceable versioned pointer containing
   that acceptance path and hash. A dependency passes only when the pointer, selected
@@ -33,7 +63,8 @@ defines the target design. A conflict is a stop condition.
   block succeeds. `docs/receipts/P0.md` is its human approval authority, the sealed run is
   its machine evidence, and P0 requires no acceptance generation or root pointer. Machine
   evidence, checklist prose, silence, or an agent audit never substitutes for human approval.
-- P1A, P1B, and P2 are the automatic machine-qualification exceptions currently authorized. A
+- Within an owner-approved `portable-v2` contract, P1A, P1B, and P2 are the automatic
+  machine-qualification exceptions. A
   passing verifier publishes an acceptance with `required_approvals: []` and selects it
   through the phase root pointer. The verifier never edits this checklist or commits. The
   owner must review and check the phase complete before a dependent phase begins; no later
@@ -46,50 +77,48 @@ defines the target design. A conflict is a stop condition.
 
 Until Phase 3 replaces the command contract, the CPU quality gate is:
 
-```powershell
+```text
 cargo fmt --all -- --check
 cargo clippy --locked --all-targets --features cpu-reference -- -D warnings
 cargo test --locked --features cpu-reference
 ```
 
-From P3 onward, every phase runs `scripts/quality-gate.ps1` plus a named targeted
-test/benchmark command for that phase and records both in its receipt.
+From P3 onward, every phase runs `cargo run --locked --bin xtask -- quality-gate` plus a
+named targeted test/benchmark command for that phase and records both in its receipt.
 
-The literal verification entry points are fixed below. P1/P2 create their named scripts;
-P3 creates `scripts/quality-gate.ps1` and rejected-by-default `scripts/verify-phase.ps1`.
-Each implementation phase installs its own case. The preceding implementation owner must
-install no-code cases before freeze: P6 installs P6A, P7 installs P7A, P8 installs P9A,
-and P13 installs P14-P16. The driver records every child argv and exit code.
+The literal verification entry points are fixed below. P0A creates the developer-only
+`xtask` binary, its cross-platform process/filesystem adapters, `verify-p0`, and the
+rejected-by-default `verify-phase` dispatcher with only P0A installed; it is not an
+installed product executable. P3 extends that dispatcher and adds `quality-gate`.
+Each implementation phase installs its own case. The preceding implementation
+owner must install no-code cases before freeze: P6 installs P6A, P7 installs P7A, P8
+installs P9A, and P13 installs P14–P16. The Rust driver records every child argv and exit
+code and behaves identically on every supported host OS.
 
-```powershell
-# P1A / P1B
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-env.ps1 -Mode Cpu -OutputRoot docs\receipts\P1A
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-env.ps1 -Mode Cuda -OutputRoot docs\receipts\P1B
-
-# P2
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\qualify-backend.ps1 -OutputRoot docs\receipts\P2
-
-# P3
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\quality-gate.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P3 -OutputRoot docs\receipts\P3
-
-# P4-P16: run quality-gate.ps1 first, then the exact phase command.
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P4 -OutputRoot docs\receipts\P4
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P5 -OutputRoot docs\receipts\P5
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P6 -OutputRoot docs\receipts\P6
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P6A -OutputRoot docs\receipts\P6A
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P7 -OutputRoot docs\receipts\P7
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P7A -OutputRoot docs\receipts\P7A
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P8 -OutputRoot docs\receipts\P8
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P9A -OutputRoot docs\receipts\P9A
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P9B -OutputRoot docs\receipts\P9B
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P10 -OutputRoot docs\receipts\P10
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P11 -OutputRoot docs\receipts\P11
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P12 -OutputRoot docs\receipts\P12
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P13 -OutputRoot docs\receipts\P13
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P14 -OutputRoot docs\receipts\P14
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P15 -OutputRoot docs\receipts\P15
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-phase.ps1 -Phase P16 -OutputRoot docs\receipts\P16
+```text
+cargo test --locked --bin xtask
+cargo run --locked --bin xtask -- verify-p0
+cargo run --locked --bin xtask -- verify-env --mode host --output-root docs/receipts/P1A-v2
+cargo run --locked --bin xtask -- verify-env --mode accelerator --output-root docs/receipts/P1B-v2
+cargo run --locked --bin xtask -- qualify-backend --output-root docs/receipts/P2-v2
+cargo run --locked --bin xtask -- quality-gate
+cargo run --locked --bin xtask -- verify-phase --phase P3 --output-root docs/receipts/P3
+cargo run --locked --bin xtask -- verify-phase --phase P4 --output-root docs/receipts/P4
+cargo run --locked --bin xtask -- verify-phase --phase P5 --output-root docs/receipts/P5
+cargo run --locked --bin xtask -- verify-phase --phase P6 --output-root docs/receipts/P6
+cargo run --locked --bin xtask -- verify-phase --phase P6A --output-root docs/receipts/P6A
+cargo run --locked --bin xtask -- verify-phase --phase P7 --output-root docs/receipts/P7
+cargo run --locked --bin xtask -- verify-phase --phase P7A --output-root docs/receipts/P7A
+cargo run --locked --bin xtask -- verify-phase --phase P8 --output-root docs/receipts/P8
+cargo run --locked --bin xtask -- verify-phase --phase P9A --output-root docs/receipts/P9A
+cargo run --locked --bin xtask -- verify-phase --phase P9B --output-root docs/receipts/P9B
+cargo run --locked --bin xtask -- verify-phase --phase P10 --output-root docs/receipts/P10
+cargo run --locked --bin xtask -- verify-phase --phase P11 --output-root docs/receipts/P11
+cargo run --locked --bin xtask -- verify-phase --phase P12 --output-root docs/receipts/P12
+cargo run --locked --bin xtask -- verify-phase --phase P13 --output-root docs/receipts/P13
+cargo run --locked --bin xtask -- verify-phase --phase P14 --output-root docs/receipts/P14
+cargo run --locked --bin xtask -- verify-phase --phase P15 --output-root docs/receipts/P15
+cargo run --locked --bin xtask -- verify-phase --phase P16 --output-root docs/receipts/P16
 ```
 
 ## Phase 0 — Freeze the Rebuild Contract
@@ -144,169 +173,211 @@ PASS:
 
 VERIFY:
 
-```powershell
-$ErrorActionPreference = 'Stop'
-$baseline = 'b1ebb455cdae94bbb9fc54f246cdf2758eedf1d1'
-$sealed = @('docs/rebuild-contract.md', 'docs/receipts/P0/capture.ps1', 'docs/receipts/P0/evidence.json', 'docs/receipts/P0/runs')
-git diff --exit-code $baseline -- $sealed
-if ($LASTEXITCODE -ne 0) { throw 'sealed Phase 0 bytes changed' }
-$sealedStatus = @(git status --porcelain=v1 --untracked-files=all -- $sealed)
-if ($LASTEXITCODE -ne 0 -or $sealedStatus.Count -ne 0) { throw 'sealed Phase 0 paths are dirty or contain additions' }
-$run = Resolve-Path docs\receipts\P0\runs\20260811T074740Z-d5008e94
-Get-Content "$run\SHA256SUMS" | ForEach-Object { $expected, $relative = $_ -split '  ', 2; if ((Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $run $relative)).Hash.ToLowerInvariant() -ne $expected) { throw "seal mismatch: $relative" } }
-$receiptCommit = '86fb1e4cc68efeb651e5362c4aca85c2827d8e4d'
-$receiptSha256 = 'f08c6a41658ff287e238d6a96c4f2c874975964202c3eeced2bc0bc21f308904'
-git merge-base --is-ancestor $receiptCommit HEAD
-if ($LASTEXITCODE -ne 0) { throw 'signed P0 receipt commit is not an ancestor of HEAD' }
-git diff --exit-code $receiptCommit -- docs\receipts\P0.md
-if ($LASTEXITCODE -ne 0) { throw 'signed P0 receipt differs from its approval commit' }
-$receiptStatus = @(git status --porcelain=v1 --untracked-files=all -- docs\receipts\P0.md)
-if ($LASTEXITCODE -ne 0 -or $receiptStatus.Count -ne 0) { throw 'signed P0 receipt is dirty' }
-if ((Get-FileHash -Algorithm SHA256 -LiteralPath docs\receipts\P0.md).Hash.ToLowerInvariant() -ne $receiptSha256) { throw 'signed P0 receipt hash mismatch' }
-$receipt = Get-Content -Raw docs\receipts\P0.md
-$statusLines = [regex]::Matches($receipt, '(?m)^Status:[^\r\n]*$')
-if ($statusLines.Count -ne 1 -or $statusLines[0].Value -notmatch '^Status:[ \t]+\*\*PASS\*\*[ \t]*$') { throw 'P0 receipt has no unique PASS status' }
-foreach ($summaryName in @('Technical approval', 'Data-governance approval')) {
-    $summaryPattern = '(?m)^' + [regex]::Escape($summaryName) + ':[^\r\n]*$'
-    $summaryLines = [regex]::Matches($receipt, $summaryPattern)
-    $approvedPattern = '^' + [regex]::Escape($summaryName) + ':[ \t]+\*\*APPROVED\*\*[ \t]*$'
-    if ($summaryLines.Count -ne 1 -or $summaryLines[0].Value -notmatch $approvedPattern) { throw "missing or contradictory P0 summary: $summaryName" }
-}
-foreach ($sectionName in @('Technical approval', 'Data-governance approval')) {
-    $sectionPattern = '(?ms)^###[ \t]+' + [regex]::Escape($sectionName) + '[ \t]*\r?\n(?<body>.*?)(?=^###[ \t]+|\z)'
-    $sections = [regex]::Matches($receipt, $sectionPattern)
-    if ($sections.Count -ne 1) { throw "missing or duplicate P0 section: $sectionName" }
-    $body = $sections[0].Groups['body'].Value
-    $decisions = [regex]::Matches($body, '(?m)^Decision:[^\r\n]*$')
-    if ($decisions.Count -ne 1 -or $decisions[0].Value -notmatch '^Decision:[ \t]+\x60APPROVE\x60[ \t]*$' -or $body -match '(?i)\b(?:PENDING|REJECT)\b') { throw "ambiguous or non-approving P0 decision: $sectionName" }
-    foreach ($pattern in @('(?m)^Owner name:[ \t]+\S[^\r\n]*$', '(?m)^Review reference/signature:[ \t]+\S[^\r\n]*$', '(?m)^UTC timestamp:[ \t]+\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z[ \t]*$')) {
-        if ([regex]::Matches($body, $pattern).Count -ne 1) { throw "incomplete or duplicate P0 sign-off field in $sectionName" }
-    }
-}
+P0A has one narrow pre-dependency bootstrap exception: before P0 validation, it may add
+only the minimal `xtask` binary target and `verify-p0` command to the existing Cargo
+package, plus their focused tests. It may not create another package/workspace, draft the contract
+amendment, change any other product/data/receipt byte, or begin another phase. The command
+must preserve every pinned baseline, receipt commit/hash, sealed path/run/SHA256SUMS,
+ancestry, diff/dirty, unique status, approval-summary, owner-decision,
+signature/reference, and timestamp check from the signed historical P0 verifier, but
+implement them directly in Rust without invoking a platform shell or historical script.
+Once this command passes, P0 is validated and the remainder of P0A may begin:
+
+```text
+cargo run --locked --bin xtask -- verify-p0
 ```
 
 The sealed capture remains authoritative for its frozen contract bytes and reference
 observations. The signed receipt records technical and data-governance approval of the
 separate architecture/TODO reconciliation commit without rewriting any sealed byte.
 
-STOP/loop: a revoked or contradictory approval, failed P0 verifier, changed sealed byte,
-or frozen-decision change reopens P0 and blocks P1A/P3. Suggested commit:
+STOP/loop: a revoked or contradictory approval, failed P0 verifier, or changed sealed byte
+blocks P0A. A frozen-decision change is handled only by the create-new P0A amendment chain;
+it never rewrites P0. Suggested commit:
 `docs: approve phase 0 rebuild contract`.
 
-## Phase 1A — Verify and Pin the CPU Environment
+## Phase 0A — Approve the Portable Contract Amendment
 
-- [x] P1A complete
+- [ ] P0A complete
 
 Dependencies: P0.
 
 Prompt:
 
-> Implement the Windows PowerShell 5.1 entry point `scripts/verify-env.ps1 -Mode Cpu`.
-> From an ordinary shell, discover a complete VS 2022 x64 toolchain and selected Windows
-> SDK, qualify Rust 1.96 or newer on `x86_64-pc-windows-msvc`, and record normalized tool
-> identities without installing tools or mutating persistent state. Use only a create-new
-> P1A run and a unique owned temporary directory. Build the native ABI probe and locked
-> CPU graph from an absent `CARGO_TARGET_DIR`, then run the exact pre-P3 format, Clippy,
-> and CPU-test gate offline. Reject wrappers, build-affecting Cargo configuration, Python
-> or CUDA tool execution, CUDA features/artifacts/linkage, input mutation, redaction leaks,
-> and incomplete cleanup. Seal every completed attempt. `Cuda` is recognized only as the
-> sealed P1B `MODE_NOT_IMPLEMENTED` failure until Phase 1B. A PASS run creates an automatic
-> hash-linked acceptance and atomically advances the validated P1A root pointer; it never
-> edits this checklist or commits. Phase 1B must regression-run CPU qualification after
-> extending the shared verifier.
+> Implement the developer-only Rust `xtask` entry point and use it to verify the complete
+> immutable P0 chain. Write and obtain named owner approval for
+> `docs/rebuild-contract-v2.md` and
+> a portable-accelerator ADR that amend `SCOPE-001`, `SLA-001`, `PROV-001`, the deferred
+> qualification table, and `docs/ARCHITECTURE.md`. Seal the new contract, decision-ledger,
+> architecture, a create-new preapproval TODO snapshot, schema-bundle, and source identities
+> in a create-new amendment receipt. Preserve every P0/P1/P2 historical byte and acceptance.
+> The live TODO checkbox is intentionally outside the sealed snapshot: after review, bind
+> the checkbox-only owner-approval commit and its exact diff/hash in the P0A acceptance.
+> Any other TODO change between the sealed preapproval snapshot and that owner-approval
+> commit invalidates the P0A attempt; later phase checkbox commits follow their own receipt
+> rules and do not retroactively invalidate P0A. Require separate named technical and
+> data-governance approvals with identities, signatures/references, decisions, and UTC
+> timestamps. One person may fill both roles only when the amendment records their explicit
+> authority and two distinct role decisions.
+>
+> Freeze the supported orchestration matrix as Linux, macOS, and Windows and the
+> accelerator-provider matrix as CUDA/NVIDIA, ROCm/HIP/AMD, and Metal/Apple Silicon. This
+> is a qualification protocol, not a claim that one backend supports every tuple: every
+> receipt proves only its exact OS, host target, compiler, SDK/runtime/driver, device,
+> architecture, memory model, and backend tuple.
+>
+> Freeze the narrow parser exception: `tree-sitter-python 0.25.0` and its generated C
+> parser/runtime may be used only through the Rust data-policy boundary for the exact
+> `SOURCE-002`, `SOURCE-003`, `DEDUP-001`, and `DECONTAM-001` CST/comment/lexical semantics.
+> Pin and hash the grammar, generated C, runtime, build flags, and compatibility corpus;
+> forbid Python code generation at build or runtime and forbid C/C++ orchestration or
+> unrelated data transformation. Preserve the deterministic custom BPE, exact dedup
+> threshold, 256-component MinHash,
+> 32-by-8 LSH layout, exhaustive Jaccard check, split rules, cryptographic hash chains,
+> and role-ledger arithmetic unchanged. Any parser-driven artifact identity changes and
+> all affected downstream seeds must be explicit in the new decision ledger.
 
 VERIFY:
 
-```powershell
-$ErrorActionPreference = 'Stop'
-powershell -NoProfile -ExecutionPolicy Bypass `
-  -File scripts\tests\verify-env.tests.ps1
-if ($LASTEXITCODE -ne 0) { throw "P1A verifier tests failed: $LASTEXITCODE" }
-powershell -NoProfile -ExecutionPolicy Bypass `
-  -File scripts\verify-env.ps1 `
-  -Mode Cpu `
-  -OutputRoot docs\receipts\P1A
-if ($LASTEXITCODE -ne 0) { throw "P1A qualification failed: $LASTEXITCODE" }
+```text
+cargo test --locked --bin xtask
+cargo run --locked --bin xtask -- verify-p0
+cargo run --locked --bin xtask -- verify-phase --phase P0A --output-root docs/receipts/P0A
 ```
 
 PASS:
 
-- A clean shell produces a machine-readable CPU environment manifest.
-- A clean-target locked CPU compile and probe run without CUDA discovery or linkage.
-- Missing CPU tools fail with actionable messages.
-- A passing immutable run is selected through a verified automatic acceptance with
-  `required_approvals: []`; a failed run never changes the previously selected pointer.
-- The closed schemas, transcript hashes, run seal, acceptance chain, root pointer,
-  input-stability checks, redaction, and temporary cleanup validate before exit `0`.
-- The checkbox remains open until a human reviews the selected machine qualification.
+- The historical P0 chain validates without byte changes, and the amendment has a separate
+  create-new seal, acceptance, pointer, and named technical plus data-governance approvals.
+  Its acceptance binds the sealed preapproval TODO snapshot plus the later checkbox-only
+  owner-approval commit.
+- `xtask verify-p0` is regression-tested against the historical verifier and enforces every
+  original pinned hash, ancestry, cleanliness, approval-uniqueness, and sign-off condition.
+- The amendment records the exact cross-platform argv/schema/exit/publication contract,
+  the native-code boundary and narrow Tree-sitter exception, and the dynamic SLA formula.
+- New phase schemas and receipt namespaces cannot collide with or reinterpret historical
+  P1A/P1B/P2 evidence.
 
-STOP/loop: missing CPU tools, an invalid P0 dependency, or a failed evidence chain blocks
-P1B directly and P3 onward. Suggested commit:
-`build: add reproducible CPU environment verification`.
+STOP/loop: until P0A has owner approval, portable P1A and every downstream active phase are
+blocked. Suggested commit: `docs: approve portable rebuild contract`.
 
-## Phase 1B — Verify the RTX/CUDA Environment
+## Phase 1A — Qualify the Host Rust and C/C++ Toolchains
 
-- [x] P1B complete
+- [ ] P1A complete
 
-Dependencies: P1A.
+Dependencies: P0A.
+
+Historical note: the checked v1 P1A receipt remains valid only for its recorded
+Windows/MSVC host. It is superseded for active planning and cannot satisfy this phase.
 
 Prompt:
 
-> Extend `scripts/verify-env.ps1` with an explicit CUDA-required mode. Detect `nvcc`,
-> toolkit libraries, driver, GPU name/memory/compute capability, and architecture flags
-> accepted by the installed compiler. Require RTX 5090 compute capability 12.0 and an
-> SM120-capable compiler. If using CUDA 12.x, require at least 12.8. A newer toolkit
-> passes P1B when `nvcc` accepts the required SM120 image/PTX targets, the driver/runtime
-> probe launches, and toolkit/driver compatibility passes; backend compatibility is a
-> separate P2 gate. Require CUDA runtime, driver, cuBLAS, and cuBLASLt; record cuDNN,
-> NVRTC, NVJitLink, Compute Sanitizer, and cuRAND as optional. Compile both a native-plus-PTX
-> probe using `compute_120` with `sm_120,compute_120` code and a PTX-only variant. Inspect
-> both artifacts and run both from the P1A-qualified x64 VS 2022 environment. Require exactly
-> one runtime-visible `NVIDIA GeForce RTX 5090` with compute capability 12.0. Do not persist
-> local `CUDA_PATH` values or generated probe files in source control. Preserve the P1A v1
-> schemas; P1B uses closed v2 evidence/acceptance/pointer schemas and a dedicated CUDA
-> environment manifest. First rerun P1A CPU qualification and bind the newly selected P1A
-> chain and matching verifier/schema-bundle hashes into P1B. A PASS run creates an automatic
-> acceptance with `required_approvals: []`, but P2 remains blocked until owner review and
-> this checkbox is committed.
+> Implement `xtask verify-env --mode host`. From an ordinary shell on Linux, macOS, or
+> Windows, detect the native Rust host triple and qualify Rust 1.96 or newer plus a complete
+> supported C/C++ toolchain: GCC/G++, Clang/Clang++, Apple Clang, MSVC, or clang-cl as
+> appropriate. Record normalized identities for the C compiler, C++ compiler, linker,
+> archiver, target/ABI, standard library/runtime, and host SDK/sysroot where applicable,
+> without installing tools or mutating persistent state.
+>
+> Use a create-new `P1A-v2` run and an owned temporary directory. From absent fresh target
+> directories, compile, link, and execute minimal Rust↔C and Rust↔C++ ABI probes shaped
+> only as the permitted future accelerator/native-ML bridge boundary, plus the locked CPU
+> graph, then run the exact pre-P3 format, Clippy, and CPU-test gate offline.
+> Reject compiler wrappers, build-affecting Cargo configuration, Python execution or
+> linkage, every accelerator SDK/tool/feature/artifact/library, input mutation, redaction
+> leaks, and incomplete cleanup. Platform adapters may differ internally, but output
+> schemas, exit categories, containment, and publication semantics do not.
+>
+> A PASS run publishes a new automatic hash-linked acceptance and atomically advances only
+> the `P1A-v2` pointer. It never edits this checklist or commits. P1B must regression-run
+> this same host qualification and bind its complete selected chain.
 
 VERIFY:
 
-```powershell
-$ErrorActionPreference = 'Stop'
-powershell -NoProfile -ExecutionPolicy Bypass `
-  -File scripts\tests\verify-env.tests.ps1
-if ($LASTEXITCODE -ne 0) { throw "environment verifier tests failed: $LASTEXITCODE" }
-powershell -NoProfile -ExecutionPolicy Bypass `
-  -File scripts\verify-env.ps1 `
-  -Mode Cpu `
-  -OutputRoot docs\receipts\P1A
-if ($LASTEXITCODE -ne 0) { throw "P1A regression qualification failed: $LASTEXITCODE" }
-powershell -NoProfile -ExecutionPolicy Bypass `
-  -File scripts\verify-env.ps1 `
-  -Mode Cuda `
-  -OutputRoot docs\receipts\P1B
-if ($LASTEXITCODE -ne 0) { throw "P1B CUDA qualification failed: $LASTEXITCODE" }
+```text
+cargo test --locked --bin xtask
+cargo run --locked --bin xtask -- verify-env --mode host --output-root docs/receipts/P1A-v2
 ```
 
 PASS:
 
-- A fresh selected P1A regression run pins the same verifier and schema bundles used by
-  P1B, and P1B records and validates that complete dependency chain.
-- The CUDA-required manifest records compiler, driver, exact GPU, runtime, cuBLAS,
-  cuBLASLt, target, probe, isolation, and cleanup evidence without absolute local paths.
-- Inspection proves both SM120 SASS and compute_120 PTX. The mixed and PTX-only probes
-  allocate, launch, synchronize, copy, validate, release resources, and succeed on the
-  sole target GPU.
-- Missing or incompatible CUDA components fail with actionable messages.
-- PASS and FAIL runs are sealed; FAIL never moves the pointer. PASS publishes and
-  revalidates an automatic v2 acceptance/pointer chain before exit `0`.
+- A clean shell emits a closed, machine-readable host/toolchain manifest for the exact OS,
+  architecture, target, Rust, C, C++, linker, standard-library/runtime, and SDK/sysroot tuple.
+- Fresh-target locked Rust, C ABI, C++ ABI, and CPU probes execute without discovering or
+  linking CUDA, ROCm/HIP, Metal/MPS, a native ML backend, or Python.
+- Missing or incompatible host tools fail with actionable provider-neutral messages.
+- PASS/FAIL seals, transcript hashes, schema bundle, acceptance chain, pointer, input
+  stability, redaction, containment, and cleanup all validate before exit `0`.
+- The checkbox remains open until a human reviews the selected machine qualification.
+
+STOP/loop: missing host tools, an invalid P0A dependency, or a failed evidence chain blocks
+P1B directly and P3 onward. Suggested commit:
+`build: add portable host toolchain qualification`.
+
+## Phase 1B — Qualify a Supported Accelerator Environment
+
+- [ ] P1B complete
+
+Dependencies: P1A.
+
+Historical note: the checked v2 P1B receipt remains valid only for its recorded
+Windows/CUDA/SM120/RTX 5090 tuple. It is superseded for active planning and cannot satisfy
+this phase or any `portable-v2` dependent.
+
+Prompt:
+
+> Extend `xtask verify-env` with `--mode accelerator`. Discover available CUDA Toolkit,
+> ROCm/HIP, and Metal provider adapters without assuming that every provider exists on
+> every OS. Enumerate every supported provider/device tuple. When more than one tuple is
+> eligible, require the caller to select an exact provider plus stable device identity; a
+> missing or ambiguous selection fails rather than using discovery order. Record the exact OS/host
+> target, provider, SDK/compiler, runtime/driver, device vendor/model/stable identity,
+> device architecture, required native libraries, feature set, and memory model
+> (`dedicated` or `unified`). Never install an SDK, copy/rename libraries, or persistently
+> mutate environment or OS configuration.
+>
+> Derive `minimum_accelerator_bytes` from the versioned, hash-bound canonical training
+> memory formula approved in P0A. Require a fresh-process allocation of at least that amount
+> of accelerator-visible memory, explicit synchronization, sentinel round-trip, release,
+> and return to the recorded baseline. Dedicated VRAM and Apple unified memory use the same
+> logical gate but are reported separately; advertised total memory alone is not evidence
+> that the allocation succeeds.
+>
+> Compile and inspect provider-appropriate artifacts and run a native probe: CUDA native
+> image plus PTX fallback where supported and required CUDA runtime/math libraries; ROCm/HIP
+> code object plus HIP runtime and rocBLAS/hipBLASLt as applicable; or Metal compiled
+> compute library plus command queue/buffer and applicable Metal/MPS libraries. Verify the
+> exact architecture target actually launches. Native C/C++ or shading-language code is
+> allowed only inside this audited accelerator boundary. Bind a fresh P1A-v2 regression,
+> verifier hash, schema bundle, source identity, and complete P0A/P0 chain.
+
+VERIFY:
+
+```text
+cargo test --locked --bin xtask
+cargo run --locked --bin xtask -- verify-env --mode host --output-root docs/receipts/P1A-v2
+cargo run --locked --bin xtask -- verify-env --mode accelerator --output-root docs/receipts/P1B-v2
+```
+
+PASS:
+
+- A fresh selected P1A-v2 regression pins the same verifier/schema bundle and P1B-v2
+  records and validates the complete dependency chain.
+- The provider-neutral manifest binds the exact host, SDK/runtime/driver, native libraries,
+  device, architecture, feature set, and dedicated/unified memory model without leaking
+  machine-local absolute paths.
+- The provider-native artifact is inspectable where the SDK supports inspection; the probe
+  allocates the computed minimum, launches, synchronizes, copies, validates, releases all
+  resources, and restores the memory baseline on the selected device.
+- Missing, unsupported, ambiguous, or incompatible provider components fail actionably.
+- PASS and FAIL runs are sealed; FAIL never moves the pointer. PASS publishes and fully
+  revalidates only the new automatic acceptance/pointer chain before exit `0`.
 - The checkbox remains open until the owner reviews the selected machine qualification.
 
-STOP/loop: P2 and P10–P16 remain blocked, but CPU/data work may continue. Suggested
-commit: `build: verify RTX 5090 CUDA environment`.
+STOP/loop: P2 and P10–P16 remain blocked, but CPU/data work may continue. Suggested commit:
+`build: qualify portable accelerator environment`.
 
-## Phase 2 — Select the Backend by Measurement
+## Phase 2 — Select the Accelerator Backend by Measurement
 
 - [ ] P2 complete
 
@@ -314,53 +385,89 @@ Dependencies: P1B.
 
 Prompt:
 
-> Create isolated, disposable spikes for current supported Burn/CubeCL and Candle
-> candidates on Windows/MSVC/RTX 5090. Pin Burn `0.21.0`, Candle Core `0.11.0`, and the
-> diagnostic-only cudarc fallback `0.19.8` in an experiment-only lockfile; do not modify
-> the root package or lockfile. Measure BF16
-> allocation, representative GEMM, automatic differentiation/backward, synchronization,
-> p50/p95 latency, and peak VRAM after warmup, using a minimal scalar CPU oracle. Do not
-> invent model semantics or add FA3/custom attention. Before running, write the BF16
-> forward/gradient tolerance table and comparison metrics into the receipt; changing them
-> invalidates and reruns P2. Write `docs/adr/0001-ml-backend.md` with immutable result
-> paths and hashes, constraints, a provisional selection, and fallback boundary; raw JSON
-> remains in the sealed receipt. P10 model/attention parity
-> and P12 synchronized full-training-step evidence make it final.
+> Create isolated, disposable spikes for every viable Rust backend candidate on the exact
+> P1B-qualified accelerator tuple. Compare at least two when two satisfy the Python-free
+> dependency and provider-support preflight. A single candidate may proceed only after the
+> sealed receipt proves that all named alternatives are unsupported on the tuple or fail a
+> hard gate; documentation or feature lists alone are insufficient. Before fetching,
+> building, or measuring any candidate, seal a provider-tuple-specific candidate inventory
+> with the discovery method, every considered backend/native path, exact direct versions,
+> support status, and exclusion criteria. Changing that inventory invalidates the run and
+> prevents post-measurement cherry-picking. Candidates may be
+> Rust-native or use audited
+> C/C++ FFI to pinned native kernels or standard ML libraries, including Candle, Burn with
+> a supported native backend such as CubeCL or LibTorch, direct LibTorch bindings, or a
+> narrowly scoped custom binding. Python bindings, Python build steps, Python wheels, and
+> Python runtimes are forbidden. Pin every direct and transitive candidate/native dependency
+> in experiment-only manifests and lockfiles; do not modify the root package or lockfile.
+>
+> Generate identical deterministic BF16 fixtures outside every candidate and evaluate the
+> same graph against a backend-independent scalar CPU oracle. The oracle must decode the
+> exact BF16 fixture bits, execute the frozen FP32 accumulation/reduction order without
+> contraction or reassociation, and emit canonical IEEE-754 output, loss, and gradient
+> bytes. Require BF16 parameters/activations with explicitly verified FP32 accumulation for
+> GEMM, loss, reductions, and gradients. Both input-gradient artifacts must be byte-for-byte
+> identical to the canonical CPU-reference gradient artifacts; no gradient tolerance,
+> candidate-specific comparison, nondeterministic reduction, or cross-run variation is
+> permitted. Forward/loss diagnostics may additionally use one backend-independent,
+> predeclared elementwise/norm table, but cannot waive exact gradient equality. Changing
+> fixtures, graph, operation order, metrics, or thresholds invalidates the whole run.
+>
+> Measure allocation/round-trip, representative GEMM, forward loss, automatic
+> differentiation/backward, explicit synchronization, post-warmup p50/p95 latency, and
+> peak accelerator memory. Record dedicated versus unified memory. Audit every loaded
+> native library and require it to resolve to the P1B-qualified SDK/runtime or sealed native
+> dependency bundle. CPU-only builds must discover and link no accelerator SDK, native ML
+> backend, or Python component. Deterministic execution is a hard gate. Reject a candidate
+> that cannot exactly export and restore every parameter, layout identity, deterministic-mode
+> setting, RNG, and backend-visible state required for P12 byte-identical resume.
+>
+> Write `docs/adr/0001-ml-backend.md` with immutable result paths and hashes, constraints,
+> the provisional selection, rejected candidates, and fallback boundary; raw JSON remains
+> in the sealed receipt. P10 supplies model-level parity and state round-trip evidence; P12
+> supplies synchronized full-step and interrupted/resumed evidence before the ADR is final.
 
 VERIFY:
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\tests\qualify-backend.tests.ps1
-if ($LASTEXITCODE -ne 0) { throw "P2 verifier tests failed: $LASTEXITCODE" }
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\qualify-backend.ps1 -OutputRoot docs\receipts\P2
-if ($LASTEXITCODE -ne 0) { throw "P2 backend qualification failed: $LASTEXITCODE" }
+```text
+cargo test --locked --bin xtask
+cargo run --locked --bin xtask -- qualify-backend --output-root docs/receipts/P2-v2
 ```
 
 PASS:
 
-- At least one backend launches on SM120, backpropagates, synchronizes, and passes
-  declared BF16 tolerances.
-- The selection is based on target-host measurements, not feature lists.
-- CPU-only compilation does not discover or link CUDA.
-- The qualifier seals PASS/FAIL evidence, automatically publishes a passing acceptance with
-  `required_approvals: []`, and revalidates its pointer chain. The checkbox stays open until
-  the owner reviews the selected receipt; only that reviewed checklist commit unblocks P10.
-- The ADR explicitly records transformer-layer parity as deferred to P10, full optimizer-step
-  evidence as deferred to P12, and makes no tokens/s, production-VRAM, or eight-hour claim.
+- At least one backend launches on the exact P1B-qualified device architecture,
+  synchronizes, uses verified BF16/FP32 accumulation, and produces both gradient artifacts
+  byte-for-byte equal to the canonical CPU reference.
+- Selection uses measurements from the qualified tuple, not feature lists or results from
+  another OS, SDK, or accelerator.
+- A multi-candidate tuple records a fair measured comparison; a single-candidate tuple
+  records sealed, reproducible hard-gate failures or unsupported-status evidence for every
+  named alternative.
+- Native-library provenance, CPU/accelerator/Python isolation, deterministic replay, exact
+  state export/import, cleanup, seals, acceptance chaining, and pointer publication validate.
+- The qualifier publishes an automatic passing acceptance with `required_approvals: []`;
+  the checkbox stays open until owner review, and only that reviewed commit unblocks P10.
+- The ADR defers full model parity to P10 and exact full-step resume to P12 and makes no
+  production-throughput, production-memory, or final-SLA claim.
 
-STOP/loop: if no backend passes, evaluate a narrowly scoped `cudarc`/cuBLASLt design
-before changing the architecture. Suggested commit: `bench: select measured GPU backend`.
+STOP/loop: if no framework passes, evaluate a bounded diagnostic binding to the selected
+SDK's native primitives, such as cuBLASLt, hipBLASLt/rocBLAS, or Metal/MPS. A diagnostic
+primitive cannot satisfy automatic differentiation or exact-resume gates without an
+owner-approved architecture revision. Suggested commit:
+`bench: select measured accelerator backend`.
 
 ## Phase 3 — Clean In-Place Scaffold and Cutover
 
 - [ ] P3 complete
 
-Dependencies: P0, P1A. P2 may proceed in parallel and is required by P10.
+Dependencies: P0A, P1A. P2 may proceed in parallel and is required by P10.
 
 Prompt:
 
 > Recreate the implementation in this repository without copying the reference source.
-> Keep one Cargo package and one installed `python-slm` executable initially. Expose
+> Keep one product Cargo package and one installed `python-slm` executable initially;
+> the developer-only `xtask` binary created by P0A is not installed. Expose
 > independently restartable `plan`, `curate`, `train-tokenizer`, `tokenize`, `inspect`,
 > `bench`, and `train` subcommands through internal config, data, tokenizer, storage,
 > model, backend, and train modules. The
@@ -369,26 +476,30 @@ Prompt:
 > Implement `CLI-001`, `CONFIG-001`, and `ERROR-001`:
 > explicit versioned JSON production configurations, unknown-field rejection, no hidden
 > production defaults, one terminal success JSON object, typed JSONL handled errors, and
-> fixed exit categories 0 through 5. Feature-gate CUDA and native probes so the default
-> CPU build needs no toolkit. Define a backend
-> interface without selecting or importing a GPU framework; P10 consumes P2's ADR.
+> fixed exit categories 0 through 5. Define mutually isolated `cuda`, `rocm`, and `metal`
+> provider features behind one accelerator-neutral interface. Feature-gate every native
+> probe, kernel, and ML library so the default CPU/data build discovers and links no
+> accelerator SDK or native ML backend. Define the backend interface without selecting or
+> importing a framework; P10 consumes P2's ADR.
 > Replace old code in small, reviewable diffs; preserve research documents and baseline
-> receipts. Create stable `scripts/quality-gate.ps1` and rejected-by-default
-> `scripts/verify-phase.ps1` entry points that record child argv/exit status. Do not leave
+> receipts. Extend stable `xtask quality-gate` and rejected-by-default `xtask verify-phase`
+> commands that record exact child argv/exit status and preserve identical behavior across
+> Linux, macOS, and Windows. Do not leave
 > executable `todo!()`, `unimplemented!()`, or silent stub success paths.
 
 PASS:
 
 - The canonical CPU gates pass with `CARGO_TARGET_DIR` set to a newly created empty
   temporary directory; never delete an existing target directory. CPU builds do not
-  discover or link CUDA.
+  discover or link CUDA, ROCm/HIP, Metal/MPS, a native ML backend, or Python.
 - If P2 is complete, its selected-backend compile gate also passes; otherwise that gate
   remains a recorded P10 prerequisite. `--help` exposes all seven subcommands, handled
   success/error streams and exit categories pass fixtures, and unfinished stages fail
   closed with explicit status.
 - The canonical quality-gate commands are documented for all later phases.
 
-STOP/loop: unexplained reference-code carryover or a CPU build requiring CUDA fails P3.
+STOP/loop: unexplained reference-code carryover, shell-specific orchestration, or a CPU
+build requiring any accelerator/native-ML dependency fails P3.
 Suggested commit: `build: establish clean Rust pipeline scaffold`.
 
 ## Phase 4 — Source Access, Governance, and Provenance
@@ -446,7 +557,9 @@ Prompt:
 > `tree-sitter-python 0.25.0`, parser bounds, `root.has_error()` rejection, exact
 > Tree-sitter comment-node byte accounting, and independent generated-marker scans over
 > each comment intersection with `[0,8192)`. Equality at 50% comment bytes passes;
-> strictly greater fails; docstrings are not comments. Before detector implementation,
+> strictly greater fails; docstrings are not comments. The generated C parser/runtime is
+> the sole data-path native-code exception and may expose only the pinned CST boundary.
+> Before detector implementation,
 > obtain named human review of an ADR that freezes and hashes `sensitive-rules-v1`, with
 > exact patterns, validators, entropy rules, reserved domains, precedence, and quarantine
 > behavior. Apply `GOV-002`: reject confirmed sensitive documents, quarantine uncertain
@@ -463,6 +576,9 @@ PASS:
 - Boundary/property fixtures cover encoding cookies/BOM conflicts, 99/100,
   1,000,000/1,000,001 bytes, exactly/over 50%, malformed trees, docstrings, marker
   location/case, time budgets, PII, and secrets.
+- The pinned Tree-sitter parser reproduces every P0A-sealed compatibility outcome and the
+  receipt binds its grammar, generated C/runtime source, build flags, fixture, and output
+  hashes without invoking Python.
 - Repeated runs produce identical accepted IDs, bytes, reasons, and hashes.
 - CPU memory remains within the configured bound under adversarial batches.
 - No PII/secret fixture value appears in logs, errors, or receipts.
@@ -485,8 +601,9 @@ Prompt:
 > Before implementing, benchmarking, or tuning LSH, materialize the exact 10,000-pair
 > `dedup-threshold-v1` generator, strata, seed, exhaustive truth, and manifest required by
 > `DEDUP-003`; obtain human review and seal its source/artifact hashes. Then implement
-> exact curated-hash dedup, `DEDUP-001` lexical traversal/encoding and transitive clusters,
-> and `DEDUP-002`'s 256 fixed affine MinHash components, 32-by-8 LSH keys, short-document
+> exact curated-hash dedup, `DEDUP-001` lexical traversal/encoding over the pinned
+> Tree-sitter CST and the same transitive clusters, and `DEDUP-002`'s 256
+> fixed affine MinHash components, 32-by-8 LSH keys, short-document
 > shingle, and exact candidate Jaccard. Reject strictly above 0.85; equality passes.
 > Partition or persist production indexes; never perform global O(N²) comparison or keep
 > every document/shingle set in RAM. Duplicate clusters retain every provenance/license
@@ -619,9 +736,13 @@ Prompt:
 > before narrowing. Create temporary shards/manifests on the destination filesystem, sync,
 > and atomically finalize; never overwrite, recursively clean an output root, or treat
 > partial output as complete. Resume completed shards only after hash verification. Reject
-> absolute paths, parent traversal, and symlink/reparse-point escapes in manifest paths.
-> Map immutable files read-only and on Windows deny write/delete sharing, or document and
-> test an equally strong invariant. Bulk-gather contiguous spans and explicitly decode
+> absolute paths, parent traversal, symlink/junction/reparse-point escapes, mount-boundary
+> substitution, and equivalent host-specific escapes in manifest paths. Map immutable
+> files read-only and enforce the same mutation-detection invariant on every OS using
+> platform-appropriate stable descriptor identity, size/metadata checks, and full hash
+> revalidation at defined read boundaries, supplemented by Windows deny-share behavior or
+> an equally strong documented mechanism. Inode identity alone is insufficient; concurrent
+> in-place mutation must be detected and rejected. Bulk-gather contiguous spans and explicitly decode
 > little-endian values. Represent each 2,048-target sample as a 2,049-ID logical view over
 > global offsets; never duplicate stored anchors. Samples may cross physical shards and
 > EOS/document transitions, but never split boundaries or corpus-end wrap. Implement the
@@ -702,7 +823,11 @@ Prompt:
 > parameter order, pinned `rand_chacha 0.10.0`/`rand_distr 0.6.0`, domain-separated seed, f32 normal
 > sampling, and BF16 conversion. Implement an analytical per-component parameter counter
 > independent of any backend registry and require exact agreement. Implement shifted
-> next-token loss on tiny shapes; do not select a GPU framework when P2 is incomplete.
+> next-token loss on tiny shapes. Alongside the f64 semantic oracle, implement a canonical
+> scalar BF16/FP32 execution oracle with frozen operation, accumulation, reduction,
+> contraction, and rounding order. For sealed small fixtures, materialize the canonical
+> IEEE-754 forward, loss, and every parameter-gradient artifact and hash; P10 requires exact
+> gradient-byte equality. Do not select an accelerator framework when P2 is incomplete.
 
 PASS:
 
@@ -710,12 +835,14 @@ PASS:
   RMSNorm, SwiGLU, and finite-difference gradient checks on tiny shapes pass.
 - The reference is deterministic and suitable as the oracle for optimized kernels.
 - Both initialized artifacts reproduce byte-for-byte and their hashes are recorded.
+- Canonical small-fixture BF16/FP32 forward/loss/gradient artifacts reproduce byte-for-byte,
+  and the scalar reference forbids reassociation or contraction that changes their bits.
 - Full production shapes are not used in ordinary CPU tests.
 
 STOP/loop: a range such as “135M ±5%” is not an acceptable count gate. Suggested
 commit: `feat(model): add exact Llama reference semantics`.
 
-## Phase 10 — SM120 Model, Attention, and Fused Loss
+## Phase 10 — Accelerator Model, Attention, and Fused Loss
 
 - [ ] P10 complete
 
@@ -725,38 +852,53 @@ Prompt:
 
 > Port the validated model to the selected backend and load P9B's canonical initialized
 > parameter artifact by its recorded hash; backend-native reinitialization is forbidden.
-> Progress from unfused reference GQA
-> to the framework's memory-efficient path; add an isolated SM120 custom operation only
-> if profiling proves it necessary. The production path must support causal 12Q/4KV BF16
+> Progress from unfused reference GQA to the framework's memory-efficient path; add an
+> isolated custom operation only if profiling proves it necessary. The production path
+> must support causal 12Q/4KV BF16
 > forward and backward without materializing repeated K/V. Add chunked or fused LM-head
-> cross-entropy so full `[B,L,V]` logits are not retained. Upstream FA3 is never mandatory;
-> current Python/CuTeDSL FA4 is also only an isolated future experiment.
-> Any custom kernel uses a tiny feature-gated `extern "C"` ABI, propagates CUDA errors,
-> validates ABI layout and stream compatibility, and uses ownership guards through async
-> completion. It emits an SM120 image plus PTX fallback when supported by the qualified
-> toolchain. Before benchmarking, record the BF16 forward/gradient/loss tolerance table
-> and comparison metrics in the ADR and receipt; changing them invalidates and reruns P10.
-> Benchmark synchronized forward/backward at
+> cross-entropy so full `[B,L,V]` logits are not retained. Python, CuTeDSL, and
+> Python-generated kernels are forbidden. FlashAttention or another standard native ML
+> library may be used only when its exact provider/architecture path, dependency closure,
+> and build are Python-free and sealed.
+>
+> Custom native code may use CUDA C/C++, HIP C++, Metal shading/native APIs, or a pinned
+> standard ML library, but only behind a tiny feature-gated ABI. It propagates
+> provider-specific errors, validates tensor layout and stream/queue/command-buffer
+> compatibility, and retains ownership through asynchronous completion. Emit native code
+> for the exact qualified architecture and a portable fallback representation only where
+> that SDK supports one; never assume every provider has a PTX equivalent.
+>
+> Require the frozen BF16 storage rules and verified FP32 accumulation for every sensitive
+> operation. Before benchmarking, record one backend-independent forward/loss tolerance
+> table and comparison metrics in the ADR and receipt; changing them invalidates and reruns
+> P10. Every parameter-gradient artifact must match P9B's canonical scalar BF16/FP32
+> reference byte-for-byte; gradient tolerances are forbidden. Demonstrate exact deterministic
+> export/import of all parameter tensors,
+> backend-visible state, parameter names, layouts, and deterministic-mode settings needed
+> for P12 exact resume. Benchmark synchronized forward/backward at
 > `B={2,4,8,16,32}`, `L=2048`, discard warmup, and emit JSON with error, p50/p95,
-> workspace, and peak VRAM. Run sizes low-to-high in fresh child processes with timeouts;
+> workspace, and peak accelerator memory labeled dedicated or unified. Run sizes low-to-high
+> in fresh child processes with timeouts;
 > record OOM and skip larger sizes so one allocation cannot poison the suite. B=32 is a
 > trial, not a PASS requirement. Update P2's ADR with model-level evidence and the
 > unresolved P12 full-step gate.
 
 PASS:
 
-- Forward loss and gradients meet the predeclared BF16 tolerances against P9B.
-- The backend loads the exact P9B initialization artifact/hash and parameter-name mapping.
+- Forward/loss meet the predeclared backend-independent BF16/FP32 gates, and every parameter
+  gradient is byte-for-byte identical to P9B's canonical scalar BF16/FP32 artifact.
+- The backend loads and round-trips the exact P9B initialization artifact/hash, stable
+  parameter-name mapping, tensor layouts, and backend state without reinitialization.
 - Causal and GQA semantics pass adversarial tests; optimized code does not repeat K/V.
-- At least one full-layer and fused-loss path runs on SM120 without quadratic attention
-  or full-logit retention.
+- At least one full-layer and fused-loss path runs on the P1B-qualified device architecture
+  without quadratic attention or full-logit retention.
 - The provisional backend ADR is supported by model-level forward/backward evidence and
   explicitly remains open until P12.
 
 STOP/loop: a fast forward-only kernel is not a training backend. Suggested commit:
-`perf(model): add validated SM120 training path`.
+`perf(model): add validated accelerator training path`.
 
-## Phase 11 — Host Staging and H2D Transfer
+## Phase 11 — Host Staging and Accelerator Transfer
 
 - [ ] P11 complete
 
@@ -764,24 +906,29 @@ Dependencies: P8, P10.
 
 Prompt:
 
-> First benchmark the bulk pageable loader. Then implement a bounded reusable two- and
-> three-slot page-locked staging pool with explicit CUDA streams/events and safe slot
-> reuse. Pipeline mmap bulk gather/conversion, asynchronous H2D, and compute without
-> pinning the whole corpus. Compare pageable synchronous copy, pinned synchronous copy,
-> and pinned asynchronous overlap. Separate gather, conversion, H2D, synchronization,
-> and compute timings. Keep the simplest path whose end-to-end measurements win.
+> First benchmark the bulk host loader. Then qualify transfer and memory access for the
+> selected P1B memory model. For a discrete CUDA or ROCm device, compare pageable
+> synchronous transfer, bounded page-locked synchronous transfer, and a reusable two- or
+> three-slot page-locked asynchronous ring using backend streams/events. For Apple unified
+> memory, compare shared/managed/private Metal buffer paths, command queues/fences, and
+> explicit synchronization without pretending that shared memory is an H2D copy.
+> Pipeline mmap bulk gather/conversion, transfer or unified-memory access, and compute
+> without pinning or retaining the whole corpus. Separate gather, conversion, transfer,
+> synchronization, page migration where measurable, and compute timings. Keep the simplest
+> safe path whose end-to-end measurements win.
 
 PASS:
 
 - No buffer is reused before its completion event; allocation is bounded and stable.
 - Data parity holds under long randomized stress, cancellation, and error paths.
 - Benchmark evidence, not terminology, selects the production transfer path.
-- Every registered or allocated page-locked slot is unregistered/freed after success,
-  cancellation, timeout, panic boundary, and CUDA error; repeated runs return pinned-host
-  memory use to baseline.
+- Every registered/page-locked slot, shared/private buffer, stream, queue, event, and fence
+  is released after success, cancellation, timeout, panic boundary, and accelerator error;
+  repeated runs return host and accelerator memory use to baseline.
 
-STOP/loop: mmap, `Bytes`, or ordinary vectors are never labeled pinned. Suggested
-commit: `perf(loader): benchmark bounded GPU staging`.
+STOP/loop: mmap, `Bytes`, ordinary vectors, or unified memory are never mislabeled as
+page-locked transfer buffers. Suggested commit:
+`perf(loader): benchmark bounded accelerator staging`.
 
 ## Phase 12 — BF16 Trainer and Exact Resume
 
@@ -805,7 +952,8 @@ Prompt:
 > finite checks and clipping; clip only after all microsteps; then step AdamW and the
 > scheduler and zero gradients once at the completed optimizer update. Save atomic
 > generation checkpoints with
-> model, master/moment state, scheduler, scaler if used, host/device RNG, data order/cursor,
+> model, master/moment state, scheduler, scaler if used, host/accelerator RNG, data
+> order/cursor,
 > counters, and all config/artifact hashes. Consume a verified `SPAN-001` manifest
 > directly—P8's synthetic fixture in this phase and P9A's production artifact in later
 > qualification—never regenerate or reorder it in the backend, and checkpoint its identity
@@ -818,7 +966,7 @@ Prompt:
 > and performance gates
 > in the ADR. Measure synchronized representative full training steps, including optimizer
 > work, and finalize the backend ADR only if numerical parity, p50/p95 latency, throughput,
-> and peak VRAM meet those gates.
+> and peak accelerator memory, labeled dedicated or unified, meet those gates.
 
 PASS:
 
@@ -827,9 +975,15 @@ PASS:
 - Tests cover updates 1, 1,000, 30,518; the 37,888-target final normalization; threshold
   evaluation/checkpoint coincidences; retention; and zero overshoot.
 - A fixed tiny corpus overfits without non-finite values.
-- Interrupted/resumed execution matches uninterrupted execution within a declared BF16
-  tolerance, resumes the next exact `SPAN-001` entry without repeat/skip, and refuses
-  mismatched span manifests, artifacts, or configuration.
+- On the exact qualified tuple, interrupted/resumed execution is byte-for-byte identical
+  to uninterrupted execution for every subsequent parameter, master weight, optimizer
+  moment, scheduler/scaler/RNG state, per-update gradient artifact, evaluation result,
+  counter, cursor, and checkpoint. It resumes the next exact `SPAN-001` entry without
+  repeat/skip and refuses mismatched span manifests, artifacts, environment, backend, or
+  configuration. A backend without deterministic execution cannot pass P12.
+- Checkpoints preserve byte-exact serialized tensors/state, counters, cursor, artifact
+  identities, selected SDK/device/backend identity, and next-span position. Fresh-process
+  reload and continued execution reproduce the uninterrupted bytes exactly.
 - Held-out evaluation repeats from the same checkpoint/sample order without changing the
   subsequent training state.
 - Crash-injection tests ignore incomplete/corrupt checkpoint generations and reload the
@@ -851,29 +1005,36 @@ Prompt:
 > Generate an offline synthetic corpus containing valid, invalid, encoded, duplicate,
 > near-threshold, generated, comment-heavy, PII/secret, tiny, and oversized documents.
 > Exercise source, policy, dedup, tokenizer, storage, training, checkpoint, and resume from
-> one reproducible command. Put failing canary launchers for `python`, `python3`, `py`, and
-> `pip` first on `PATH`, audit the child-process tree, and statically inspect repository
-> build scripts/commands for Python launch paths; an absolute-path Python process also
-> fails the gate. Add normal Windows CPU CI and a separate explicitly provisioned RTX 5090
-> job for environment checks, CUDA parity, tiny training, and benchmark artifacts. Keep
-> noisy performance thresholds out of ordinary correctness CI. Generate workflow files
-> and local qualification scripts only. Do not register a self-hosted runner, change
-> repository settings, or trigger external CI without explicit authorization. When no
-> runner is provisioned, execute the GPU qualification script locally on the target host.
+> one reproducible xtask command. Create platform-appropriate failing canary launchers for
+> `python`, `python3`, versioned Python names, `pythonw`, `py`, `pip`, `pip3`, and versioned
+> pip names first on `PATH`; audit every child process, native import table, dynamic module,
+> build command, and absolute executable path. Any Python interpreter, library, package,
+> generator, or embedded runtime fails the gate.
+>
+> Add ordinary CPU/data CI on Linux, macOS, and Windows, plus separately provisioned
+> accelerator jobs for supported CUDA, ROCm/HIP, and Metal profiles. Each accelerator job
+> runs environment qualification, backend/model parity, tiny training, resume, and
+> benchmark artifact generation only for its exact tuple. Keep noisy performance thresholds
+> out of ordinary correctness CI. Generate workflow files and xtask cases only. Do not
+> register a self-hosted runner, change repository settings, or trigger external CI without
+> explicit authorization. When no runner is provisioned, execute the same xtask accelerator
+> qualification locally on the target host.
 
 PASS:
 
 - An authorized fresh clone of the exact commit, or a clean content-addressed export of
-  the exact tree, passes locked fmt/check/Clippy/tests without CUDA.
-- The local GPU qualification script—or an already authorized GPU CI job—publishes parity
-  JSON and a complete environment/reproducibility manifest.
+  the exact tree, passes locked fmt/check/Clippy/tests without any accelerator/native-ML
+  dependency on all three host OS families.
+- The local xtask accelerator qualifier—or an already authorized accelerator CI job—publishes
+  parity JSON and a complete environment/reproducibility manifest for its exact tuple.
 - Data-side artifacts (accepted IDs/reasons, tokenizer, indexes, and shards) repeat
-  byte-for-byte. Training/checkpoint results meet declared numerical resume tolerances;
-  bitwise CUDA equality is required only if deterministic mode was qualified.
-- No Python canary is hit and no Python or pip process is observed.
+  byte-for-byte. On each qualified backend/device tuple, interrupted/resumed training and
+  checkpoints reproduce the uninterrupted subsequent state and outputs byte-for-byte.
+- No Python canary is hit and no Python executable, library, package, or embedded runtime
+  is observed.
 
-STOP/loop: Clippy is not evidence of CUDA correctness, memory safety, or performance.
-Suggested commit: `ci: add offline CPU and RTX qualification gates`.
+STOP/loop: Clippy is not evidence of accelerator correctness, memory safety, or
+performance. Suggested commit: `ci: add portable CPU and accelerator qualification gates`.
 
 ## Phase 14 — Autotune and Profile the Full Step
 
@@ -883,31 +1044,72 @@ Dependencies: P12, P13.
 
 Prompt:
 
-> In a release build on the target host, autotune microbatches 2, 4, 8, 16, and 32 at
-> context 2,048. Adjust gradient accumulation independently to preserve exactly 65,536
-> valid predicted targets per full update. Run each OOM-prone candidate in a fresh child
-> process with an explicit timeout and result artifact; record failure and stop increasing
-> that family.
-> Synchronize timings, discard JIT/autotune warmup from numerator and denominator, compute
-> throughput from actual valid predicted targets consumed rather than nominal `B*L`, and
-> maximize steady-state targets/s below the VRAM safety ceiling rather than maximizing
-> occupancy.
-> Report loader, kernel-only, trainer, and whole-run-equivalent throughput; p50/p95;
-> forward/backward/optimizer/H2D/checkpoint time; stalls; and allocated/reserved/peak VRAM.
-> P14 changes configuration only. A code bottleneck returns to P10 (model/kernel), P11
-> (loader), or P12 (trainer/checkpoint); rerun P13 and P14 afterward.
+> Before autotuning, run a release-build calibration on the exact P1B-qualified host,
+> accelerator, SDK/runtime/driver, backend/native-library, clocks, and power-state tuple.
+> Record the provider-neutral device architecture and limits, memory type/model, and
+> authoritative theoretical BF16-with-FP32-accumulation compute and memory-bandwidth
+> ceilings with their source/formula where available. Run sealed synchronized calibration
+> kernels to measure sustainable BF16/FP32-accumulate operations per second (`C_cal`) and
+> sustainable device-memory bytes per second (`B_cal`). For unified memory, declare the
+> measured memory domain and whether CPU contention is excluded. Seal kernel/input hashes,
+> compiler flags, warmup/sample rules, counters, telemetry, and every identity.
+>
+> Freeze exact versioned counts for operations per valid predicted target (`F_target`) and
+> accelerator-memory traffic per target (`D_target`). Validate them with hardware counters
+> where supported and record the limitation otherwise. Compute the attainable roofline and
+> relative floor exactly as:
+>
+> `R_roof = min(C_cal / F_target, B_cal / D_target)`
+>
+> `R_floor = 0.85 * R_roof`
+>
+> The streaming-memory calibration must reach at least 85% of the sealed theoretical or
+> P0A-approved provider ceiling. This is a calibration validity gate, not an assumption that
+> the full training step is memory-bound; operational intensity determines which roofline
+> term limits `R_roof`.
+>
+> In the same release build, autotune microbatches 2, 4, 8, 16, and 32 at context 2,048.
+> Adjust gradient accumulation independently to preserve exactly 65,536 valid predicted
+> targets per full update. Run each OOM-prone candidate in a fresh contained child process
+> with an explicit timeout and result artifact; record failure and stop increasing that
+> family. Synchronize timings, discard compilation/JIT/autotune warmup from numerator and
+> denominator, compute throughput from actual valid targets rather than nominal `B*L`, and
+> select the fastest stable configuration below the accelerator-memory safety ceiling.
+>
+> Measure startup, compilation/JIT/autotune, configured evaluations, planned checkpoints,
+> and final durable-save overhead using the exact frozen cadence. Loader, synchronization,
+> page migration, and ordinary stalls stay inside measured steady-state throughput. Set
+> `projected_overhead_seconds` from the measured/count-scaled overhead model. Freeze a
+> P0A-approved relative safety factor `S_safety > 1` before calibration and lock:
+>
+> `projected_run_seconds = 2_000_000_000 / measured_full_step_targets_per_second + projected_overhead_seconds`
+>
+> `phase16_sla_seconds = ceil(S_safety * (2_000_000_000 / R_floor + projected_overhead_seconds))`
+>
+> Report calibration efficiency, loader, kernel-only, trainer, and whole-run-equivalent
+> throughput; p50/p95; forward/backward/optimizer/transfer/checkpoint time; stalls; and
+> allocated/reserved/peak accelerator memory labeled dedicated or unified. The P14 receipt
+> locks the calibration hash, formulas and units, `R_floor`, `S_safety`, selected
+> configuration, overhead model, independently measured projection, and numeric
+> `phase16_sla_seconds`. No later phase may retune
+> them. P14 changes configuration only; a code bottleneck returns to P10, P11, or P12, then
+> reruns P13 and P14.
 
 PASS:
 
-- A reproducible configuration is selected from complete JSON evidence.
+- A reproducible configuration is selected from complete machine-readable evidence bound
+  to the exact qualified tuple.
 - No unexplained non-finite values, OOM, hidden synchronization, or valid-target overcount
   exists.
-- Before promotion to P15, a synchronized short-run preflight reaches at least 75K
-  steady-state valid predicted targets/s and projects below 28,800 seconds using measured
-  startup, evaluation, checkpoint, and final-save overhead.
+- Calibration satisfies its frozen 85% bandwidth-efficiency gate, and a synchronized
+  short-run full-step preflight sustains at least the locked `R_floor`.
+- The whole-run projection includes every frozen overhead component and is no greater than
+  the independently derived `phase16_sla_seconds`; all formula inputs and artifact hashes
+  revalidate.
 
-STOP/loop: hardcoded batch 32, 28GiB-as-goal, or unsynchronized timing fails P14.
-Suggested commit: `perf(train): select measured RTX 5090 configuration`.
+STOP/loop: a hardcoded batch, absolute memory goal, fixed wall-clock target, retuned relative
+threshold, unverifiable theoretical ceiling, or unsynchronized timing fails P14. Suggested
+commit: `perf(train): lock calibrated accelerator configuration and SLA`.
 
 ## Phase 15 — Frozen-Code Qualification Ladder
 
@@ -918,8 +1120,11 @@ Dependencies: P9A, P14.
 Prompt:
 
 > Freeze code, dependencies, corpus, tokenizer, model, training configuration, approved
-> full-contract hash, decision-ledger hash, and P9B initialization-artifact hash. Before
-> running, verify all immutable hashes, exclusive GPU availability, target-host power,
+> full-contract hash, decision-ledger hash, P9B initialization-artifact hash, P14 calibration
+> identity, `R_floor`, and locked `phase16_sla_seconds`. Before running, verify all immutable
+> hashes, absence of unapproved foreign accelerator compute, and target-host power.
+> Record unavoidable OS/display activity as a frozen baseline and reject a run when
+> contention, timing drift, or telemetry exceeds its predeclared interference limits. Verify
 > sleep/update state, sufficient disk for all checkpoint generations plus safety margin,
 > and that every `GOV-003` authority was rechecked within the preceding 24 hours with no
 > superseding mandatory removal snapshot. Report blockers but do not
@@ -930,7 +1135,8 @@ Prompt:
 > restart-correctness trial and a separate uninterrupted performance trial; only the
 > uninterrupted trial supplies throughput, while measured checkpoint/restart overhead is
 > added separately. Archive
-> logs, JSON, hashes, host/GPU telemetry, loss/gradient diagnostics, and non-finite counts.
+> logs, JSON, hashes, host/accelerator telemetry, loss/gradient diagnostics, relative
+> compute/bandwidth efficiency, and non-finite counts.
 > Calculate the two-billion-token projection from measured whole-run-equivalent throughput
 > including startup, JIT/autotune, loader stalls, synchronization, configured held-out
 > evaluation, planned checkpoints, and final durable save. Do not edit code while
@@ -940,16 +1146,19 @@ PASS:
 
 - All rungs finish without correctness, resume, OOM, or thermal-stability failure.
 - Every rung preserves completed-boundary checkpoint semantics and the frozen contract,
-  ledger, initialization, corpus, tokenizer, code, and configuration identities.
-- Synchronized steady-state throughput is at least 75K valid predicted targets/s for
-  30–60 minutes.
-- Measured whole-run projection, including overhead, is below 28,800 seconds.
+  ledger, initialization, corpus, tokenizer, code, backend/native libraries, exact device,
+  P14 calibration, and configuration identities.
+- The uninterrupted 30- and 60-minute trials sustain at least the P14-locked `R_floor`;
+  restart-correctness trials never supply performance numerator data.
+- The recomputed whole-run projection, including every locked overhead component, is no
+  greater than `phase16_sla_seconds`.
 
 STOP/loop: on failure, preserve evidence and return to the phase that owns the cause—P10
 model/kernel, P11 loader, P12 trainer/checkpoint, or P14 configuration. Rerun that phase
 and every affected downstream gate, then freeze a new qualification identity. Never patch
-only the benchmark or launch 2B. Suggested commit:
-`test: record frozen RTX 5090 qualification`.
+only the benchmark or launch 2B. Any host, SDK/runtime/driver, device, backend, native
+library, or power-state identity drift returns to P1B, P2/P10, or P14 as appropriate.
+Suggested commit: `test: record frozen accelerator qualification`.
 
 ## Phase 16 — Final Two-Billion-Token Run and Release Receipt
 
@@ -961,7 +1170,10 @@ Prompt:
 
 > Recheck every `GOV-003` authority within 24 hours before launch and stop on a superseding
 > mandatory removal. Run the frozen training command against the immutable governed
-> corpus. After corpus preparation, start the SLA clock immediately before the trainer
+> corpus. Revalidate the complete P14/P15 calibration and SLA chain plus the exact host OS,
+> architecture, Rust/C/C++ toolchains, accelerator SDK/runtime/driver, selected device and
+> architecture, memory model, backend, and native-library identities. After corpus
+> preparation, start the SLA clock immediately before the trainer
 > opens the frozen artifacts and stop it only after the final checkpoint is durable.
 > Finalize the receipt
 > immediately using that captured elapsed time. Process exactly the contracted number of
@@ -973,14 +1185,19 @@ Prompt:
 > run; any recovery downtime that occurs remains inside the continuous SLA clock.
 > Publish the complete `PROV-001` schema: approved full-contract and decision-ledger hashes;
 > frozen source tree; Git commit/dirty status; `Cargo.lock`; source/removal approval
-> references and hashes; Rust/MSVC/CUDA/driver/GPU/SM; backend/kernel build and
+> references and hashes; host OS/architecture; Rust, C, and C++ toolchains; selected
+> accelerator provider, SDK/runtime/driver, device vendor/model/architecture and memory
+> model; backend/kernel/native-library build and
 > configuration identities; tokenizer/source/corpus/split/configuration hashes;
 > telemetry/log/benchmark hashes; every role-ledger counter; evaluation/checkpoint counts;
-> peak VRAM; loss/evaluation diagnostics; elapsed time; and final checkpoint hash.
+> P14 calibration receipt/hash, formula inputs, `R_floor`, projected overhead, locked
+> `phase16_sla_seconds`, achieved relative efficiency, peak accelerator memory,
+> loss/evaluation diagnostics, actual elapsed time, and final checkpoint hash.
 
 PASS:
 
-- The actual durable run completes in less than 28,800 seconds.
+- The actual durable elapsed time is no greater than the immutable P14-locked
+  `phase16_sla_seconds`.
 - Exactly 2,000,000,000 valid predicted targets, zero overshoot, hashes,
   checkpoints, and fresh-process reload all verify.
 - The receipt distinguishes measured facts from interpretation and records any deviation.

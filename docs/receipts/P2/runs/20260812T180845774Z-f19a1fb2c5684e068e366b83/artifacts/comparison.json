@@ -1,0 +1,21 @@
+{
+    "schema":  "python-slm-p2-backend-comparison-v1",
+    "policy_id":  "backend-qualification-v1",
+    "candidates":  [
+                       {
+                           "candidate_id":  "burn-cubecl",
+                           "status":  "NOT_RUN",
+                           "comparison":  null
+                       },
+                       {
+                           "candidate_id":  "candle",
+                           "status":  "NOT_RUN",
+                           "comparison":  null
+                       }
+                   ],
+    "selection":  {
+                      "status":  "FAIL",
+                      "selected_candidate_id":  null,
+                      "criterion":  "no_framework_passed"
+                  }
+}

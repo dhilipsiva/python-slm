@@ -1,0 +1,1798 @@
+[quote 1.0.47] cargo:rerun-if-changed=build.rs
+[quote 1.0.47] cargo:rustc-check-cfg=cfg(no_diagnostic_namespace)
+[proc-macro2 1.0.107] cargo:rustc-check-cfg=cfg(fuzzing)
+[proc-macro2 1.0.107] cargo:rustc-check-cfg=cfg(no_is_available)
+[proc-macro2 1.0.107] cargo:rustc-check-cfg=cfg(no_literal_byte_character)
+[proc-macro2 1.0.107] cargo:rustc-check-cfg=cfg(no_literal_c_string)
+[proc-macro2 1.0.107] cargo:rustc-check-cfg=cfg(no_source_text)
+[proc-macro2 1.0.107] cargo:rustc-check-cfg=cfg(proc_macro_span)
+[proc-macro2 1.0.107] cargo:rustc-check-cfg=cfg(proc_macro_span_file)
+[proc-macro2 1.0.107] cargo:rustc-check-cfg=cfg(proc_macro_span_location)
+[proc-macro2 1.0.107] cargo:rustc-check-cfg=cfg(procmacro2_backtrace)
+[proc-macro2 1.0.107] cargo:rustc-check-cfg=cfg(procmacro2_build_probe)
+[proc-macro2 1.0.107] cargo:rustc-check-cfg=cfg(procmacro2_nightly_testing)
+[proc-macro2 1.0.107] cargo:rustc-check-cfg=cfg(procmacro2_semver_exempt)
+[proc-macro2 1.0.107] cargo:rustc-check-cfg=cfg(randomize_layout)
+[proc-macro2 1.0.107] cargo:rustc-check-cfg=cfg(span_locations)
+[proc-macro2 1.0.107] cargo:rustc-check-cfg=cfg(super_unstable)
+[proc-macro2 1.0.107] cargo:rustc-check-cfg=cfg(wrap_proc_macro)
+[proc-macro2 1.0.107] cargo:rerun-if-changed=src/probe/proc_macro_span.rs
+[crossbeam-utils 0.8.22] cargo:rerun-if-changed=no_atomic.rs
+[crossbeam-utils 0.8.22] cargo:rustc-check-cfg=cfg(crossbeam_no_atomic,crossbeam_sanitize_thread)
+[proc-macro2 1.0.107] cargo:rustc-cfg=wrap_proc_macro
+[proc-macro2 1.0.107] cargo:rerun-if-changed=src/probe/proc_macro_span_location.rs
+[proc-macro2 1.0.107] cargo:rustc-cfg=proc_macro_span_location
+[proc-macro2 1.0.107] cargo:rerun-if-changed=src/probe/proc_macro_span_file.rs
+[proc-macro2 1.0.107] cargo:rustc-cfg=proc_macro_span_file
+[proc-macro2 1.0.107] cargo:rerun-if-env-changed=RUSTC_BOOTSTRAP
+[zerocopy 0.8.56] cargo:rerun-if-changed=build.rs
+[zerocopy 0.8.56] cargo:rerun-if-changed=Cargo.toml
+[zerocopy 0.8.56] cargo:rustc-check-cfg=cfg(no_zerocopy_simd_x86_avx12_1_89_0)
+[zerocopy 0.8.56] cargo:rustc-check-cfg=cfg(rust, values("1.89.0"))
+[zerocopy 0.8.56] cargo:rustc-check-cfg=cfg(no_zerocopy_core_error_1_81_0)
+[zerocopy 0.8.56] cargo:rustc-check-cfg=cfg(rust, values("1.81.0"))
+[zerocopy 0.8.56] cargo:rustc-check-cfg=cfg(no_zerocopy_diagnostic_on_unimplemented_1_78_0)
+[zerocopy 0.8.56] cargo:rustc-check-cfg=cfg(rust, values("1.78.0"))
+[zerocopy 0.8.56] cargo:rustc-check-cfg=cfg(no_zerocopy_generic_bounds_in_const_fn_1_61_0)
+[zerocopy 0.8.56] cargo:rustc-check-cfg=cfg(rust, values("1.61.0"))
+[zerocopy 0.8.56] cargo:rustc-check-cfg=cfg(no_zerocopy_target_has_atomics_1_60_0)
+[zerocopy 0.8.56] cargo:rustc-check-cfg=cfg(rust, values("1.60.0"))
+[zerocopy 0.8.56] cargo:rustc-check-cfg=cfg(no_zerocopy_aarch64_simd_1_59_0)
+[zerocopy 0.8.56] cargo:rustc-check-cfg=cfg(rust, values("1.59.0"))
+[zerocopy 0.8.56] cargo:rustc-check-cfg=cfg(no_zerocopy_aarch64_simd_be_1_87_0)
+[zerocopy 0.8.56] cargo:rustc-check-cfg=cfg(rust, values("1.87.0"))
+[zerocopy 0.8.56] cargo:rustc-check-cfg=cfg(no_zerocopy_panic_in_const_and_vec_try_reserve_1_57_0)
+[zerocopy 0.8.56] cargo:rustc-check-cfg=cfg(rust, values("1.57.0"))
+[zerocopy 0.8.56] cargo:rustc-check-cfg=cfg(doc_cfg)
+[zerocopy 0.8.56] cargo:rustc-check-cfg=cfg(kani)
+[zerocopy 0.8.56] cargo:rustc-check-cfg=cfg(__ZEROCOPY_INTERNAL_USE_ONLY_NIGHTLY_FEATURES_IN_TESTS)
+[zerocopy 0.8.56] cargo:rustc-check-cfg=cfg(__ZEROCOPY_INTERNAL_USE_ONLY_DEV_MODE)
+[zerocopy 0.8.56] cargo:rustc-check-cfg=cfg(coverage_nightly)
+[zerocopy 0.8.56] cargo:rustc-check-cfg=cfg(zerocopy_inline_always)
+[zerocopy 0.8.56] cargo:rustc-check-cfg=cfg(zerocopy_unstable_ptr)
+[zerocopy 0.8.56] cargo:rustc-check-cfg=cfg(zerocopy_unstable_linux)
+[zerocopy 0.8.56] cargo:rustc-check-cfg=cfg(no_fp_fmt_parse)
+[crossbeam-epoch 0.9.20] cargo:rerun-if-changed=build.rs
+[crossbeam-epoch 0.9.20] cargo:rustc-check-cfg=cfg(crossbeam_sanitize_thread)
+[getrandom 0.3.4] cargo:rerun-if-changed=build.rs
+[libm 0.2.16] cargo:rerun-if-changed=build.rs
+[libm 0.2.16] cargo:rerun-if-changed=configure.rs
+[libm 0.2.16] cargo:rustc-check-cfg=cfg(assert_no_panic)
+[libm 0.2.16] cargo:rustc-check-cfg=cfg(intrinsics_enabled)
+[libm 0.2.16] cargo:rustc-check-cfg=cfg(arch_enabled)
+[libm 0.2.16] cargo:rustc-cfg=arch_enabled
+[libm 0.2.16] cargo:rustc-check-cfg=cfg(optimizations_enabled)
+[libm 0.2.16] cargo:rustc-cfg=optimizations_enabled
+[libm 0.2.16] cargo:rustc-check-cfg=cfg(x86_no_sse)
+[libm 0.2.16] cargo:rustc-env=CFG_CARGO_FEATURES=["arch", "default"]
+[libm 0.2.16] cargo:rustc-env=CFG_OPT_LEVEL=3
+[libm 0.2.16] cargo:rustc-env=CFG_TARGET_FEATURES=["cmpxchg16b", "fxsr", "sse", "sse2", "sse3"]
+[libm 0.2.16] cargo:rustc-check-cfg=cfg(f16_enabled)
+[libm 0.2.16] cargo:rustc-check-cfg=cfg(f128_enabled)
+[crossbeam-deque 0.8.7] cargo:rerun-if-changed=build.rs
+[crossbeam-deque 0.8.7] cargo:rustc-check-cfg=cfg(crossbeam_sanitize_thread)
+[serde_core 1.0.229] cargo:rerun-if-changed=build.rs
+[rayon-core 1.13.0] cargo:rerun-if-changed=build.rs
+[serde_core 1.0.229] cargo:rustc-check-cfg=cfg(if_docsrs_then_no_serde_core)
+[serde_core 1.0.229] cargo:rustc-check-cfg=cfg(no_core_cstr)
+[serde_core 1.0.229] cargo:rustc-check-cfg=cfg(no_core_error)
+[serde_core 1.0.229] cargo:rustc-check-cfg=cfg(no_core_net)
+[serde_core 1.0.229] cargo:rustc-check-cfg=cfg(no_core_num_saturating)
+[serde_core 1.0.229] cargo:rustc-check-cfg=cfg(no_diagnostic_namespace)
+[serde_core 1.0.229] cargo:rustc-check-cfg=cfg(no_serde_derive)
+[serde_core 1.0.229] cargo:rustc-check-cfg=cfg(no_std_atomic)
+[serde_core 1.0.229] cargo:rustc-check-cfg=cfg(no_std_atomic64)
+[serde_core 1.0.229] cargo:rustc-check-cfg=cfg(no_target_has_atomic)
+[num-traits 0.2.19] cargo:rustc-check-cfg=cfg(has_total_cmp)
+[num-traits 0.2.19] cargo:rustc-cfg=has_total_cmp
+[num-traits 0.2.19] cargo:rerun-if-changed=build.rs
+[paste 1.0.15] cargo:rerun-if-changed=build.rs
+[paste 1.0.15] cargo:rustc-check-cfg=cfg(no_literal_fromstr)
+[paste 1.0.15] cargo:rustc-check-cfg=cfg(feature, values("protocol_feature_paste"))
+[generic-array 0.14.7] cargo:rustc-cfg=relaxed_coherence
+[crossbeam-utils 0.8.22] cargo:rerun-if-changed=no_atomic.rs
+[crossbeam-utils 0.8.22] cargo:rustc-check-cfg=cfg(crossbeam_no_atomic,crossbeam_sanitize_thread)
+[serde 1.0.229] cargo:rerun-if-changed=build.rs
+[serde 1.0.229] cargo:rustc-cfg=if_docsrs_then_no_serde_core
+[serde 1.0.229] cargo:rustc-check-cfg=cfg(feature, values("result"))
+[serde 1.0.229] cargo:rustc-check-cfg=cfg(if_docsrs_then_no_serde_core)
+[serde 1.0.229] cargo:rustc-check-cfg=cfg(no_core_cstr)
+[serde 1.0.229] cargo:rustc-check-cfg=cfg(no_core_error)
+[serde 1.0.229] cargo:rustc-check-cfg=cfg(no_core_net)
+[serde 1.0.229] cargo:rustc-check-cfg=cfg(no_core_num_saturating)
+[serde 1.0.229] cargo:rustc-check-cfg=cfg(no_diagnostic_namespace)
+[serde 1.0.229] cargo:rustc-check-cfg=cfg(no_serde_derive)
+[serde 1.0.229] cargo:rustc-check-cfg=cfg(no_std_atomic)
+[serde 1.0.229] cargo:rustc-check-cfg=cfg(no_std_atomic64)
+[serde 1.0.229] cargo:rustc-check-cfg=cfg(no_target_has_atomic)
+[pulp 0.22.3] cargo::rustc-check-cfg=cfg(libpulp_const)
+[pulp 0.22.3] cargo:rustc-cfg=libpulp_const
+[pulp 0.22.3] cargo::rerun-if-changed=build.rs
+[crossbeam-epoch 0.9.20] cargo:rerun-if-changed=build.rs
+[crossbeam-epoch 0.9.20] cargo:rustc-check-cfg=cfg(crossbeam_sanitize_thread)
+[serde_core 1.0.229] cargo:rerun-if-changed=build.rs
+[serde_core 1.0.229] cargo:rustc-check-cfg=cfg(if_docsrs_then_no_serde_core)
+[serde_core 1.0.229] cargo:rustc-check-cfg=cfg(no_core_cstr)
+[serde_core 1.0.229] cargo:rustc-check-cfg=cfg(no_core_error)
+[serde_core 1.0.229] cargo:rustc-check-cfg=cfg(no_core_net)
+[serde_core 1.0.229] cargo:rustc-check-cfg=cfg(no_core_num_saturating)
+[serde_core 1.0.229] cargo:rustc-check-cfg=cfg(no_diagnostic_namespace)
+[serde_core 1.0.229] cargo:rustc-check-cfg=cfg(no_serde_derive)
+[serde_core 1.0.229] cargo:rustc-check-cfg=cfg(no_std_atomic)
+[serde_core 1.0.229] cargo:rustc-check-cfg=cfg(no_std_atomic64)
+[serde_core 1.0.229] cargo:rustc-check-cfg=cfg(no_target_has_atomic)
+[crossbeam-deque 0.8.7] cargo:rerun-if-changed=build.rs
+[crossbeam-deque 0.8.7] cargo:rustc-check-cfg=cfg(crossbeam_sanitize_thread)
+[winapi 0.3.9] cargo:rerun-if-changed=build.rs
+[winapi 0.3.9] cargo:rerun-if-env-changed=WINAPI_NO_BUNDLED_LIBRARIES
+[winapi 0.3.9] cargo:rerun-if-env-changed=WINAPI_STATIC_NOBUNDLE
+[winapi 0.3.9] cargo:rustc-cfg=feature="minwinbase"
+[winapi 0.3.9] cargo:rustc-cfg=feature="vadefs"
+[winapi 0.3.9] cargo:rustc-cfg=feature="winnt"
+[winapi 0.3.9] cargo:rustc-cfg=feature="ntdef"
+[winapi 0.3.9] cargo:rustc-cfg=feature="guiddef"
+[winapi 0.3.9] cargo:rustc-cfg=feature="reason"
+[winapi 0.3.9] cargo:rustc-cfg=feature="ktmtypes"
+[winapi 0.3.9] cargo:rustc-cfg=feature="rpcndr"
+[winapi 0.3.9] cargo:rustc-cfg=feature="windef"
+[winapi 0.3.9] cargo:rustc-cfg=feature="excpt"
+[winapi 0.3.9] cargo:rustc-cfg=feature="wtypesbase"
+[winapi 0.3.9] cargo:rustc-cfg=feature="winreg"
+[winapi 0.3.9] cargo:rustc-cfg=feature="cfgmgr32"
+[winapi 0.3.9] cargo:rustc-cfg=feature="basetsd"
+[winapi 0.3.9] cargo:rustc-cfg=feature="vcruntime"
+[winapi 0.3.9] cargo:rustc-cfg=feature="minwindef"
+[winapi 0.3.9] cargo:rustc-cfg=feature="devpropdef"
+[winapi 0.3.9] cargo:rustc-cfg=feature="cfg"
+[winapi 0.3.9] cargo:rustc-cfg=feature="libloaderapi"
+[winapi 0.3.9] cargo:rustc-cfg=feature="ntstatus"
+[winapi 0.3.9] cargo:rustc-link-lib=dylib=advapi32
+[winapi 0.3.9] cargo:rustc-link-lib=dylib=cfgmgr32
+[winapi 0.3.9] cargo:rustc-link-lib=dylib=kernel32
+[winapi 0.3.9] cargo:rustc-link-lib=dylib=user32
+[zmij 1.0.23] cargo:rerun-if-changed=build.rs
+[rayon-core 1.13.0] cargo:rerun-if-changed=build.rs
+[zmij 1.0.23] cargo:rustc-check-cfg=cfg(exhaustive)
+[zmij 1.0.23] cargo:rustc-check-cfg=cfg(opt_level, values("s"))
+[zmij 1.0.23] cargo:rustc-check-cfg=cfg(zmij_no_select_unpredictable)
+[serde 1.0.229] cargo:rerun-if-changed=build.rs
+[serde 1.0.229] cargo:rustc-cfg=if_docsrs_then_no_serde_core
+[serde 1.0.229] cargo:rustc-check-cfg=cfg(feature, values("result"))
+[serde 1.0.229] cargo:rustc-check-cfg=cfg(if_docsrs_then_no_serde_core)
+[serde 1.0.229] cargo:rustc-check-cfg=cfg(no_core_cstr)
+[serde 1.0.229] cargo:rustc-check-cfg=cfg(no_core_error)
+[serde 1.0.229] cargo:rustc-check-cfg=cfg(no_core_net)
+[serde 1.0.229] cargo:rustc-check-cfg=cfg(no_core_num_saturating)
+[serde 1.0.229] cargo:rustc-check-cfg=cfg(no_diagnostic_namespace)
+[serde 1.0.229] cargo:rustc-check-cfg=cfg(no_serde_derive)
+[serde 1.0.229] cargo:rustc-check-cfg=cfg(no_std_atomic)
+[serde 1.0.229] cargo:rustc-check-cfg=cfg(no_std_atomic64)
+[serde 1.0.229] cargo:rustc-check-cfg=cfg(no_target_has_atomic)
+[anyhow 1.0.104] cargo:rerun-if-changed=src/nightly.rs
+[anyhow 1.0.104] cargo:rerun-if-env-changed=RUSTC_BOOTSTRAP
+[anyhow 1.0.104] cargo:rustc-check-cfg=cfg(anyhow_build_probe)
+[anyhow 1.0.104] cargo:rustc-check-cfg=cfg(anyhow_nightly_testing)
+[anyhow 1.0.104] cargo:rustc-check-cfg=cfg(anyhow_no_clippy_format_args)
+[anyhow 1.0.104] cargo:rustc-check-cfg=cfg(anyhow_no_core_error)
+[anyhow 1.0.104] cargo:rustc-check-cfg=cfg(error_generic_member_access)
+[serde_json 1.0.151] cargo:rerun-if-changed=build.rs
+[serde_json 1.0.151] cargo:rustc-check-cfg=cfg(fast_arithmetic, values("32", "64"))
+[serde_json 1.0.151] cargo:rustc-cfg=fast_arithmetic="64"
+[thiserror 2.0.20] cargo:rerun-if-changed=build/probe.rs
+[thiserror 2.0.20] cargo:rustc-check-cfg=cfg(error_generic_member_access)
+[thiserror 2.0.20] cargo:rustc-check-cfg=cfg(thiserror_nightly_testing)
+[thiserror 2.0.20] cargo:rustc-check-cfg=cfg(thiserror_no_backtrace_type)
+[zmij 1.0.23] cargo:rerun-if-changed=build.rs
+[thiserror 2.0.20] cargo:rerun-if-env-changed=RUSTC_BOOTSTRAP
+[zmij 1.0.23] cargo:rustc-check-cfg=cfg(exhaustive)
+[zmij 1.0.23] cargo:rustc-check-cfg=cfg(opt_level, values("s"))
+[zmij 1.0.23] cargo:rustc-check-cfg=cfg(zmij_no_select_unpredictable)
+[generic-array 0.14.7] cargo:rustc-cfg=relaxed_coherence
+[rustversion 1.0.23] cargo:rerun-if-changed=build/build.rs
+[rustversion 1.0.23] cargo:rustc-check-cfg=cfg(cfg_macro_not_allowed)
+[rustversion 1.0.23] cargo:rustc-check-cfg=cfg(host_os, values("windows"))
+[rustversion 1.0.23] cargo:rustc-cfg=host_os="windows"
+[serde_json 1.0.151] cargo:rerun-if-changed=build.rs
+[serde_json 1.0.151] cargo:rustc-check-cfg=cfg(fast_arithmetic, values("32", "64"))
+[serde_json 1.0.151] cargo:rustc-cfg=fast_arithmetic="64"
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=RUSTONIG_DYNAMIC_LIBONIG
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=RUSTONIG_STATIC_LIBONIG
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=RUSTONIG_SYSTEM_LIBONIG
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_FORCE_DISABLE
+[onig_sys 69.9.3] CC_FORCE_DISABLE = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+[onig_sys 69.9.3] regexec.c
+[libc 0.2.189] cargo:rerun-if-changed=build.rs
+[libc 0.2.189] cargo:rerun-if-env-changed=LIBC_BUILD_VERBOSE
+[libc 0.2.189] cargo:rerun-if-env-changed=RUST_LIBC_UNSTABLE_FREEBSD_VERSION
+[libc 0.2.189] cargo:rustc-cfg=freebsd12
+[libc 0.2.189] cargo:rustc-check-cfg=cfg(emscripten_old_stat_abi)
+[libc 0.2.189] cargo:rustc-check-cfg=cfg(espidf_picolibc)
+[libc 0.2.189] cargo:rustc-check-cfg=cfg(espidf_time32)
+[libc 0.2.189] cargo:rustc-check-cfg=cfg(freebsd10)
+[libc 0.2.189] cargo:rustc-check-cfg=cfg(freebsd11)
+[libc 0.2.189] cargo:rustc-check-cfg=cfg(freebsd12)
+[libc 0.2.189] cargo:rustc-check-cfg=cfg(freebsd13)
+[libc 0.2.189] cargo:rustc-check-cfg=cfg(freebsd14)
+[libc 0.2.189] cargo:rustc-check-cfg=cfg(freebsd15)
+[libc 0.2.189] cargo:rustc-check-cfg=cfg(gnu_file_offset_bits64)
+[libc 0.2.189] cargo:rustc-check-cfg=cfg(gnu_time_bits64)
+[libc 0.2.189] cargo:rustc-check-cfg=cfg(libc_deny_warnings)
+[libc 0.2.189] cargo:rustc-check-cfg=cfg(linux_time_bits64)
+[libc 0.2.189] cargo:rustc-check-cfg=cfg(musl_v1_2_3)
+[libc 0.2.189] cargo:rustc-check-cfg=cfg(musl32_time64)
+[libc 0.2.189] cargo:rustc-check-cfg=cfg(musl_redir_time64)
+[libc 0.2.189] cargo:rustc-check-cfg=cfg(vxworks_lt_25_09)
+[libc 0.2.189] cargo:rustc-check-cfg=cfg(libc_pauthtest)
+[libc 0.2.189] cargo:rustc-check-cfg=cfg(target_os,values("switch","aix","ohos","hurd","rtems","visionos","nuttx","cygwin","qurt","qnx"))
+[libc 0.2.189] cargo:rustc-check-cfg=cfg(target_env,values("illumos","wasi","aix","ohos","nto71_iosock"))
+[libc 0.2.189] cargo:rustc-check-cfg=cfg(target_arch,values("loongarch64","mips32r6","mips64r6","csky"))
+[getrandom 0.4.3] cargo:rerun-if-changed=build.rs
+[thiserror 2.0.20] cargo:rerun-if-changed=build/probe.rs
+[thiserror 2.0.20] cargo:rustc-check-cfg=cfg(error_generic_member_access)
+[thiserror 2.0.20] cargo:rustc-check-cfg=cfg(thiserror_nightly_testing)
+[thiserror 2.0.20] cargo:rustc-check-cfg=cfg(thiserror_no_backtrace_type)
+[thiserror 2.0.20] cargo:rerun-if-env-changed=RUSTC_BOOTSTRAP
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] regerror.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] regparse.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] regext.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] regcomp.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] reggnu.c
+[ahash 0.8.12] cargo:rerun-if-changed=build.rs
+[ahash 0.8.12] cargo:rustc-check-cfg=cfg(specialize)
+[ahash 0.8.12] cargo:rustc-check-cfg=cfg(folded_multiply)
+[ahash 0.8.12] cargo:rustc-cfg=folded_multiply
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] regenc.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] regsyntax.c
+[crc32fast 1.5.0] cargo:rustc-cfg=stable_arm_crc32_intrinsics
+[crc32fast 1.5.0] cargo:rustc-check-cfg=cfg(stable_arm_crc32_intrinsics)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] regtrav.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] regversion.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] st.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] onig_init.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] unicode.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] ascii.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] utf8.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] utf16_be.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] utf16_le.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] utf32_be.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] utf32_le.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] euc_jp.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] sjis.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] iso8859_1.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] iso8859_2.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] iso8859_3.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] iso8859_4.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] iso8859_5.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] iso8859_6.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] iso8859_7.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] iso8859_8.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] iso8859_9.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] iso8859_10.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] iso8859_11.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] iso8859_13.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] iso8859_14.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] iso8859_15.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] iso8859_16.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] euc_tw.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] euc_kr.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] big5.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] gb18030.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] koi8_r.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cp1251.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] euc_jp_prop.c
+[cudarc 0.19.8] cargo:rerun-if-changed=build.rs
+[cudarc 0.19.8] cargo:rerun-if-env-changed=CUDARC_CUDA_VERSION
+[cudarc 0.19.8] cargo:rerun-if-env-changed=CUDA_HOME
+[cudarc 0.19.8] cargo:rerun-if-env-changed=CUDA_PATH
+[cudarc 0.19.8] cargo:rerun-if-env-changed=CUDA_ROOT
+[cudarc 0.19.8] cargo:rerun-if-env-changed=CUDA_TOOLKIT_ROOT_DIR
+[cudarc 0.19.8] cargo:rerun-if-env-changed=CUDNN_LIB
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[cudarc 0.19.8] cargo:rustc-cfg=feature="cuda-13010"
+[cudarc 0.19.8] cargo:rustc-env=CUDA_MAJOR_VERSION=13
+[cudarc 0.19.8] cargo:rustc-env=CUDA_MINOR_VERSION=1
+[cudarc 0.19.8] cargo:rustc-link-search=native=${TEMP}/lib
+[cudarc 0.19.8] cargo:rustc-link-search=native=${TEMP}/lib/x64
+[cudarc 0.19.8] cargo:rustc-link-search=native=${TEMP}/lib/Win32
+[cudarc 0.19.8] cargo:rustc-link-lib=dylib=cuda
+[cudarc 0.19.8] cargo:rustc-link-lib=dylib=nvrtc
+[cudarc 0.19.8] cargo:rustc-link-lib=dylib=curand
+[cudarc 0.19.8] cargo:rustc-link-lib=dylib=cublas
+[cudarc 0.19.8] cargo:rustc-link-lib=dylib=cublasLt
+[onig_sys 69.9.3] sjis_prop.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] unicode_unfold_key.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] unicode_fold1_key.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] unicode_fold2_key.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+[onig_sys 69.9.3] CRATE_CC_NO_DEFAULTS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS
+[onig_sys 69.9.3] CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CFLAGS
+[onig_sys 69.9.3] HOST_CFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] unicode_fold3_key.c
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=AR_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] AR_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=AR_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] AR_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_AR
+[onig_sys 69.9.3] HOST_AR = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=AR
+[onig_sys 69.9.3] AR = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=ARFLAGS
+[onig_sys 69.9.3] ARFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_ARFLAGS
+[onig_sys 69.9.3] HOST_ARFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=ARFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] ARFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=ARFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] ARFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=AR_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] AR_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=AR_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] AR_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_AR
+[onig_sys 69.9.3] HOST_AR = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=AR
+[onig_sys 69.9.3] AR = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=ARFLAGS
+[onig_sys 69.9.3] ARFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_ARFLAGS
+[onig_sys 69.9.3] HOST_ARFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=ARFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] ARFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=ARFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] ARFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=AR_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] AR_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=AR_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] AR_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_AR
+[onig_sys 69.9.3] HOST_AR = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=AR
+[onig_sys 69.9.3] AR = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=ARFLAGS
+[onig_sys 69.9.3] ARFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_ARFLAGS
+[onig_sys 69.9.3] HOST_ARFLAGS = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=ARFLAGS_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] ARFLAGS_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=ARFLAGS_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] ARFLAGS_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VCINSTALLDIR
+[onig_sys 69.9.3] VCINSTALLDIR = Some(${VS_INSTALL}/VC/)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=VSCMD_ARG_TGT_ARCH
+[onig_sys 69.9.3] VSCMD_ARG_TGT_ARCH = Some(x64)
+[onig_sys 69.9.3] PATH = Some(${TEMP}/cuda-target/candle/release;${TEMP}/cuda-target/candle/release/deps;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${TEMP}/python-canaries;${TEMP}bin/HostX64/x64;${VS_INSTALL}/Team Tools/DiagnosticsHub/Collector;${WINDOWS_KITS}bin/10.0.26100.0/x64;${WINDOWS_KITS}bin/x64;${VS_INSTALL}/MSBuild/Current/Bin/amd64;${WINDOWS}/Microsoft.NET/Framework64/v4.0.30319;${VS_INSTALL}/Common7/IDE;${VS_INSTALL}/Common7/Tools;${TEMP}/bin/x64;${TEMP}/bin;${WINDOWS}/system32;${WINDOWS};${WINDOWS}/System32/Wbem;${WINDOWS}/System32/WindowsPowerShell/v1.0;${WINDOWS}/System32/OpenSSH;${WINDOWS_KITS}Windows Performance Toolkit;${USERPROFILE}/.cargo/bin;${USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin)
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64-pc-windows-msvc
+[onig_sys 69.9.3] CC_x86_64-pc-windows-msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC_x86_64_pc_windows_msvc
+[onig_sys 69.9.3] CC_x86_64_pc_windows_msvc = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=HOST_CC
+[onig_sys 69.9.3] HOST_CC = None
+[onig_sys 69.9.3] cargo:rerun-if-env-changed=CC
+[onig_sys 69.9.3] CC = None
+[onig_sys 69.9.3] cargo:rustc-link-lib=static=onig
+[onig_sys 69.9.3] cargo:rustc-link-search=native=${TEMP}/cuda-target/candle/x86_64-pc-windows-msvc/release/build/onig_sys-a9908e0c53ab1a4e/out
+[candle-kernels 0.11.0] cargo::rerun-if-changed=build.rs
+[candle-kernels 0.11.0] cargo::rerun-if-changed=src/compatibility.cuh
+[candle-kernels 0.11.0] cargo::rerun-if-changed=src/cuda_utils.cuh
+[candle-kernels 0.11.0] cargo::rerun-if-changed=src/binary_op_macros.cuh
+[candle-kernels 0.11.0] cargo:rustc-env=CUDA_INCLUDE_DIR=${TEMP}/include
+[candle-kernels 0.11.0] cargo:rerun-if-changed=src/affine.cu
+[candle-kernels 0.11.0] cargo:rerun-if-changed=src/binary.cu
+[candle-kernels 0.11.0] cargo:rerun-if-changed=src/cast.cu
+[candle-kernels 0.11.0] cargo:rerun-if-changed=src/conv.cu
+[candle-kernels 0.11.0] cargo:rerun-if-changed=src/fill.cu
+[candle-kernels 0.11.0] cargo:rerun-if-changed=src/indexing.cu
+[candle-kernels 0.11.0] cargo:rerun-if-changed=src/quantized.cu
+[candle-kernels 0.11.0] cargo:rerun-if-changed=src/reduce.cu
+[candle-kernels 0.11.0] cargo:rerun-if-changed=src/sort.cu
+[candle-kernels 0.11.0] cargo:rerun-if-changed=src/ternary.cu
+[candle-kernels 0.11.0] cargo:rerun-if-changed=src/unary.cu
+[candle-kernels 0.11.0] cargo:rerun-if-env-changed=CUDA_COMPUTE_CAP
+[candle-kernels 0.11.0] cargo:rerun-if-env-changed=NVCC_CCBIN
+[candle-kernels 0.11.0] cargo:warning=Compiling 11 of 11 PTX kernels
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/quantized.cu(4713): warning #177-D: variable "ncols_y" was declared but never referenced
+[candle-kernels 0.11.0]       constexpr int ncols_y = 1;
+[candle-kernels 0.11.0]                     ^
+[candle-kernels 0.11.0]           detected during instantiation of "void indexed_moe_forward<qk,qi,block_q_t,vdr,vec_dot_q_cuda>(const void *, const void *, const unsigned int *, float *, int, int, int, int, int, int) [with qk=256, qi=16, block_q_t=block_q2_K, vdr=1, vec_dot_q_cuda=vec_dot_q2_K_q8_1]" at line 4768
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/quantized.cu(4725): warning #177-D: variable "blocks_per_col_y" was declared but never referenced
+[candle-kernels 0.11.0]       const int blocks_per_col_y = k_padded / 32;
+[candle-kernels 0.11.0]                 ^
+[candle-kernels 0.11.0]           detected during instantiation of "void indexed_moe_forward<qk,qi,block_q_t,vdr,vec_dot_q_cuda>(const void *, const void *, const unsigned int *, float *, int, int, int, int, int, int) [with qk=256, qi=16, block_q_t=block_q2_K, vdr=1, vec_dot_q_cuda=vec_dot_q2_K_q8_1]" at line 4768
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/quantized.cu(4713): warning #177-D: variable "ncols_y" was declared but never referenced
+[candle-kernels 0.11.0]       constexpr int ncols_y = 1;
+[candle-kernels 0.11.0]                     ^
+[candle-kernels 0.11.0]           detected during instantiation of "void indexed_moe_forward<qk,qi,block_q_t,vdr,vec_dot_q_cuda>(const void *, const void *, const unsigned int *, float *, int, int, int, int, int, int) [with qk=256, qi=16, block_q_t=block_q3_K, vdr=1, vec_dot_q_cuda=vec_dot_q3_K_q8_1]" at line 4783
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/quantized.cu(4725): warning #177-D: variable "blocks_per_col_y" was declared but never referenced
+[candle-kernels 0.11.0]       const int blocks_per_col_y = k_padded / 32;
+[candle-kernels 0.11.0]                 ^
+[candle-kernels 0.11.0]           detected during instantiation of "void indexed_moe_forward<qk,qi,block_q_t,vdr,vec_dot_q_cuda>(const void *, const void *, const unsigned int *, float *, int, int, int, int, int, int) [with qk=256, qi=16, block_q_t=block_q3_K, vdr=1, vec_dot_q_cuda=vec_dot_q3_K_q8_1]" at line 4783
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/quantized.cu(4713): warning #177-D: variable "ncols_y" was declared but never referenced
+[candle-kernels 0.11.0]       constexpr int ncols_y = 1;
+[candle-kernels 0.11.0]                     ^
+[candle-kernels 0.11.0]           detected during instantiation of "void indexed_moe_forward<qk,qi,block_q_t,vdr,vec_dot_q_cuda>(const void *, const void *, const unsigned int *, float *, int, int, int, int, int, int) [with qk=256, qi=32, block_q_t=block_q4_K, vdr=2, vec_dot_q_cuda=vec_dot_q4_K_q8_1]" at line 4798
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/quantized.cu(4725): warning #177-D: variable "blocks_per_col_y" was declared but never referenced
+[candle-kernels 0.11.0]       const int blocks_per_col_y = k_padded / 32;
+[candle-kernels 0.11.0]                 ^
+[candle-kernels 0.11.0]           detected during instantiation of "void indexed_moe_forward<qk,qi,block_q_t,vdr,vec_dot_q_cuda>(const void *, const void *, const unsigned int *, float *, int, int, int, int, int, int) [with qk=256, qi=32, block_q_t=block_q4_K, vdr=2, vec_dot_q_cuda=vec_dot_q4_K_q8_1]" at line 4798
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/quantized.cu(4713): warning #177-D: variable "ncols_y" was declared but never referenced
+[candle-kernels 0.11.0]       constexpr int ncols_y = 1;
+[candle-kernels 0.11.0]                     ^
+[candle-kernels 0.11.0]           detected during instantiation of "void indexed_moe_forward<qk,qi,block_q_t,vdr,vec_dot_q_cuda>(const void *, const void *, const unsigned int *, float *, int, int, int, int, int, int) [with qk=256, qi=32, block_q_t=block_q5_K, vdr=2, vec_dot_q_cuda=vec_dot_q5_K_q8_1]" at line 4813
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/quantized.cu(4725): warning #177-D: variable "blocks_per_col_y" was declared but never referenced
+[candle-kernels 0.11.0]       const int blocks_per_col_y = k_padded / 32;
+[candle-kernels 0.11.0]                 ^
+[candle-kernels 0.11.0]           detected during instantiation of "void indexed_moe_forward<qk,qi,block_q_t,vdr,vec_dot_q_cuda>(const void *, const void *, const unsigned int *, float *, int, int, int, int, int, int) [with qk=256, qi=32, block_q_t=block_q5_K, vdr=2, vec_dot_q_cuda=vec_dot_q5_K_q8_1]" at line 4813
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/quantized.cu(4713): warning #177-D: variable "ncols_y" was declared but never referenced
+[candle-kernels 0.11.0]       constexpr int ncols_y = 1;
+[candle-kernels 0.11.0]                     ^
+[candle-kernels 0.11.0]           detected during instantiation of "void indexed_moe_forward<qk,qi,block_q_t,vdr,vec_dot_q_cuda>(const void *, const void *, const unsigned int *, float *, int, int, int, int, int, int) [with qk=256, qi=32, block_q_t=block_q6_K, vdr=1, vec_dot_q_cuda=vec_dot_q6_K_q8_1]" at line 4828
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/quantized.cu(4725): warning #177-D: variable "blocks_per_col_y" was declared but never referenced
+[candle-kernels 0.11.0]       const int blocks_per_col_y = k_padded / 32;
+[candle-kernels 0.11.0]                 ^
+[candle-kernels 0.11.0]           detected during instantiation of "void indexed_moe_forward<qk,qi,block_q_t,vdr,vec_dot_q_cuda>(const void *, const void *, const unsigned int *, float *, int, int, int, int, int, int) [with qk=256, qi=32, block_q_t=block_q6_K, vdr=1, vec_dot_q_cuda=vec_dot_q6_K_q8_1]" at line 4828
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/quantized.cu(4713): warning #177-D: variable "ncols_y" was declared but never referenced
+[candle-kernels 0.11.0]       constexpr int ncols_y = 1;
+[candle-kernels 0.11.0]                     ^
+[candle-kernels 0.11.0]           detected during instantiation of "void indexed_moe_forward<qk,qi,block_q_t,vdr,vec_dot_q_cuda>(const void *, const void *, const unsigned int *, float *, int, int, int, int, int, int) [with qk=32, qi=8, block_q_t=block_q8_0, vdr=2, vec_dot_q_cuda=vec_dot_q8_0_q8_1]" at line 4843
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/quantized.cu(4725): warning #177-D: variable "blocks_per_col_y" was declared but never referenced
+[candle-kernels 0.11.0]       const int blocks_per_col_y = k_padded / 32;
+[candle-kernels 0.11.0]                 ^
+[candle-kernels 0.11.0]           detected during instantiation of "void indexed_moe_forward<qk,qi,block_q_t,vdr,vec_dot_q_cuda>(const void *, const void *, const unsigned int *, float *, int, int, int, int, int, int) [with qk=32, qi=8, block_q_t=block_q8_0, vdr=2, vec_dot_q_cuda=vec_dot_q8_0_q8_1]" at line 4843
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] affine.cu
+[candle-kernels 0.11.0] sort.cu
+[candle-kernels 0.11.0] indexing.cu
+[candle-kernels 0.11.0] ternary.cu
+[candle-kernels 0.11.0] MSVC/cl.exe with traditional preprocessor is used. This may lead to unexpected compilation errors. Please switch to the standard conforming preprocessor by passing `/Zc:preprocessor` to cl.exe. You can define CCCL_IGNORE_MSVC_TRADITIONAL_PREPROCESSOR_WARNING to suppress this warning.
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/reduce.cu(238): warning #221-D: floating-point value does not fit in required floating-point type
+[candle-kernels 0.11.0]       T max_val = -((float)(1e+300));
+[candle-kernels 0.11.0]                     ^
+[candle-kernels 0.11.0]           detected during instantiation of "void softmax<T,ACC>(const T *, T *, int) [with T=__nv_bfloat16, ACC=float]" at line 651
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/reduce.cu(27): warning #221-D: floating-point value does not fit in required floating-point type
+[candle-kernels 0.11.0]     return ((float)(1e+300));
+[candle-kernels 0.11.0]             ^
+[candle-kernels 0.11.0]           detected during:
+[candle-kernels 0.11.0]             instantiation of "T reduce_init_highest<T>() [with T=__nv_bfloat16]" at line 440
+[candle-kernels 0.11.0]             instantiation of "void fast_argmin(size_t, size_t, size_t, const size_t *, const T *, uint32_t *) [with T=__nv_bfloat16]" at line 656
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/reduce.cu(19): warning #221-D: floating-point value does not fit in required floating-point type
+[candle-kernels 0.11.0]     return -((float)(1e+300));
+[candle-kernels 0.11.0]              ^
+[candle-kernels 0.11.0]           detected during:
+[candle-kernels 0.11.0]             instantiation of "T reduce_init_lowest<T>() [with T=__nv_bfloat16]" at line 490
+[candle-kernels 0.11.0]             instantiation of "void fast_argmax(size_t, size_t, size_t, const size_t *, const T *, uint32_t *) [with T=__nv_bfloat16]" at line 656
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/reduce.cu(238): warning #221-D: floating-point value does not fit in required floating-point type
+[candle-kernels 0.11.0]       T max_val = -((float)(1e+300));
+[candle-kernels 0.11.0]                     ^
+[candle-kernels 0.11.0]           detected during instantiation of "void softmax<T,ACC>(const T *, T *, int) [with T=__half, ACC=float]" at line 668
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/reduce.cu(27): warning #221-D: floating-point value does not fit in required floating-point type
+[candle-kernels 0.11.0]     return ((float)(1e+300));
+[candle-kernels 0.11.0]             ^
+[candle-kernels 0.11.0]           detected during:
+[candle-kernels 0.11.0]             instantiation of "T reduce_init_highest<T>() [with T=__half]" at line 440
+[candle-kernels 0.11.0]             instantiation of "void fast_argmin(size_t, size_t, size_t, const size_t *, const T *, uint32_t *) [with T=__half]" at line 673
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/reduce.cu(19): warning #221-D: floating-point value does not fit in required floating-point type
+[candle-kernels 0.11.0]     return -((float)(1e+300));
+[candle-kernels 0.11.0]              ^
+[candle-kernels 0.11.0]           detected during:
+[candle-kernels 0.11.0]             instantiation of "T reduce_init_lowest<T>() [with T=__half]" at line 490
+[candle-kernels 0.11.0]             instantiation of "void fast_argmax(size_t, size_t, size_t, const size_t *, const T *, uint32_t *) [with T=__half]" at line 673
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/reduce.cu(238): warning #221-D: floating-point value does not fit in required floating-point type
+[candle-kernels 0.11.0]       T max_val = -((float)(1e+300));
+[candle-kernels 0.11.0]                     ^
+[candle-kernels 0.11.0]           detected during instantiation of "void softmax<T,ACC>(const T *, T *, int) [with T=float, ACC=float]" at line 679
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/reduce.cu(238): warning #221-D: floating-point value does not fit in required floating-point type
+[candle-kernels 0.11.0]       T max_val = -((float)(1e+300));
+[candle-kernels 0.11.0]                     ^
+[candle-kernels 0.11.0]           detected during instantiation of "void softmax<T,ACC>(const T *, T *, int) [with T=double, ACC=double]" at line 680
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/reduce.cu(27): warning #221-D: floating-point value does not fit in required floating-point type
+[candle-kernels 0.11.0]     return ((float)(1e+300));
+[candle-kernels 0.11.0]             ^
+[candle-kernels 0.11.0]           detected during:
+[candle-kernels 0.11.0]             instantiation of "T reduce_init_highest<T>() [with T=float]" at line 440
+[candle-kernels 0.11.0]             instantiation of "void fast_argmin(size_t, size_t, size_t, const size_t *, const T *, uint32_t *) [with T=float]" at line 688
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/reduce.cu(19): warning #221-D: floating-point value does not fit in required floating-point type
+[candle-kernels 0.11.0]     return -((float)(1e+300));
+[candle-kernels 0.11.0]              ^
+[candle-kernels 0.11.0]           detected during:
+[candle-kernels 0.11.0]             instantiation of "T reduce_init_lowest<T>() [with T=float]" at line 490
+[candle-kernels 0.11.0]             instantiation of "void fast_argmax(size_t, size_t, size_t, const size_t *, const T *, uint32_t *) [with T=float]" at line 688
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/reduce.cu(27): warning #221-D: floating-point value does not fit in required floating-point type
+[candle-kernels 0.11.0]     return ((float)(1e+300));
+[candle-kernels 0.11.0]             ^
+[candle-kernels 0.11.0]           detected during:
+[candle-kernels 0.11.0]             instantiation of "T reduce_init_highest<T>() [with T=double]" at line 440
+[candle-kernels 0.11.0]             instantiation of "void fast_argmin(size_t, size_t, size_t, const size_t *, const T *, uint32_t *) [with T=double]" at line 689
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/reduce.cu(19): warning #221-D: floating-point value does not fit in required floating-point type
+[candle-kernels 0.11.0]     return -((float)(1e+300));
+[candle-kernels 0.11.0]              ^
+[candle-kernels 0.11.0]           detected during:
+[candle-kernels 0.11.0]             instantiation of "T reduce_init_lowest<T>() [with T=double]" at line 490
+[candle-kernels 0.11.0]             instantiation of "void fast_argmax(size_t, size_t, size_t, const size_t *, const T *, uint32_t *) [with T=double]" at line 689
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] reduce.cu
+[candle-kernels 0.11.0] unary.cu
+[candle-kernels 0.11.0] cast.cu
+[candle-kernels 0.11.0] fill.cu
+[candle-kernels 0.11.0] conv.cu
+[candle-kernels 0.11.0] binary.cu
+[candle-kernels 0.11.0] quantized.cu
+[candle-kernels 0.11.0] cargo:warning=Using 4 threads for compilation
+[candle-kernels 0.11.0] cargo:rerun-if-changed=src/mmq_gguf/mmq_instance_q2_k.cu
+[candle-kernels 0.11.0] cargo:rerun-if-changed=src/mmq_gguf/mmq_instance_q3_k.cu
+[candle-kernels 0.11.0] cargo:rerun-if-changed=src/mmq_gguf/mmq_instance_q4_0.cu
+[candle-kernels 0.11.0] cargo:rerun-if-changed=src/mmq_gguf/mmq_instance_q4_1.cu
+[candle-kernels 0.11.0] cargo:rerun-if-changed=src/mmq_gguf/mmq_instance_q4_k.cu
+[candle-kernels 0.11.0] cargo:rerun-if-changed=src/mmq_gguf/mmq_instance_q5_0.cu
+[candle-kernels 0.11.0] cargo:rerun-if-changed=src/mmq_gguf/mmq_instance_q5_1.cu
+[candle-kernels 0.11.0] cargo:rerun-if-changed=src/mmq_gguf/mmq_instance_q5_k.cu
+[candle-kernels 0.11.0] cargo:rerun-if-changed=src/mmq_gguf/mmq_instance_q6_k.cu
+[candle-kernels 0.11.0] cargo:rerun-if-changed=src/mmq_gguf/mmq_instance_q8_0.cu
+[candle-kernels 0.11.0] cargo:rerun-if-changed=src/mmq_gguf/mmq_quantize.cu
+[candle-kernels 0.11.0] cargo:rerun-if-changed=src/mmvq_gguf.cu
+[candle-kernels 0.11.0] cargo:rerun-if-changed=src/moe/moe_gguf.cu
+[candle-kernels 0.11.0] cargo:rerun-if-changed=src/moe/moe_wmma.cu
+[candle-kernels 0.11.0] cargo:rerun-if-changed=src/moe/moe_wmma_gguf.cu
+[candle-kernels 0.11.0] cargo:rerun-if-env-changed=CUDA_COMPUTE_CAP
+[candle-kernels 0.11.0] cargo:rerun-if-env-changed=NVCC
+[candle-kernels 0.11.0] cargo:rerun-if-env-changed=NVCC_CCBIN
+[candle-kernels 0.11.0] cargo:warning=Compiling 15 of 15 kernels
+[candle-kernels 0.11.0] mmq_instance_q4_1.cu
+[candle-kernels 0.11.0] tmpxft_00004aa0_00000000-7_mmq_instance_q4_1.cudafe1.cpp
+[candle-kernels 0.11.0] mmq_instance_q5_k.cu
+[candle-kernels 0.11.0] tmpxft_00000354_00000000-7_mmq_instance_q5_k.cudafe1.cpp
+[candle-kernels 0.11.0] mmq_instance_q3_k.cu
+[candle-kernels 0.11.0] tmpxft_000011d8_00000000-7_mmq_instance_q3_k.cudafe1.cpp
+[candle-kernels 0.11.0] mmq_instance_q2_k.cu
+[candle-kernels 0.11.0] tmpxft_00002064_00000000-7_mmq_instance_q2_k.cudafe1.cpp
+[candle-kernels 0.11.0] mmq_instance_q4_k.cu
+[candle-kernels 0.11.0] tmpxft_00005758_00000000-7_mmq_instance_q4_k.cudafe1.cpp
+[candle-kernels 0.11.0] mmq_instance_q4_0.cu
+[candle-kernels 0.11.0] tmpxft_00002884_00000000-7_mmq_instance_q4_0.cudafe1.cpp
+[candle-kernels 0.11.0] mmvq_gguf.cu
+[candle-kernels 0.11.0] mmq_instance_q6_k.cu
+[candle-kernels 0.11.0] tmpxft_00001bec_00000000-7_mmvq_gguf.cudafe1.cpp
+[candle-kernels 0.11.0] tmpxft_00002f68_00000000-7_mmq_instance_q6_k.cudafe1.cpp
+[candle-kernels 0.11.0] moe_gguf.cu
+[candle-kernels 0.11.0] tmpxft_00004d28_00000000-7_moe_gguf.cudafe1.cpp
+[candle-kernels 0.11.0] mmq_quantize.cu
+[candle-kernels 0.11.0] tmpxft_000030b8_00000000-7_mmq_quantize.cudafe1.cpp
+[candle-kernels 0.11.0] MSVC/cl.exe with traditional preprocessor is used. This may lead to unexpected compilation errors. Please switch to the standard conforming preprocessor by passing `/Zc:preprocessor` to cl.exe. You can define CCCL_IGNORE_MSVC_TRADITIONAL_PREPROCESSOR_WARNING to suppress this warning.
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/moe/moe_wmma.cu(110): warning #177-D: variable "laneId" was declared but never referenced
+[candle-kernels 0.11.0]       const int laneId = threadId % 32;
+[candle-kernels 0.11.0]                 ^
+[candle-kernels 0.11.0]           detected during instantiation of "void vllm_rs::moe_gemm_grouped_kernel<T,WMMA_M,WMMA_N,WARPS_N>(const T *, const T *, const int32_t *, const int32_t *, const float *, T *, int, int, int32_t, int32_t, int32_t) [with T=half, WMMA_M=16, WMMA_N=16, WARPS_N=2]" at line 272
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/moe/moe_wmma.cu(110): warning #177-D: variable "laneId" was declared but never referenced
+[candle-kernels 0.11.0]       const int laneId = threadId % 32;
+[candle-kernels 0.11.0]                 ^
+[candle-kernels 0.11.0]           detected during instantiation of "void vllm_rs::moe_gemm_grouped_kernel<T,WMMA_M,WMMA_N,WARPS_N>(const T *, const T *, const int32_t *, const int32_t *, const float *, T *, int, int, int32_t, int32_t, int32_t) [with T=half, WMMA_M=8, WMMA_N=32, WARPS_N=1]" at line 275
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/moe/moe_wmma.cu(110): warning #177-D: variable "laneId" was declared but never referenced
+[candle-kernels 0.11.0]       const int laneId = threadId % 32;
+[candle-kernels 0.11.0]                 ^
+[candle-kernels 0.11.0]           detected during instantiation of "void vllm_rs::moe_gemm_grouped_kernel<T,WMMA_M,WMMA_N,WARPS_N>(const T *, const T *, const int32_t *, const int32_t *, const float *, T *, int, int, int32_t, int32_t, int32_t) [with T=nv_bfloat16, WMMA_M=16, WMMA_N=16, WARPS_N=2]" at line 281
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/moe/moe_wmma.cu(110): warning #177-D: variable "laneId" was declared but never referenced
+[candle-kernels 0.11.0]       const int laneId = threadId % 32;
+[candle-kernels 0.11.0]                 ^
+[candle-kernels 0.11.0]           detected during instantiation of "void vllm_rs::moe_gemm_grouped_kernel<T,WMMA_M,WMMA_N,WARPS_N>(const T *, const T *, const int32_t *, const int32_t *, const float *, T *, int, int, int32_t, int32_t, int32_t) [with T=nv_bfloat16, WMMA_M=8, WMMA_N=32, WARPS_N=1]" at line 283
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/moe/moe_wmma.cu(37): warning #177-D: variable "vllm_rs::NUM_VECS" was declared but never referenced
+[candle-kernels 0.11.0]   constexpr int NUM_VECS = 32;
+[candle-kernels 0.11.0]                 ^
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] ${USERPROFILE}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/candle-kernels-0.11.0/src/moe/moe_wmma.cu(40): warning #177-D: variable "vllm_rs::WARPS_PER_BLOCK" was declared but never referenced
+[candle-kernels 0.11.0]   constexpr int WARPS_PER_BLOCK = 4; 
+[candle-kernels 0.11.0]                 ^
+[candle-kernels 0.11.0] 
+[candle-kernels 0.11.0] moe_wmma.cu
+[candle-kernels 0.11.0] tmpxft_00004508_00000000-7_moe_wmma.cudafe1.cpp
+[candle-kernels 0.11.0] MSVC/cl.exe with traditional preprocessor is used. This may lead to unexpected compilation errors. Please switch to the standard conforming preprocessor by passing `/Zc:preprocessor` to cl.exe. You can define CCCL_IGNORE_MSVC_TRADITIONAL_PREPROCESSOR_WARNING to suppress this warning.
+[candle-kernels 0.11.0] mmq_instance_q5_0.cu
+[candle-kernels 0.11.0] tmpxft_00002e48_00000000-7_mmq_instance_q5_0.cudafe1.cpp
+[candle-kernels 0.11.0] mmq_instance_q8_0.cu
+[candle-kernels 0.11.0] tmpxft_000023ec_00000000-7_mmq_instance_q8_0.cudafe1.cpp
+[candle-kernels 0.11.0] moe_wmma_gguf.cu
+[candle-kernels 0.11.0] tmpxft_00005e18_00000000-7_moe_wmma_gguf.cudafe1.cpp
+[candle-kernels 0.11.0] mmq_instance_q5_1.cu
+[candle-kernels 0.11.0] tmpxft_00005ff4_00000000-7_mmq_instance_q5_1.cudafe1.cpp
+[candle-kernels 0.11.0] mmq_instance_q2_k-73e268ec9814751e.o
+[candle-kernels 0.11.0] mmq_instance_q3_k-2f85d2bfdac33829.o
+[candle-kernels 0.11.0] mmq_instance_q4_0-a6aaf78bc003b6ca.o
+[candle-kernels 0.11.0] mmq_instance_q4_1-c9878c296310533a.o
+[candle-kernels 0.11.0] mmq_instance_q4_k-d5cc79b5a51515fc.o
+[candle-kernels 0.11.0] mmq_instance_q5_0-974bb1882d2b542e.o
+[candle-kernels 0.11.0] mmq_instance_q5_1-5aae1621b4da2eb4.o
+[candle-kernels 0.11.0] mmq_instance_q5_k-30bb620f70da1bcd.o
+[candle-kernels 0.11.0] mmq_instance_q6_k-2f453bcf46b18b64.o
+[candle-kernels 0.11.0] mmq_instance_q8_0-87a4a1804b042d61.o
+[candle-kernels 0.11.0] mmq_quantize-f21866c1e1580d4f.o
+[candle-kernels 0.11.0] mmvq_gguf-9c814884c3519d29.o
+[candle-kernels 0.11.0] moe_gguf-c156b6651de223de.o
+[candle-kernels 0.11.0] moe_wmma-b5c0983698e02823.o
+[candle-kernels 0.11.0] moe_wmma_gguf-b567cf86570cfafb.o
+[candle-kernels 0.11.0] cargo:rustc-link-search=${TEMP}/cuda-target/candle/x86_64-pc-windows-msvc/release/build/candle-kernels-9fe93fdc2da9e9f9/out
+[candle-kernels 0.11.0] cargo:rustc-link-lib=moe
+[candle-kernels 0.11.0] cargo:rustc-link-lib=dylib=cudart

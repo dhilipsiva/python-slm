@@ -1,0 +1,352 @@
+p2-candle v0.0.0 (${REPO}/experiments/p2-backends/candle)
+candle-core v0.11.0
+byteorder v1.5.0
+candle-kernels v0.11.0
+cudaforge v0.1.6
+anyhow v1.0.104
+fs2 v0.4.3
+winapi v0.3.9
+glob v0.3.4
+num_cpus v1.17.0
+rayon v1.12.0
+either v1.17.0
+rayon-core v1.13.0
+crossbeam-deque v0.8.7
+crossbeam-epoch v0.9.20
+crossbeam-utils v0.8.22
+crossbeam-utils v0.8.22
+crossbeam-utils v0.8.22
+serde v1.0.229
+serde_core v1.0.229
+serde_derive v1.0.229 (proc-macro)
+proc-macro2 v1.0.107
+unicode-ident v1.0.24
+quote v1.0.47
+proc-macro2 v1.0.107 (*)
+syn v3.0.3
+proc-macro2 v1.0.107 (*)
+quote v1.0.47 (*)
+unicode-ident v1.0.24
+serde_json v1.0.151
+itoa v1.0.18
+memchr v2.8.3
+serde_core v1.0.229
+zmij v1.0.23
+sha2 v0.10.9
+cfg-if v1.0.4
+cpufeatures v0.2.17
+digest v0.10.7
+block-buffer v0.10.4
+generic-array v0.14.7
+typenum v1.20.1
+version_check v0.9.5
+crypto-common v0.1.7
+generic-array v0.14.7 (*)
+typenum v1.20.1
+thiserror v2.0.20
+thiserror-impl v2.0.20 (proc-macro)
+proc-macro2 v1.0.107 (*)
+quote v1.0.47 (*)
+syn v3.0.3 (*)
+walkdir v2.5.0
+same-file v1.0.6
+winapi-util v0.1.11
+windows-sys v0.61.2
+windows-link v0.2.1
+winapi-util v0.1.11 (*)
+which v7.0.3
+either v1.17.0
+env_home v0.1.0
+winsafe v0.0.19
+cudarc v0.19.8
+float8 v0.7.0
+half v2.7.1
+bytemuck v1.25.2
+bytemuck_derive v1.12.0 (proc-macro)
+proc-macro2 v1.0.107 (*)
+quote v1.0.47 (*)
+syn v3.0.3 (*)
+cfg-if v1.0.4
+num-traits v0.2.19
+libm v0.2.16
+autocfg v1.5.1
+rand v0.9.5
+rand_chacha v0.9.0
+ppv-lite86 v0.2.21
+zerocopy v0.8.56
+zerocopy-derive v0.8.56 (proc-macro)
+proc-macro2 v1.0.107 (*)
+quote v1.0.47 (*)
+syn v2.0.119
+proc-macro2 v1.0.107 (*)
+quote v1.0.47 (*)
+unicode-ident v1.0.24
+rand_core v0.9.5
+getrandom v0.3.4
+cfg-if v1.0.4
+rand_core v0.9.5 (*)
+rand_distr v0.5.1
+num-traits v0.2.19 (*)
+rand v0.9.5 (*)
+zerocopy v0.8.56 (*)
+num-traits v0.2.19 (*)
+rand v0.9.5 (*)
+rand_distr v0.5.1 (*)
+half v2.7.1 (*)
+libloading v0.9.0
+windows-link v0.2.1
+float8 v0.7.0 (*)
+gemm v0.19.0
+dyn-stack v0.13.2
+bytemuck v1.25.2 (*)
+dyn-stack-macros v0.1.3 (proc-macro)
+gemm-c32 v0.19.0
+dyn-stack v0.13.2 (*)
+gemm-common v0.19.0
+bytemuck v1.25.2 (*)
+dyn-stack v0.13.2 (*)
+half v2.7.1 (*)
+libm v0.2.16
+num-complex v0.4.6
+bytemuck v1.25.2 (*)
+num-traits v0.2.19 (*)
+num-traits v0.2.19 (*)
+once_cell v1.21.4
+paste v1.0.15 (proc-macro)
+pulp v0.22.3
+bytemuck v1.25.2 (*)
+cfg-if v1.0.4
+libm v0.2.16
+num-complex v0.4.6 (*)
+paste v1.0.15 (proc-macro)
+pulp-wasm-simd-flag v0.1.1
+raw-cpuid v11.6.0
+bitflags v2.13.1
+reborrow v0.5.5
+version_check v0.9.5
+raw-cpuid v11.6.0 (*)
+rayon v1.12.0
+either v1.17.0
+rayon-core v1.13.0
+crossbeam-deque v0.8.7
+crossbeam-epoch v0.9.20
+crossbeam-utils v0.8.22
+crossbeam-utils v0.8.22
+crossbeam-utils v0.8.22
+seq-macro v0.3.6 (proc-macro)
+num-complex v0.4.6 (*)
+num-traits v0.2.19 (*)
+paste v1.0.15 (proc-macro)
+raw-cpuid v11.6.0 (*)
+seq-macro v0.3.6 (proc-macro)
+gemm-c64 v0.19.0
+dyn-stack v0.13.2 (*)
+gemm-common v0.19.0 (*)
+num-complex v0.4.6 (*)
+num-traits v0.2.19 (*)
+paste v1.0.15 (proc-macro)
+raw-cpuid v11.6.0 (*)
+seq-macro v0.3.6 (proc-macro)
+gemm-common v0.19.0 (*)
+gemm-f16 v0.19.0
+dyn-stack v0.13.2 (*)
+gemm-common v0.19.0 (*)
+gemm-f32 v0.19.0
+dyn-stack v0.13.2 (*)
+gemm-common v0.19.0 (*)
+num-complex v0.4.6 (*)
+num-traits v0.2.19 (*)
+paste v1.0.15 (proc-macro)
+raw-cpuid v11.6.0 (*)
+seq-macro v0.3.6 (proc-macro)
+half v2.7.1 (*)
+num-complex v0.4.6 (*)
+num-traits v0.2.19 (*)
+paste v1.0.15 (proc-macro)
+raw-cpuid v11.6.0 (*)
+rayon v1.12.0 (*)
+seq-macro v0.3.6 (proc-macro)
+gemm-f32 v0.19.0 (*)
+gemm-f64 v0.19.0
+dyn-stack v0.13.2 (*)
+gemm-common v0.19.0 (*)
+num-complex v0.4.6 (*)
+num-traits v0.2.19 (*)
+paste v1.0.15 (proc-macro)
+raw-cpuid v11.6.0 (*)
+seq-macro v0.3.6 (proc-macro)
+num-complex v0.4.6 (*)
+num-traits v0.2.19 (*)
+paste v1.0.15 (proc-macro)
+raw-cpuid v11.6.0 (*)
+seq-macro v0.3.6 (proc-macro)
+half v2.7.1 (*)
+libc v0.2.189
+libm v0.2.16
+memmap2 v0.9.11
+stable_deref_trait v1.2.1
+num-traits v0.2.19 (*)
+num_cpus v1.17.0
+rand v0.9.5 (*)
+rand_distr v0.5.1 (*)
+rayon v1.12.0 (*)
+safetensors v0.8.0
+hashbrown v0.16.1
+allocator-api2 v0.2.21
+equivalent v1.0.2
+foldhash v0.2.0
+serde_core v1.0.229
+serde v1.0.229
+serde_core v1.0.229
+serde_derive v1.0.229 (proc-macro) (*)
+serde_json v1.0.151
+itoa v1.0.18
+memchr v2.8.3
+serde_core v1.0.229
+zmij v1.0.23
+tempfile v3.27.0
+fastrand v2.5.0
+getrandom v0.4.3
+cfg-if v1.0.4
+once_cell v1.21.4
+windows-sys v0.61.2
+windows-link v0.2.1
+thiserror v2.0.20
+thiserror-impl v2.0.20 (proc-macro) (*)
+tokenizers v0.22.2
+ahash v0.8.12
+cfg-if v1.0.4
+getrandom v0.3.4 (*)
+once_cell v1.21.4
+serde v1.0.229 (*)
+zerocopy v0.8.56 (*)
+version_check v0.9.5
+aho-corasick v1.1.5
+memchr v2.8.3
+compact_str v0.9.1
+castaway v0.2.4
+rustversion v1.0.23 (proc-macro)
+cfg-if v1.0.4
+itoa v1.0.18
+rustversion v1.0.23 (proc-macro)
+ryu v1.0.23
+serde v1.0.229 (*)
+static_assertions v1.1.0
+dary_heap v0.3.9
+serde v1.0.229 (*)
+derive_builder v0.20.2
+derive_builder_macro v0.20.2 (proc-macro)
+derive_builder_core v0.20.2
+darling v0.20.11
+darling_core v0.20.11
+fnv v1.0.7
+ident_case v1.0.1
+proc-macro2 v1.0.107 (*)
+quote v1.0.47 (*)
+strsim v0.11.1
+syn v2.0.119 (*)
+darling_macro v0.20.11 (proc-macro)
+darling_core v0.20.11 (*)
+quote v1.0.47 (*)
+syn v2.0.119 (*)
+proc-macro2 v1.0.107 (*)
+quote v1.0.47 (*)
+syn v2.0.119 (*)
+syn v2.0.119 (*)
+esaxx-rs v0.1.10
+getrandom v0.3.4 (*)
+itertools v0.14.0
+either v1.17.0
+log v0.4.33
+macro_rules_attribute v0.2.3
+macro_rules_attribute-proc_macro v0.2.3 (proc-macro)
+pastey v0.2.3 (proc-macro)
+monostate v0.1.18
+monostate-impl v0.1.18 (proc-macro)
+proc-macro2 v1.0.107 (*)
+quote v1.0.47 (*)
+syn v2.0.119 (*)
+serde_core v1.0.229
+onig v6.5.3
+bitflags v2.13.1
+libc v0.2.189
+once_cell v1.21.4
+onig_sys v69.9.3
+cc v1.4.2
+find-msvc-tools v0.1.10
+shlex v2.0.1
+pkg-config v0.3.33
+paste v1.0.15 (proc-macro)
+rand v0.9.5 (*)
+rayon v1.12.0 (*)
+rayon-cond v0.4.0
+either v1.17.0
+itertools v0.14.0 (*)
+rayon v1.12.0 (*)
+regex v1.13.1
+aho-corasick v1.1.5 (*)
+memchr v2.8.3
+regex-automata v0.4.18
+aho-corasick v1.1.5 (*)
+memchr v2.8.3
+regex-syntax v0.8.11
+regex-syntax v0.8.11
+regex-syntax v0.8.11
+serde v1.0.229 (*)
+serde_json v1.0.151 (*)
+spm_precompiled v0.1.4
+base64 v0.13.1
+nom v7.1.3
+memchr v2.8.3
+minimal-lexical v0.2.1
+serde v1.0.229 (*)
+unicode-segmentation v1.13.3
+thiserror v2.0.20 (*)
+unicode-normalization-alignments v0.1.12
+smallvec v1.15.2
+unicode-segmentation v1.13.3
+unicode_categories v0.1.1
+yoke v0.8.3
+stable_deref_trait v1.2.1
+yoke-derive v0.8.2 (proc-macro)
+proc-macro2 v1.0.107 (*)
+quote v1.0.47 (*)
+syn v2.0.119 (*)
+synstructure v0.13.2
+proc-macro2 v1.0.107 (*)
+quote v1.0.47 (*)
+syn v2.0.119 (*)
+zerofrom v0.1.8
+zerofrom-derive v0.1.7 (proc-macro)
+proc-macro2 v1.0.107 (*)
+quote v1.0.47 (*)
+syn v2.0.119 (*)
+synstructure v0.13.2 (*)
+zerocopy v0.8.56 (*)
+zip v8.6.0
+crc32fast v1.5.0
+cfg-if v1.0.4
+indexmap v2.14.0
+equivalent v1.0.2
+hashbrown v0.17.1
+memchr v2.8.3
+typed-path v0.12.3
+half v2.7.1 (*)
+p2-backend-common v0.0.0 (${REPO}/experiments/p2-backends/common)
+half v2.7.1 (*)
+hex v0.4.3
+serde v1.0.229 (*)
+serde_json v1.0.151 (*)
+sha2 v0.10.9
+cfg-if v1.0.4
+cpufeatures v0.2.17
+digest v0.10.7
+block-buffer v0.10.4
+generic-array v0.14.7
+typenum v1.20.1
+version_check v0.9.5
+crypto-common v0.1.7
+generic-array v0.14.7 (*)
+typenum v1.20.1
+thiserror v2.0.20 (*)
+serde_json v1.0.151 (*)

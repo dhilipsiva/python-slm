@@ -1,0 +1,38 @@
+{
+    "schema":  "python-slm-p2-fixture-manifest-v1",
+    "status":  "PASS",
+    "manifests":  [
+                      {
+                          "workload":  "allocation",
+                          "manifest_sha256":  "13a0b3927af9b208e3b68df4871cf08f550365f976fde8baaac34bd193ad410c",
+                          "a_sha256":  "9b707d439be74adc6b224c46fdba78b82ee590b083fc28d7933be0cc99037bee",
+                          "b_sha256":  null,
+                          "a_elements":  25165824,
+                          "b_elements":  0
+                      },
+                      {
+                          "workload":  "correctness",
+                          "manifest_sha256":  "9430bfc198461f718f7b1cce8de0129c9fb55003546eef57c160c83f15dc002f",
+                          "a_sha256":  "3a0438fe000928d4384c01166604631d32f2ff4f9e341ba58bd81912c3fecddc",
+                          "b_sha256":  "501883a6afa454243ac78dee6a6940301ba4eee81ea8b33fde86a997a351d182",
+                          "a_elements":  527,
+                          "b_elements":  899
+                      },
+                      {
+                          "workload":  "projection",
+                          "manifest_sha256":  "80ca5beec5f84881f8d678bee1ce1e08b9c79efdfc0436570b554de5fb464ed8",
+                          "a_sha256":  "813ffd0eb83b9b71cf9b17361969f0c87da3b1647248f4bee6350cf6c9b42f2f",
+                          "b_sha256":  "a28d78c9179c8ff579fe6fdfe6f10871ca855a692272eb6d28e079dc8581678c",
+                          "a_elements":  6291456,
+                          "b_elements":  589824
+                      },
+                      {
+                          "workload":  "ffn-expansion",
+                          "manifest_sha256":  "d4076314faf44c069eef82f650bee624a66f98b6166f9977c6d3e5b5d17ff5e8",
+                          "a_sha256":  "09032e0d9115ef46bda8803823901958e28755b5f5c752ec3d0b5435ce67ec2d",
+                          "b_sha256":  "2024e09787f70025d046affc45827142f8efcd11c7344a5f11cae36a7e3f4f79",
+                          "a_elements":  6291456,
+                          "b_elements":  1867776
+                      }
+                  ]
+}

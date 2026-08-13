@@ -15,11 +15,12 @@ $script:P2Schema = [ordered]@{
 }
 $script:P2NativeLoaded = $false
 $script:P2ExpectedModuleHashes = @{}
+$script:P2DriverPackageAnchor = $null
 $script:P2TranscriptRoleRoots = @{}
 
 function Initialize-P2NativeInterop {
     if ($script:P2NativeLoaded) { return }
-    $requiredTypes=@('P2Job','P2NvmlSampleResult','P2NvmlMonitor','P2CudaHealth')
+    $requiredTypes=@('P2Job','P2SuspendedProcess','P2ProcessModules','P2NvmlSampleResult','P2NvmlMonitor','P2CudaHealth')
     $loadedTypes=@($requiredTypes|Where-Object{$null-ne($_-as[type])})
     if($loadedTypes.Count-eq$requiredTypes.Count){$script:P2NativeLoaded=$true;return}
     if($loadedTypes.Count-ne0){throw 'P2 native interop type set is only partially loaded'}
@@ -27,8 +28,11 @@ function Initialize-P2NativeInterop {
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
+using Microsoft.Win32.SafeHandles;
 
 public sealed class P2Job : IDisposable {
     private IntPtr handle;
@@ -93,6 +97,143 @@ public sealed class P2Job : IDisposable {
     public void Dispose() { if (handle != IntPtr.Zero) { CloseHandle(handle); handle = IntPtr.Zero; } }
 }
 
+public sealed class P2SuspendedProcess : IDisposable {
+    [StructLayout(LayoutKind.Sequential)] private struct SECURITY_ATTRIBUTES {
+        public uint nLength; public IntPtr lpSecurityDescriptor;
+        [MarshalAs(UnmanagedType.Bool)] public bool bInheritHandle;
+    }
+    [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Unicode)] private struct STARTUPINFO {
+        public uint cb; public string lpReserved, lpDesktop, lpTitle;
+        public uint dwX, dwY, dwXSize, dwYSize, dwXCountChars, dwYCountChars, dwFillAttribute, dwFlags;
+        public ushort wShowWindow, cbReserved2; public IntPtr lpReserved2, hStdInput, hStdOutput, hStdError;
+    }
+    [StructLayout(LayoutKind.Sequential)] private struct STARTUPINFOEX { public STARTUPINFO StartupInfo; public IntPtr lpAttributeList; }
+    [StructLayout(LayoutKind.Sequential)] private struct PROCESS_INFORMATION {
+        public IntPtr hProcess, hThread; public uint dwProcessId, dwThreadId;
+    }
+    private const uint STARTF_USESTDHANDLES=0x00000100, HANDLE_FLAG_INHERIT=0x00000001;
+    private const uint CREATE_SUSPENDED=0x00000004, CREATE_UNICODE_ENVIRONMENT=0x00000400;
+    private const uint EXTENDED_STARTUPINFO_PRESENT=0x00080000, CREATE_NO_WINDOW=0x08000000;
+    private const uint GENERIC_READ=0x80000000, FILE_SHARE_READ=1, FILE_SHARE_WRITE=2, OPEN_EXISTING=3;
+    private static readonly IntPtr PROC_THREAD_ATTRIBUTE_HANDLE_LIST=new IntPtr(0x00020002);
+    private static readonly IntPtr INVALID_HANDLE_VALUE=new IntPtr(-1);
+    [DllImport("kernel32.dll",SetLastError=true)] private static extern bool CreatePipe(out IntPtr read,out IntPtr write,ref SECURITY_ATTRIBUTES attributes,uint size);
+    [DllImport("kernel32.dll",SetLastError=true)] private static extern bool SetHandleInformation(IntPtr handle,uint mask,uint flags);
+    [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] private static extern IntPtr CreateFile(string name,uint access,uint share,ref SECURITY_ATTRIBUTES attributes,uint creation,uint flags,IntPtr template);
+    [DllImport("kernel32.dll",SetLastError=true)] private static extern bool InitializeProcThreadAttributeList(IntPtr list,int count,uint flags,ref IntPtr size);
+    [DllImport("kernel32.dll",SetLastError=true)] private static extern bool UpdateProcThreadAttribute(IntPtr list,uint flags,IntPtr attribute,IntPtr value,IntPtr size,IntPtr previous,IntPtr returned);
+    [DllImport("kernel32.dll")] private static extern void DeleteProcThreadAttributeList(IntPtr list);
+    [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] private static extern bool CreateProcess(string application,StringBuilder commandLine,IntPtr processAttributes,IntPtr threadAttributes,
+        [MarshalAs(UnmanagedType.Bool)]bool inheritHandles,uint flags,IntPtr environment,string currentDirectory,ref STARTUPINFOEX startup,out PROCESS_INFORMATION info);
+    [DllImport("kernel32.dll",SetLastError=true)] private static extern uint ResumeThread(IntPtr thread);
+    [DllImport("kernel32.dll",SetLastError=true)] private static extern bool TerminateProcess(IntPtr process,uint exitCode);
+    [DllImport("kernel32.dll")] private static extern bool CloseHandle(IntPtr handle);
+
+    private IntPtr createdProcess,createdThread;
+    private bool resumed;
+    public Process Process { get; private set; }
+    public StreamReader StandardOutput { get; private set; }
+    public StreamReader StandardError { get; private set; }
+
+    private static void Close(ref IntPtr handle){if(handle!=IntPtr.Zero&&handle!=INVALID_HANDLE_VALUE){CloseHandle(handle);handle=IntPtr.Zero;}}
+    private static IntPtr EnvironmentBlock(IDictionary<string,string> environment){
+        var keys=new List<string>(environment.Keys);keys.Sort(StringComparer.OrdinalIgnoreCase);var value=new StringBuilder();
+        foreach(var key in keys){value.Append(key).Append('=').Append(environment[key]).Append('\0');}value.Append('\0');
+        return Marshal.StringToHGlobalUni(value.ToString());
+    }
+    public static P2SuspendedProcess Create(string application,string commandLine,string currentDirectory,IDictionary<string,string> environment){
+        IntPtr stdoutRead=IntPtr.Zero,stdoutWrite=IntPtr.Zero,stderrRead=IntPtr.Zero,stderrWrite=IntPtr.Zero;
+        IntPtr stdin=IntPtr.Zero,attributeList=IntPtr.Zero,handleList=IntPtr.Zero,environmentBlock=IntPtr.Zero;
+        PROCESS_INFORMATION info=new PROCESS_INFORMATION();P2SuspendedProcess result=null;
+        try{
+            var attributes=new SECURITY_ATTRIBUTES{nLength=(uint)Marshal.SizeOf(typeof(SECURITY_ATTRIBUTES)),bInheritHandle=true};
+            if(!CreatePipe(out stdoutRead,out stdoutWrite,ref attributes,0)||!SetHandleInformation(stdoutRead,HANDLE_FLAG_INHERIT,0))throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error(),"STDOUT_PIPE_FAILED");
+            if(!CreatePipe(out stderrRead,out stderrWrite,ref attributes,0)||!SetHandleInformation(stderrRead,HANDLE_FLAG_INHERIT,0))throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error(),"STDERR_PIPE_FAILED");
+            stdin=CreateFile("NUL",GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,ref attributes,OPEN_EXISTING,0,IntPtr.Zero);
+            if(stdin==INVALID_HANDLE_VALUE)throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error(),"STDIN_NUL_FAILED");
+            IntPtr attributeBytes=IntPtr.Zero;InitializeProcThreadAttributeList(IntPtr.Zero,1,0,ref attributeBytes);
+            attributeList=Marshal.AllocHGlobal(attributeBytes);if(!InitializeProcThreadAttributeList(attributeList,1,0,ref attributeBytes))throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error(),"ATTRIBUTE_LIST_FAILED");
+            var inherited=new[]{stdin,stdoutWrite,stderrWrite};handleList=Marshal.AllocHGlobal(IntPtr.Size*inherited.Length);
+            for(int index=0;index<inherited.Length;index++)Marshal.WriteIntPtr(handleList,index*IntPtr.Size,inherited[index]);
+            if(!UpdateProcThreadAttribute(attributeList,0,PROC_THREAD_ATTRIBUTE_HANDLE_LIST,handleList,new IntPtr(IntPtr.Size*inherited.Length),IntPtr.Zero,IntPtr.Zero))throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error(),"HANDLE_LIST_FAILED");
+            var startup=new STARTUPINFOEX();startup.StartupInfo.cb=(uint)Marshal.SizeOf(typeof(STARTUPINFOEX));startup.StartupInfo.dwFlags=STARTF_USESTDHANDLES;
+            startup.StartupInfo.hStdInput=stdin;startup.StartupInfo.hStdOutput=stdoutWrite;startup.StartupInfo.hStdError=stderrWrite;startup.lpAttributeList=attributeList;
+            environmentBlock=EnvironmentBlock(environment);
+            uint flags=CREATE_SUSPENDED|CREATE_UNICODE_ENVIRONMENT|CREATE_NO_WINDOW|EXTENDED_STARTUPINFO_PRESENT;
+            if(!CreateProcess(application,new StringBuilder(commandLine),IntPtr.Zero,IntPtr.Zero,true,flags,environmentBlock,currentDirectory,ref startup,out info))throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error(),"CREATE_SUSPENDED_FAILED");
+            Close(ref stdoutWrite);Close(ref stderrWrite);Close(ref stdin);
+            result=new P2SuspendedProcess();result.createdProcess=info.hProcess;result.createdThread=info.hThread;
+            result.Process=Process.GetProcessById((int)info.dwProcessId);var attached=result.Process.Handle;
+            result.StandardOutput=new StreamReader(new FileStream(new SafeFileHandle(stdoutRead,true),FileAccess.Read,4096,false),Console.OutputEncoding,true);stdoutRead=IntPtr.Zero;
+            result.StandardError=new StreamReader(new FileStream(new SafeFileHandle(stderrRead,true),FileAccess.Read,4096,false),Console.OutputEncoding,true);stderrRead=IntPtr.Zero;
+            return result;
+        }catch{
+            if(info.hProcess!=IntPtr.Zero)TerminateProcess(info.hProcess,126);
+            if(result!=null)result.Dispose();throw;
+        }finally{
+            Close(ref stdoutRead);Close(ref stdoutWrite);Close(ref stderrRead);Close(ref stderrWrite);Close(ref stdin);
+            if(attributeList!=IntPtr.Zero){DeleteProcThreadAttributeList(attributeList);Marshal.FreeHGlobal(attributeList);}
+            if(handleList!=IntPtr.Zero)Marshal.FreeHGlobal(handleList);if(environmentBlock!=IntPtr.Zero)Marshal.FreeHGlobal(environmentBlock);
+            if(result==null){Close(ref info.hThread);Close(ref info.hProcess);}
+        }
+    }
+    public void Resume(){
+        if(resumed||createdThread==IntPtr.Zero)throw new InvalidOperationException("PROCESS_NOT_SUSPENDED");
+        if(ResumeThread(createdThread)==UInt32.MaxValue)throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error(),"RESUME_THREAD_FAILED");
+        resumed=true;Close(ref createdThread);Close(ref createdProcess);
+    }
+    public void Dispose(){
+        if(!resumed&&createdProcess!=IntPtr.Zero)TerminateProcess(createdProcess,126);Close(ref createdThread);Close(ref createdProcess);
+        if(StandardOutput!=null)StandardOutput.Dispose();if(StandardError!=null)StandardError.Dispose();
+    }
+}
+
+public static class P2ProcessModules {
+    private const uint TH32CS_SNAPMODULE = 0x00000008;
+    private const uint TH32CS_SNAPMODULE32 = 0x00000010;
+    private const int ERROR_NO_MORE_FILES = 18;
+    private const int ERROR_BAD_LENGTH = 24;
+    private static readonly IntPtr INVALID_HANDLE_VALUE = new IntPtr(-1);
+    [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Unicode)] private struct MODULEENTRY32 {
+        public uint dwSize, th32ModuleID, th32ProcessID, GlblcntUsage, ProccntUsage;
+        public IntPtr modBaseAddr; public uint modBaseSize; public IntPtr hModule;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst=256)] public string szModule;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst=260)] public string szExePath;
+    }
+    [DllImport("kernel32.dll", SetLastError=true)] private static extern IntPtr CreateToolhelp32Snapshot(uint flags, uint processId);
+    [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)] private static extern bool Module32First(IntPtr snapshot, ref MODULEENTRY32 entry);
+    [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)] private static extern bool Module32Next(IntPtr snapshot, ref MODULEENTRY32 entry);
+    [DllImport("kernel32.dll")] private static extern bool CloseHandle(IntPtr handle);
+    public static string[] Snapshot(uint processId) {
+        IntPtr snapshot = INVALID_HANDLE_VALUE; int error = ERROR_BAD_LENGTH;
+        for (int attempt=0; attempt<8; attempt++) {
+            snapshot=CreateToolhelp32Snapshot(TH32CS_SNAPMODULE|TH32CS_SNAPMODULE32,processId);
+            if(snapshot!=INVALID_HANDLE_VALUE)break;
+            error=Marshal.GetLastWin32Error();if(error!=ERROR_BAD_LENGTH)throw new System.ComponentModel.Win32Exception(error,"MODULE_SNAPSHOT_CREATE_FAILED");
+            Thread.Yield();
+        }
+        if(snapshot==INVALID_HANDLE_VALUE)throw new System.ComponentModel.Win32Exception(error,"MODULE_SNAPSHOT_CREATE_FAILED");
+        try {
+            var entry=new MODULEENTRY32();entry.dwSize=(uint)Marshal.SizeOf(typeof(MODULEENTRY32));
+            if(!Module32First(snapshot,ref entry)){
+                error=Marshal.GetLastWin32Error();
+                if(error==ERROR_NO_MORE_FILES)return new string[0];
+                throw new System.ComponentModel.Win32Exception(error,"MODULE_SNAPSHOT_FIRST_FAILED");
+            }
+            var paths=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            do {
+                if((entry.szExePath!=null&&entry.szExePath.Length>=259)||(entry.szModule!=null&&entry.szModule.Length>=255))
+                    throw new InvalidOperationException("MODULE_SNAPSHOT_PATH_TRUNCATED");
+                if(!String.IsNullOrWhiteSpace(entry.szExePath))paths.Add(System.IO.Path.GetFullPath(entry.szExePath));
+                entry.dwSize=(uint)Marshal.SizeOf(typeof(MODULEENTRY32));
+            } while(Module32Next(snapshot,ref entry));
+            error=Marshal.GetLastWin32Error();if(error!=ERROR_NO_MORE_FILES)throw new System.ComponentModel.Win32Exception(error,"MODULE_SNAPSHOT_NEXT_FAILED");
+            if(paths.Count==0)throw new InvalidOperationException("MODULE_SNAPSHOT_EMPTY");
+            var result=new List<string>(paths);result.Sort(StringComparer.OrdinalIgnoreCase);return result.ToArray();
+        } finally { CloseHandle(snapshot); }
+    }
+}
+
 public sealed class P2NvmlSampleResult {
     public ulong TotalBytes, BaselineBytes, PeakUsedBytes; public long MaxGapMs;
     public int Samples, BaselineForeignProcessCount, MaximumForeignProcessCount; public string Error;
@@ -110,7 +251,7 @@ public sealed class P2NvmlMonitor : IDisposable {
     [DllImport("nvml.dll", EntryPoint="nvmlDeviceGetComputeRunningProcesses_v3")] private static extern int GetProcesses(IntPtr device, ref uint count, [Out] ProcessInfo[] infos);
     [DllImport("nvml.dll", EntryPoint="nvmlDeviceGetGraphicsRunningProcesses_v3")] private static extern int GetGraphicsProcesses(IntPtr device, ref uint count, [Out] ProcessInfo[] infos);
     private IntPtr device; private Thread thread; private volatile bool stop; private readonly List<ulong> baseline = new List<ulong>();
-    private readonly object sync = new object(); private ulong total, peak; private long maxGap; private int samples, baselineForeign, maxForeign; private uint expectedPid; private string error; private Stopwatch clock;
+    private readonly object sync = new object(); private ulong total, peak; private long maxGap; private int samples, baselineForeign, maxForeign; private P2Job expectedJob; private string error; private Stopwatch clock;
     private static readonly object librarySync=new object();private static IntPtr qualifiedLibrary=IntPtr.Zero;private static string qualifiedLibraryPath;
     public static string EnsureQualifiedLibrary(){lock(librarySync){if(qualifiedLibrary!=IntPtr.Zero)return qualifiedLibraryPath;
         string expected=System.IO.Path.GetFullPath(System.IO.Path.Combine(Environment.SystemDirectory,"nvml.dll"));
@@ -120,19 +261,20 @@ public sealed class P2NvmlMonitor : IDisposable {
     private delegate int ProcessQuery(IntPtr device, ref uint count, ProcessInfo[] infos);
     private static void CollectProcesses(IntPtr handle, ProcessQuery query, HashSet<uint> pids) { uint count=0; int rc=query(handle,ref count,null); if(rc==0)return; if(rc!=7)throw new InvalidOperationException("NVML_PROCESSES_"+rc);
         var infos=new ProcessInfo[count];rc=query(handle,ref count,infos);if(rc!=0)throw new InvalidOperationException("NVML_PROCESSES_"+rc);for(int i=0;i<count;i++)pids.Add(infos[i].pid); }
-    private static int ProcessCount(IntPtr handle, uint excludePid) { var pids=new HashSet<uint>(); CollectProcesses(handle,GetProcesses,pids);CollectProcesses(handle,GetGraphicsProcesses,pids);if(excludePid!=0)pids.Remove(excludePid);return pids.Count; }
-    public static int ActiveGpuProcessCount(uint ordinal) { EnsureQualifiedLibrary();int rc=Init();if(rc!=0)throw new InvalidOperationException("NVML_INIT_"+rc);try{IntPtr h;rc=GetDevice(ordinal,out h);if(rc!=0)throw new InvalidOperationException("NVML_DEVICE_"+rc);return ProcessCount(h,0);}finally{Shutdown();} }
-    public void SetExpectedPid(uint pid){ expectedPid=pid; }
+    private static int ProcessCount(IntPtr handle, P2Job excludeJob) { var pids=new HashSet<uint>(); CollectProcesses(handle,GetProcesses,pids);CollectProcesses(handle,GetGraphicsProcesses,pids);
+        if(excludeJob!=null){foreach(ulong pid in excludeJob.ActiveProcessIds())pids.Remove((uint)pid);}return pids.Count; }
+    public static int ActiveGpuProcessCount(uint ordinal) { EnsureQualifiedLibrary();int rc=Init();if(rc!=0)throw new InvalidOperationException("NVML_INIT_"+rc);try{IntPtr h;rc=GetDevice(ordinal,out h);if(rc!=0)throw new InvalidOperationException("NVML_DEVICE_"+rc);return ProcessCount(h,null);}finally{Shutdown();} }
+    public void SetExpectedJob(P2Job job){ expectedJob=job; }
     public void Start(uint ordinal) {
         EnsureQualifiedLibrary();int rc = Init(); if (rc != 0) throw new InvalidOperationException("NVML_INIT_" + rc);
         rc = GetDevice(ordinal, out device); if (rc != 0) { Shutdown(); throw new InvalidOperationException("NVML_DEVICE_" + rc); }
         clock=Stopwatch.StartNew();long previous=clock.ElapsedMilliseconds;
         for (int i=0; i<20; i++) { Memory m; rc=GetMemory(device,out m); if(rc!=0) throw new InvalidOperationException("NVML_MEMORY_"+rc); total=m.total; baseline.Add(m.used);
             long now=clock.ElapsedMilliseconds;if(i>0&&now-previous>maxGap)maxGap=now-previous;previous=now;
-            int foreign=ProcessCount(device,0);if(foreign>baselineForeign)baselineForeign=foreign;if(i<19) Thread.Sleep(50); }
+            int foreign=ProcessCount(device,null);if(foreign>baselineForeign)baselineForeign=foreign;if(i<19) Thread.Sleep(50); }
         maxForeign=baselineForeign; baseline.Sort(); stop=false;
         thread = new Thread(() => { try { while(!stop) { Memory m; int status=GetMemory(device,out m); if(status!=0){ error="NVML_MEMORY_"+status; break; }
-                    int foreign=expectedPid==0?0:ProcessCount(device,expectedPid);long now=clock.ElapsedMilliseconds; long gap=now-previous; previous=now; if(gap>maxGap)maxGap=gap; lock(sync){ if(m.used>peak)peak=m.used;if(foreign>maxForeign)maxForeign=foreign;samples++; } Thread.Sleep(20); } }
+                    int foreign=expectedJob==null?0:ProcessCount(device,expectedJob);long now=clock.ElapsedMilliseconds; long gap=now-previous; previous=now; if(gap>maxGap)maxGap=gap; lock(sync){ if(m.used>peak)peak=m.used;if(foreign>maxForeign)maxForeign=foreign;samples++; } Thread.Sleep(20); } }
                 catch(Exception ex){ error=ex.GetType().Name; } });
         thread.IsBackground=true; thread.Start();
     }
@@ -179,6 +321,32 @@ public static class P2CudaHealth {
     $script:P2NativeLoaded = $true
 }
 
+function Add-P2JobModuleSnapshots {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Job,[Parameter(Mandatory)]$Modules,
+        [Parameter(Mandatory)]$AuditedProcessIds,
+        [Parameter(Mandatory)][ref]$SuccessfulSnapshots,[Parameter(Mandatory)][ref]$FailedSnapshots,
+        [Parameter(Mandatory)][ref]$LastError)
+    $active=@($Job.ActiveProcessIds()|ForEach-Object{[uint32]$_}|Sort-Object -Unique)
+    foreach($processId in $active){
+        try {
+            $snapshot=@([P2ProcessModules]::Snapshot($processId))
+            if($snapshot.Count-eq0){continue}
+            foreach($module in $snapshot){[void]$Modules.Add([string]$module)}
+            [void]$AuditedProcessIds.Add($processId)
+            $SuccessfulSnapshots.Value=[int]$SuccessfulSnapshots.Value+1
+        }
+        catch {
+            $stillActive=$false
+            try{$stillActive=$processId-in@($Job.ActiveProcessIds()|ForEach-Object{[uint32]$_})}catch{$stillActive=$true}
+            if($stillActive){
+                $FailedSnapshots.Value=[int]$FailedSnapshots.Value+1
+                $LastError.Value=[string]$_.Exception.GetType().Name
+            }
+        }
+    }
+}
+
 function Test-P2PathWithin {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$Root)
@@ -200,8 +368,8 @@ function Test-P2QualifiedVctipProcessSet {
         [string]::IsNullOrWhiteSpace([string]$Environment['VCToolsInstallDir'])) { return $false }
     $toolsRoot = [string]$Environment['VCToolsInstallDir']
     foreach ($process in $Processes) {
-        if ([string]$process.name -cne 'vctip' -or [string]::IsNullOrWhiteSpace([string]$process.path) -or
-            (Split-Path -Leaf ([string]$process.path)) -cne 'vctip.exe' -or
+        if ([string]$process.name -ine 'vctip' -or [string]::IsNullOrWhiteSpace([string]$process.path) -or
+            (Split-Path -Leaf ([string]$process.path)) -ine 'vctip.exe' -or
             -not (Test-P2PathWithin -Path ([string]$process.path) -Root $toolsRoot)) { return $false }
     }
     return $true
@@ -219,6 +387,23 @@ function Wait-P2JobEmpty {
         if ([DateTime]::UtcNow -ge $deadline) { return $false }
         Start-Sleep -Milliseconds 25
     } while ($true)
+}
+
+function Wait-P2AuditedJobEmpty {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Job,[Parameter(Mandatory)]$Modules,
+        [Parameter(Mandatory)]$AuditedProcessIds,
+        [Parameter(Mandatory)][ref]$SuccessfulSnapshots,[Parameter(Mandatory)][ref]$FailedSnapshots,
+        [Parameter(Mandatory)][ref]$LastError,
+        [ValidateRange(0,30000)][int]$TimeoutMilliseconds=2000)
+    $deadline=[DateTime]::UtcNow.AddMilliseconds($TimeoutMilliseconds)
+    do {
+        Add-P2JobModuleSnapshots -Job $Job -Modules $Modules -AuditedProcessIds $AuditedProcessIds `
+            -SuccessfulSnapshots $SuccessfulSnapshots -FailedSnapshots $FailedSnapshots -LastError $LastError
+        if([uint32]$Job.ActiveProcessCount()-eq0){return $true}
+        if([DateTime]::UtcNow-ge$deadline){return $false}
+        Start-Sleep -Milliseconds 25
+    }while($true)
 }
 
 function New-P2NvmlLibraryRecord {
@@ -394,10 +579,6 @@ function Invoke-P2Process {
         [switch]$MonitorNvml
     )
     Initialize-P2NativeInterop
-    $start = [Diagnostics.ProcessStartInfo]::new()
-    $start.FileName = $FilePath; $start.Arguments = ConvertTo-P2CommandLine -Arguments $ArgumentList
-    $start.WorkingDirectory = $WorkingDirectory; $start.UseShellExecute = $false
-    $start.CreateNoWindow = $true; $start.RedirectStandardOutput = $true; $start.RedirectStandardError = $true
     $canonical = [Collections.Generic.Dictionary[string,string]]::new([StringComparer]::OrdinalIgnoreCase)
     foreach ($entry in [Environment]::GetEnvironmentVariables().GetEnumerator()) {
         $name = [string]$entry.Key; $value = [string]$entry.Value
@@ -416,23 +597,26 @@ function Invoke-P2Process {
             $canonical[[string]$name] = $value
         }
     }
-    $childEnvironment = [Collections.Specialized.StringDictionary]::new()
-    foreach ($entry in $canonical.GetEnumerator()) { $childEnvironment[$entry.Key] = $entry.Value }
-    $environmentField = $start.GetType().GetField('environmentVariables', [Reflection.BindingFlags]'Instance,NonPublic')
-    if ($null -eq $environmentField -or $environmentField.FieldType -ne [Collections.Specialized.StringDictionary]) {
-        throw 'ProcessStartInfo child-environment backing field is unsupported'
-    }
-    $environmentField.SetValue($start, $childEnvironment)
-    $process = [Diagnostics.Process]::new(); $process.StartInfo = $start
+    $application=if([IO.Path]::IsPathRooted($FilePath)){[IO.Path]::GetFullPath($FilePath)}
+        else{[IO.Path]::GetFullPath((Get-Command $FilePath -CommandType Application -ErrorAction Stop).Source)}
+    if(-not(Test-Path -LiteralPath $application -PathType Leaf)){throw 'child application path is not an existing file'}
+    $commandLine=ConvertTo-P2CommandLine -Arguments (@($application)+@($ArgumentList))
+    $process=$null;$launcher=$null
     $job = [P2Job]::new(); $monitor = $null; $monitorResult = $null
     $stopwatch = [Diagnostics.Stopwatch]::StartNew(); $timedOut = $false; $treeTerminated = $true
     $unexpectedDescendants = $false; $remainingProcesses = @(); $qualifiedToolDescendantsCleaned = $false
     $modules = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $auditedProcessIds=[Collections.Generic.HashSet[uint32]]::new()
+    $successfulModuleSnapshots=0;$failedModuleSnapshots=0;$moduleSnapshotLastError=$null
     try {
         if ($MonitorNvml) { $monitor = [P2NvmlMonitor]::new(); $monitor.Start(0) }
-        if (-not $process.Start()) { throw 'child process did not start' }
-        $job.Assign($process); if ($null -ne $monitor) { $monitor.SetExpectedPid([uint32]$process.Id) }
-        $stdoutTask = $process.StandardOutput.ReadToEndAsync(); $stderrTask = $process.StandardError.ReadToEndAsync()
+        $launcher=[P2SuspendedProcess]::Create($application,$commandLine,[IO.Path]::GetFullPath($WorkingDirectory),$canonical)
+        $process=$launcher.Process;$job.Assign($process)
+        if ($null -ne $monitor) { $monitor.SetExpectedJob($job) }
+        $stdoutTask = $launcher.StandardOutput.ReadToEndAsync(); $stderrTask = $launcher.StandardError.ReadToEndAsync()
+        $launcher.Resume()
+        Add-P2JobModuleSnapshots -Job $job -Modules $modules -AuditedProcessIds $auditedProcessIds -SuccessfulSnapshots ([ref]$successfulModuleSnapshots) `
+            -FailedSnapshots ([ref]$failedModuleSnapshots) -LastError ([ref]$moduleSnapshotLastError)
         $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
         while (-not $process.WaitForExit(50)) {
             if ([DateTime]::UtcNow -ge $deadline) {
@@ -442,7 +626,8 @@ function Invoke-P2Process {
                 if (-not (Wait-P2JobEmpty -Job $job -TimeoutMilliseconds 10000)) { $treeTerminated = $false }
                 break
             }
-            try { foreach ($module in $process.Modules) { [void]$modules.Add($module.FileName) } } catch { }
+            Add-P2JobModuleSnapshots -Job $job -Modules $modules -AuditedProcessIds $auditedProcessIds -SuccessfulSnapshots ([ref]$successfulModuleSnapshots) `
+                -FailedSnapshots ([ref]$failedModuleSnapshots) -LastError ([ref]$moduleSnapshotLastError)
         }
         if (-not $timedOut) {
             $process.WaitForExit()
@@ -450,7 +635,9 @@ function Invoke-P2Process {
             # remain briefly visible in the Job accounting snapshot. Give the
             # complete tree a bounded drain window before classifying a
             # descendant as persistent.
-            if (-not (Wait-P2JobEmpty -Job $job -TimeoutMilliseconds 10000)) {
+            if (-not (Wait-P2AuditedJobEmpty -Job $job -Modules $modules -AuditedProcessIds $auditedProcessIds `
+                    -SuccessfulSnapshots ([ref]$successfulModuleSnapshots) -FailedSnapshots ([ref]$failedModuleSnapshots) `
+                    -LastError ([ref]$moduleSnapshotLastError) -TimeoutMilliseconds 10000)) {
                 $remainingProcesses = @($job.ActiveProcessIds() | ForEach-Object {
                         $pidValue = [int64]$_; $name = '<exited>'; $path = $null
                         try {
@@ -469,7 +656,6 @@ function Invoke-P2Process {
                 if (-not (Wait-P2JobEmpty -Job $job -TimeoutMilliseconds 10000)) { $treeTerminated = $false }
             }
         }
-        try { foreach ($module in $process.Modules) { [void]$modules.Add($module.FileName) } } catch { }
         [void]$stdoutTask.Wait(10000); [void]$stderrTask.Wait(10000)
         return [pscustomobject][ordered]@{
             exit_code = if ($timedOut) { $null } else { [int]$process.ExitCode }
@@ -481,6 +667,8 @@ function Invoke-P2Process {
             remaining_processes = @($remainingProcesses)
             qualified_tool_descendants_cleaned = $qualifiedToolDescendantsCleaned
             loaded_modules = @($modules | Sort-Object)
+            module_audit = [pscustomobject][ordered]@{method='toolhelp32';audited_process_count=[int]$auditedProcessIds.Count;successful_snapshots=[int]$successfulModuleSnapshots
+                failed_snapshots=[int]$failedModuleSnapshots;last_error=$moduleSnapshotLastError}
             nvml = $null
         }
     }
@@ -488,7 +676,7 @@ function Invoke-P2Process {
         if ($null -ne $monitor) {
             try { $monitorResult = $monitor.Stop() } finally { $monitor.Dispose() }
         }
-        $stopwatch.Stop(); $job.Dispose(); $process.Dispose()
+        $stopwatch.Stop();if($null-ne$launcher){$launcher.Dispose()};$job.Dispose();if($null-ne$process){$process.Dispose()}
         if ($null -ne $monitorResult) {
             # Return objects are immutable PSCustomObjects in callers, so publish monitor
             # data through a script slot consumed immediately by Invoke-P2RecordedCommand.
@@ -561,6 +749,7 @@ function Invoke-P2RecordedCommand {
         record = $record; raw_stdout = [string]$result.stdout; raw_stderr = [string]$result.stderr
         loaded_modules = @($result.loaded_modules); process_tree_terminated = [bool]$result.process_tree_terminated
         unexpected_descendants = [bool]$result.unexpected_descendants
+        module_audit = $result.module_audit
         nvml = $script:P2LastNvml
     }
 }
@@ -882,29 +1071,179 @@ function Invoke-P2ActivatedGraph {
     }
 }
 
+function Get-P2QualifiedDriverModuleInventory {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$QualifiedManifest,[Parameter(Mandatory)][string]$WindowsRoot)
+    $system32=[IO.Path]::GetFullPath((Join-Path $WindowsRoot 'System32'))
+    $driverStore=[IO.Path]::GetFullPath((Join-Path $system32 'DriverStore\FileRepository'))
+    $systemLoader=Join-Path $system32 'nvcuda.dll';$loaderItem=Get-Item -LiteralPath $systemLoader -Force -ErrorAction Stop
+    $targets=@($loaderItem.Target|Where-Object{-not[string]::IsNullOrWhiteSpace([string]$_)})
+    if($targets.Count-eq0){throw 'canonical nvcuda loader has no DriverStore package target'}
+    if($targets.Count-ne1){throw 'canonical nvcuda loader has an ambiguous DriverStore target'}
+    $loaderTarget=if([IO.Path]::IsPathRooted([string]$targets[0])){[IO.Path]::GetFullPath([string]$targets[0])}
+        else{[IO.Path]::GetFullPath((Join-Path $system32 ([string]$targets[0])))}
+    if(-not(Test-P2PathWithin -Path $loaderTarget -Root $driverStore)-or
+        (Split-Path -Leaf $loaderTarget)-ine'nvcuda_loader64.dll'-or
+        -not(Test-Path -LiteralPath $loaderTarget -PathType Leaf)-or
+        (Get-P2Sha256 $loaderTarget)-cne[string]$QualifiedManifest.driver.library.sha256){
+        throw 'canonical nvcuda loader target is outside the P1B-qualified DriverStore package'
+    }
+    $packageRoot=Split-Path -Parent $loaderTarget
+    if(((Get-Item -LiteralPath $packageRoot -Force).Attributes-band[IO.FileAttributes]::ReparsePoint)-ne0){throw 'P1B-qualified DriverStore package root is a reparse point'}
+    $expectedVersion=[string]$QualifiedManifest.driver.cuda_umd_version
+    $observed=[Collections.Generic.List[object]]::new()
+    foreach($path in @([P2ProcessModules]::Snapshot([uint32]$PID)|Where-Object{(Split-Path -Leaf $_)-imatch'^nv.*\.dll$'}|Sort-Object -Unique)){
+        $full=[IO.Path]::GetFullPath($path);$leaf=Split-Path -Leaf $full;$token='${WINDOWS}/System32/'+$full.Substring($system32.TrimEnd('\').Length+1).Replace('\','/')
+        $inPackage=[string]::Equals([IO.Path]::GetFullPath((Split-Path -Parent $full)),$packageRoot,[StringComparison]::OrdinalIgnoreCase)
+        $inSystem32=[string]::Equals([IO.Path]::GetFullPath((Split-Path -Parent $full)),$system32,[StringComparison]::OrdinalIgnoreCase)
+        if(-not$inPackage-and-not$inSystem32){throw "loaded NVIDIA module is outside the P1B-anchored driver package: $leaf"}
+        if((Get-AuthenticodeSignature -LiteralPath $full).Status-cne'Valid'){throw "loaded NVIDIA driver module has an invalid signature: $leaf"}
+        $hash=Get-P2Sha256 $full
+        if(-not$inPackage){
+            $target=@((Get-Item -LiteralPath $full -Force).Target|Where-Object{-not[string]::IsNullOrWhiteSpace([string]$_)})
+            $resolvedTarget=if($target.Count-eq1-and[IO.Path]::IsPathRooted([string]$target[0])){[IO.Path]::GetFullPath([string]$target[0])}
+                elseif($target.Count-eq1){[IO.Path]::GetFullPath((Join-Path $system32 ([string]$target[0])))}else{$null}
+            if($null-eq$resolvedTarget-or-not[string]::Equals([IO.Path]::GetFullPath((Split-Path -Parent $resolvedTarget)),$packageRoot,[StringComparison]::OrdinalIgnoreCase)-or
+                -not(Test-Path -LiteralPath $resolvedTarget -PathType Leaf)-or(Get-P2Sha256 $resolvedTarget)-cne$hash){throw "System32 NVIDIA hardlink is not anchored to the P1B driver package: $leaf"}
+        }
+        if($leaf-in@('nvcuda.dll','nvcuda64.dll')-and([string](Get-Item -LiteralPath $full).VersionInfo.FileVersion)-cne$expectedVersion){throw "P1B-qualified driver UMD version drifted: $leaf"}
+        $observed.Add([ordered]@{path=$token;sha256=$hash})
+    }
+    $observedPaths=@($observed.path)
+    if('${WINDOWS}/System32/nvcuda.dll'-notin$observedPaths-or@($observedPaths|Where-Object{$_-match'/nvcuda64\.dll$'}).Count-ne1){throw 'parent driver inventory lacks nvcuda.dll or nvcuda64.dll'}
+    return [ordered]@{package_anchor='${WINDOWS}/System32/'+$packageRoot.Substring($system32.TrimEnd('\').Length+1).Replace('\','/')
+        observed_modules=@($observed|Sort-Object path)}
+}
+
+function Assert-P2DriverModuleInventory {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Inventory)
+    Assert-P2ClosedObject $Inventory @('package_anchor','observed_modules') 'P2 driver module inventory'
+    $anchor=[string]$Inventory.package_anchor
+    if($anchor-cnotmatch'^\$\{WINDOWS\}/System32/DriverStore/FileRepository/[A-Za-z0-9_.+-]+$'){
+        throw 'P2 driver module inventory package anchor is malformed'}
+    $paths=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach($record in @($Inventory.observed_modules)){
+        Assert-P2ClosedObject $record @('path','sha256') 'P2 observed driver module'
+        Assert-P2Sha256 $record.sha256 'P2 observed driver module hash'
+        $path=[string]$record.path
+        if(($path-cnotmatch'^\$\{WINDOWS\}/System32/[A-Za-z0-9_.+-]+\.dll$'-and
+                $path-cnotmatch('^'+[regex]::Escape($anchor)+'/[A-Za-z0-9_.+-]+\.dll$'))-or-not$paths.Add($path)){
+            throw 'P2 observed driver module path is unsafe or duplicated'}
+    }
+    if(-not$paths.Contains('${WINDOWS}/System32/nvcuda.dll')-or
+        @($paths|Where-Object{$_-ceq($anchor+'/nvcuda64.dll')}).Count-ne1){
+        throw 'P2 driver module inventory lacks its canonical CUDA loader pair'}
+    return $true
+}
+
+function Resolve-P2RetainedRuntimeModule {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Token,[Parameter(Mandatory)][string]$CudaToolkitRoot,
+        [Parameter(Mandatory)][string]$WindowsRoot,[Parameter(Mandatory)][string]$DriverPackageAnchor)
+    $system32=[IO.Path]::GetFullPath((Join-Path $WindowsRoot 'System32'))
+    if($Token-cmatch'^\$\{CUDA_TOOLKIT\}/(?<relative>(?:bin(?:/x64)?|lib/x64)/[A-Za-z0-9_.+-]+\.dll)$'){
+        $path=[IO.Path]::GetFullPath((Join-Path $CudaToolkitRoot $Matches.relative.Replace('/','\')))
+        if(-not(Test-P2PathWithin $path $CudaToolkitRoot)){throw 'retained toolkit module escapes the qualified root'}
+        return $path
+    }
+    if($DriverPackageAnchor-cnotmatch'^\$\{WINDOWS\}/System32/(?<anchor>DriverStore/FileRepository/[A-Za-z0-9_.+-]+)$'){throw 'retained driver package anchor is malformed'}
+    $packageRoot=[IO.Path]::GetFullPath((Join-Path $system32 $Matches.anchor.Replace('/','\')))
+    if($Token-cmatch'^\$\{WINDOWS\}/System32/(?<relative>DriverStore/FileRepository/[A-Za-z0-9_.+-]+/[A-Za-z0-9_.+-]+\.dll)$'){
+        $path=[IO.Path]::GetFullPath((Join-Path $system32 $Matches.relative.Replace('/','\')))
+        if(-not[string]::Equals([IO.Path]::GetFullPath((Split-Path -Parent $path)),$packageRoot,[StringComparison]::OrdinalIgnoreCase)-or
+            -not(Test-Path -LiteralPath $path -PathType Leaf)-or
+            ((Get-Item -LiteralPath $path -Force).Attributes-band[IO.FileAttributes]::ReparsePoint)-ne0){throw 'retained driver module belongs to a different or unsafe DriverStore package'}
+        return $path
+    }
+    if($Token-cmatch'^\$\{WINDOWS\}/System32/(?<leaf>[A-Za-z0-9_.+-]+\.dll)$'){
+        $path=[IO.Path]::GetFullPath((Join-Path $system32 $Matches.leaf));$target=@((Get-Item -LiteralPath $path -Force -ErrorAction Stop).Target|Where-Object{-not[string]::IsNullOrWhiteSpace([string]$_)})
+        $resolvedTarget=if($target.Count-eq1-and[IO.Path]::IsPathRooted([string]$target[0])){[IO.Path]::GetFullPath([string]$target[0])}
+            elseif($target.Count-eq1){[IO.Path]::GetFullPath((Join-Path $system32 ([string]$target[0])))}else{$null}
+        if($null-eq$resolvedTarget-or-not[string]::Equals([IO.Path]::GetFullPath((Split-Path -Parent $resolvedTarget)),$packageRoot,[StringComparison]::OrdinalIgnoreCase)-or
+            -not(Test-Path -LiteralPath $resolvedTarget -PathType Leaf)-or(Get-P2Sha256 $resolvedTarget)-cne(Get-P2Sha256 $path)){
+            throw 'retained System32 module is not anchored to the qualified driver package'}
+        return $path
+    }
+    throw 'retained runtime module token is outside qualified roots'
+}
+
+function Assert-P2RetainedRuntimeModules {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Records,
+        [Parameter(Mandatory)][ValidateSet('burn-cubecl','candle','cudarc-fallback')][string]$CandidateId,
+        [Parameter(Mandatory)][hashtable]$ExpectedModuleHashes,
+        [Parameter(Mandatory)]$DriverModuleInventory,
+        [Parameter(Mandatory)][string]$CudaToolkitRoot,[Parameter(Mandatory)][string]$WindowsRoot)
+    [void](Assert-P2DriverModuleInventory $DriverModuleInventory)
+    $anchor=[string]$DriverModuleInventory.package_anchor
+    $paths=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach($record in $Records){
+        Assert-P2ClosedObject $record @('path','sha256') 'candidate retained runtime module'
+        Assert-P2Sha256 $record.sha256 'candidate retained runtime module hash'
+        $token=[string]$record.path;$leaf=Split-Path -Leaf $token
+        if(-not$paths.Add($token)-or
+            $token-cnotmatch '^\$\{CUDA_TOOLKIT\}/(?:bin(?:/x64)?|lib/x64)/[A-Za-z0-9_.+-]+\.dll$|^\$\{WINDOWS\}/System32/(?:[A-Za-z0-9_.+-]+|DriverStore/FileRepository/[A-Za-z0-9_.+-]+/[A-Za-z0-9_.+-]+)\.dll$'-or
+            ($CandidateId-ceq'candle'-and$leaf-imatch'^cudnn')-or$leaf-imatch'^nccl'){
+            throw 'candidate retained runtime module path violates the qualified boundary'}
+        $isWindows=$token-cmatch'^\$\{WINDOWS\}/System32/'
+        if($isWindows-and($leaf-inotmatch'^nv.*\.dll$'-or
+                ($token-cmatch'/DriverStore/FileRepository/'-and$token-cnotmatch('^'+[regex]::Escape($anchor)+'/[A-Za-z0-9_.+-]+\.dll$')))){
+            throw 'candidate retained a non-driver or differently packaged Windows module'}
+        $livePath=Resolve-P2RetainedRuntimeModule -Token $token -CudaToolkitRoot $CudaToolkitRoot `
+            -WindowsRoot $WindowsRoot -DriverPackageAnchor $anchor
+        if((Get-P2Sha256 $livePath)-cne[string]$record.sha256){throw 'candidate retained runtime module hash no longer matches the live qualified module'}
+        if($isWindows-and(Get-AuthenticodeSignature -LiteralPath $livePath).Status-cne'Valid'){
+            throw 'candidate retained Windows driver module signature is invalid'}
+        if($token-cmatch'^\$\{WINDOWS\}/System32/[^/]+\.dll$'){
+            if(-not$ExpectedModuleHashes.ContainsKey($token)-or[string]$record.sha256-cne[string]$ExpectedModuleHashes[$token]){
+                throw 'candidate retained an unrecorded direct System32 driver module'}
+        }
+        elseif($token-cnotmatch'/DriverStore/FileRepository/'-and$leaf-imatch'^(?:cudart|cublas|cublaslt)[^/\\]*\.dll$'){
+            if(-not$ExpectedModuleHashes.ContainsKey($token)-or[string]$record.sha256-cne[string]$ExpectedModuleHashes[$token]){
+                throw 'candidate required toolkit module path/hash is not P1B-bound'}
+        }
+    }
+    if('${WINDOWS}/System32/nvcuda.dll'-notin$paths-or($anchor+'/nvcuda64.dll')-notin$paths){
+        throw 'candidate runtime provenance lacks its canonical CUDA loader pair'}
+    return $true
+}
+
 function Get-P2LoadedModuleProvenance {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$LoadedModules,
         [Parameter(Mandatory)][string]$CudaToolkitRoot,
         [Parameter(Mandatory)][string]$WindowsRoot,
+        [Parameter(Mandatory)]$ModuleAudit,
+        [AllowNull()][string]$DriverPackageAnchor,
         [ValidateSet('burn-cubecl','candle','cudarc-fallback')][string]$CandidateId = 'burn-cubecl',
         [hashtable]$ExpectedModuleHashes=@{},
         [switch]$CpuMode
     )
+    Assert-P2ClosedObject $ModuleAudit @('method','audited_process_count','successful_snapshots','failed_snapshots','last_error') 'process module audit'
+    [void](Assert-P2IntegerNumber $ModuleAudit.audited_process_count 'audited process count' 0)
+    [void](Assert-P2IntegerNumber $ModuleAudit.successful_snapshots 'successful module snapshot count' 0)
+    [void](Assert-P2IntegerNumber $ModuleAudit.failed_snapshots 'failed module snapshot count' 0)
+    if([string]$ModuleAudit.method-cne'toolhelp32'-or
+        ($null-ne$ModuleAudit.last_error-and[string]$ModuleAudit.last_error-cnotmatch'^[A-Za-z][A-Za-z0-9_.]+$')-or
+        ([int]$ModuleAudit.failed_snapshots-eq0-and$null-ne$ModuleAudit.last_error)-or
+        ([int]$ModuleAudit.failed_snapshots-gt0-and$null-eq$ModuleAudit.last_error)){throw 'process module audit record is malformed'}
     if($ExpectedModuleHashes.Count-eq0-and$null-ne$script:P2ExpectedModuleHashes){$ExpectedModuleHashes=$script:P2ExpectedModuleHashes}
-    $cudaNames = '(?i)^(?:(?:nv(?:cuda|ml|rtc|jitlink)|cuda(?:rt)?|cu(?:blas|blaslt|dnn|rand|sparse|solver|fft)|nccl)[^\\/]*|(?:lib)?python(?:3(?:\d+)?)?)\.dll$'
-    $records = [Collections.Generic.List[object]]::new(); $allAllowed = $true
+    $cudaNames = '(?i)^(?:(?:nv|cuda(?:rt)?|cu(?:blas|blaslt|dnn|rand|sparse|solver|fft)|nccl)[^\\/]*|(?:lib)?python(?:3(?:\d+)?)?)\.dll$'
+    $records = [Collections.Generic.List[object]]::new()
+    $allAllowed=[int]$ModuleAudit.audited_process_count-gt0-and
+        [int]$ModuleAudit.successful_snapshots-ge[int]$ModuleAudit.audited_process_count-and[int]$ModuleAudit.failed_snapshots-eq0
     foreach ($path in @($LoadedModules | Sort-Object -Unique)) {
         $leaf = Split-Path -Leaf $path
         if ($leaf -notmatch $cudaNames) { continue }
         $full = [IO.Path]::GetFullPath($path)
-        $isDriverBoundary=$leaf-imatch'^(?:nvcuda|nvml)\.dll$'
+        $isDriverBoundary=$leaf-imatch'^nv.*\.dll$'-and$leaf-inotmatch'^(?:nvrtc|nvjitlink)'
         $isPython=$leaf-imatch'^(?:lib)?python(?:3(?:\d+)?)?\.dll$'
         $allowed = -not$isDriverBoundary-and-not$isPython-and(Test-P2PathWithin -Path $full -Root $CudaToolkitRoot) -and $leaf -notmatch '(?i)^nccl'
         if($CandidateId-ceq'candle'-and$leaf-imatch'^cudnn'){$allowed=$false}
         if ($isDriverBoundary) {
-            $allowed = Test-P2PathWithin -Path $full -Root (Join-Path $WindowsRoot 'System32')
+            $allowed = -not[string]::IsNullOrWhiteSpace($DriverPackageAnchor)
         }
         if (-not $allowed -or -not (Test-Path -LiteralPath $full -PathType Leaf)) { $allAllowed = $false }
         $token = if (Test-P2PathWithin -Path $full -Root $CudaToolkitRoot) {
@@ -915,18 +1254,29 @@ function Get-P2LoadedModuleProvenance {
         }
         else { '<rejected>' }
         if($token-ceq'<rejected>'){$allAllowed=$false;continue}
+        if($isDriverBoundary-and$allowed){
+            try{
+                $resolved=Resolve-P2RetainedRuntimeModule -Token $token -CudaToolkitRoot $CudaToolkitRoot -WindowsRoot $WindowsRoot -DriverPackageAnchor $DriverPackageAnchor
+                $allowed=[string]::Equals([IO.Path]::GetFullPath($resolved),$full,[StringComparison]::OrdinalIgnoreCase)-and
+                    (Get-AuthenticodeSignature -LiteralPath $full).Status-ceq'Valid'
+            }catch{$allowed=$false}
+        }
+        if($isDriverBoundary-and$token-cmatch'^\$\{WINDOWS\}/System32/[^/]+\.dll$'-and-not$ExpectedModuleHashes.ContainsKey($token)){$allowed=$false}
+        if(-not$allowed){$allAllowed=$false}
         $records.Add([pscustomobject][ordered]@{
                 path = $token; sha256 = if (Test-Path -LiteralPath $full -PathType Leaf) { Get-P2Sha256 -Path $full } else { '0' * 64 }
             })
         if($ExpectedModuleHashes.ContainsKey($token)-and[string]$records[$records.Count-1].sha256-cne[string]$ExpectedModuleHashes[$token]){$allAllowed=$false}
-        elseif($leaf-imatch'^(?:nvcuda|cudart|cublas|cublaslt)[^\\/]*\.dll$'-and-not$ExpectedModuleHashes.ContainsKey($token)){$allAllowed=$false}
+        elseif($leaf-imatch'^(?:cudart|cublas|cublaslt)[^\\/]*\.dll$'-and-not$ExpectedModuleHashes.ContainsKey($token)){$allAllowed=$false}
     }
     $observedNames = @($records | ForEach-Object { Split-Path -Leaf ([string]$_.path) })
-    $required = if($CpuMode){@()}else{@('nvcuda.dll')}
+    $required = if($CpuMode){@()}else{@('nvcuda.dll','nvcuda64.dll')}
     if($CpuMode-and$records.Count-gt0){$allAllowed=$false}
     foreach ($name in $required) { if ($name -notin $observedNames) { $allAllowed = $false } }
     return [pscustomobject][ordered]@{
-        loaded_modules = @($records); qualified_roots = @('${CUDA_TOOLKIT}', '${WINDOWS}/System32')
+        audit_method='toolhelp32';audited_process_count=[int]$ModuleAudit.audited_process_count
+        successful_snapshot_count=[int]$ModuleAudit.successful_snapshots;failed_snapshot_count=[int]$ModuleAudit.failed_snapshots
+        loaded_modules = @($records); qualified_roots = @('${CUDA_TOOLKIT}', '${WINDOWS}/System32','${WINDOWS}/System32/DriverStore/FileRepository')
         all_allowed = $allAllowed
     }
 }
@@ -1065,7 +1415,8 @@ publish = false
         }
         $provenance = Get-P2LoadedModuleProvenance -LoadedModules @($command.loaded_modules) `
             -CudaToolkitRoot $CudaToolkitRoot -WindowsRoot $env:SystemRoot -CandidateId $CandidateId `
-            -ExpectedModuleHashes $ExpectedModuleHashes -CpuMode:($Mode-ceq'cpu-smoke')
+            -ExpectedModuleHashes $ExpectedModuleHashes -ModuleAudit $command.module_audit `
+            -DriverPackageAnchor $script:P2DriverPackageAnchor -CpuMode:($Mode-ceq'cpu-smoke')
         return [pscustomobject][ordered]@{
             result = $result; command = $command.record; output_path = $outputPath
             reference = New-P2InvocationReference -Mode $Mode -Workload $Workload -Round $Round `
@@ -1091,10 +1442,12 @@ function New-P2NotRunAggregate {
 }
 
 function Get-P2CandidateFailure {
-    param([Parameter(Mandatory)][string]$Message, [AllowNull()][string]$CommandId,
+    param([Parameter(Mandatory)][string]$Message, [AllowNull()]$CommandId,
         [string]$Code = 'CANDIDATE_FAILED', [int]$Category = 5)
+    if($null-ne$CommandId-and[string]::IsNullOrEmpty($CommandId)){throw 'candidate failure command identity cannot be empty'}
     return [pscustomobject][ordered]@{
-        code = $Code; category = $Category; message = $Message; command_id = $CommandId
+        code = $Code; category = $Category; message = $Message
+        command_id = if($null-eq$CommandId){$null}else{[string]$CommandId}
     }
 }
 
@@ -1143,13 +1496,18 @@ function Merge-P2RuntimeProvenance {
     param([Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Records)
     $modules = [Collections.Generic.Dictionary[string, object]]::new([StringComparer]::Ordinal)
     $roots = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
-    $allowed = $true
+    $allowed = $Records.Count-gt0;$auditedProcesses=0;$successfulSnapshots=0;$failedSnapshots=0
     foreach ($record in $Records) {
-        $allowed = $allowed -and [bool]$record.all_allowed
+        $allowed = $allowed -and [bool]$record.all_allowed -and [string]$record.audit_method-ceq'toolhelp32'
+        $auditedProcesses+=[int]$record.audited_process_count
+        $successfulSnapshots+=[int]$record.successful_snapshot_count
+        $failedSnapshots+=[int]$record.failed_snapshot_count
         foreach ($root in @($record.qualified_roots)) { [void]$roots.Add([string]$root) }
         foreach ($module in @($record.loaded_modules)) { $modules[[string]$module.path] = $module }
     }
     return [pscustomobject][ordered]@{
+        audit_method='toolhelp32';audited_process_count=[int]$auditedProcesses
+        successful_snapshot_count=[int]$successfulSnapshots;failed_snapshot_count=[int]$failedSnapshots
         loaded_modules = @($modules.Values | Sort-Object path); qualified_roots = @($roots | Sort-Object)
         all_allowed = $allowed
     }
@@ -1454,8 +1812,12 @@ function Assert-P2InvocationReference {
 function Assert-P2AggregateRuntimeProvenance {
     param([AllowNull()]$Value,[Parameter(Mandatory)][string]$CandidateId)
     if($null-eq$Value){return}
-    Assert-P2ClosedObject $Value @('loaded_modules','qualified_roots','all_allowed') 'aggregate runtime provenance'
+    Assert-P2ClosedObject $Value @('audit_method','audited_process_count','successful_snapshot_count','failed_snapshot_count','loaded_modules','qualified_roots','all_allowed') 'aggregate runtime provenance'
     if($Value.all_allowed-isnot[bool]){throw 'aggregate runtime provenance all_allowed is not boolean'}
+    foreach($field in @('audited_process_count','successful_snapshot_count','failed_snapshot_count')){[void](Assert-P2IntegerNumber $Value.$field "aggregate runtime provenance $field" 0)}
+    if([string]$Value.audit_method-cne'toolhelp32'-or
+        ([bool]$Value.all_allowed-and([int]$Value.audited_process_count-lt1-or[int]$Value.successful_snapshot_count-lt[int]$Value.audited_process_count-or[int]$Value.failed_snapshot_count-ne0))){
+        throw 'aggregate runtime provenance audit coverage is invalid'}
     $paths=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
     foreach($module in @($Value.loaded_modules)){
         Assert-P2ClosedObject $module @('path','sha256') 'aggregate loaded module';Assert-P2Sha256 $module.sha256 'aggregate loaded module hash'
@@ -1527,7 +1889,8 @@ function Assert-P2CandidateAggregate {
         }
         $modules=@($Aggregate.runtime_provenance.loaded_modules);$paths=@($modules.path)
         if($modules.Count-lt1-or@($paths|Sort-Object -Unique).Count-ne$paths.Count-or
-            '${WINDOWS}/System32/nvcuda.dll'-notin$paths-or'${WINDOWS}/System32'-notin@($Aggregate.runtime_provenance.qualified_roots)){
+            '${WINDOWS}/System32/nvcuda.dll'-notin$paths-or-not(@($paths|Where-Object{$_-match'/nvcuda64\.dll$'}).Count-eq1)-or
+            '${WINDOWS}/System32'-notin@($Aggregate.runtime_provenance.qualified_roots)){
             throw 'passing runtime provenance lacks the qualified CUDA driver boundary'
         }
         foreach($module in $modules){Assert-P2ClosedFields $module @('path','sha256') 'loaded CUDA module';Assert-P2Sha256 $module.sha256 'loaded CUDA module hash'}
@@ -1924,6 +2287,7 @@ function Invoke-P2Qualification {
     $candidateRefs = [Collections.Generic.List[object]]::new();$healthRecoveries=[Collections.Generic.List[object]]::new()
     $monitorChecks=[Collections.Generic.List[object]]::new(); $temporaryRoot = $null
     $cleanupAttempted = $false; $temporaryRemoved = $false; $treesTerminated = $true;$script:P2TreeViolation=$false
+    $script:P2ExpectedModuleHashes=@{};$script:P2DriverPackageAnchor=$null
     $source = $null; $sourceHash = '0' * 64; $sourceInputFingerprint = $null
     $sourcePath = Join-Path $runRoot 'artifacts\source-identity.json'
     $parentEnvironmentBefore=Get-P2EnvironmentFingerprint
@@ -1969,12 +2333,18 @@ function Invoke-P2Qualification {
         $script:P2ExpectedModuleHashes[[string]$qualifiedHost.manifest.driver.library.path]=[string]$qualifiedHost.manifest.driver.library.sha256
         foreach($dll in @($qualifiedHost.manifest.cuda_toolkit.runtime_dlls)){$script:P2ExpectedModuleHashes[[string]$dll.path]=[string]$dll.sha256}
         $nvmlLibrary=New-P2NvmlLibraryRecord -Path ([P2NvmlMonitor]::EnsureQualifiedLibrary()) -WindowsRoot $env:SystemRoot
+        $script:P2ExpectedModuleHashes[[string]$nvmlLibrary.path]=[string]$nvmlLibrary.sha256
+        if([P2CudaHealth]::Probe()-cne'PASS'){throw 'CUDA health probe failed while inventorying driver modules'}
         $contention = [P2NvmlMonitor]::ActiveGpuProcessCount(0)
+        $driverModules=Get-P2QualifiedDriverModuleInventory -QualifiedManifest $qualifiedHost.manifest -WindowsRoot $env:SystemRoot
+        [void](Assert-P2DriverModuleInventory $driverModules)
+        $script:P2DriverPackageAnchor=[string]$driverModules.package_anchor
+        foreach($module in @($driverModules.observed_modules)){$script:P2ExpectedModuleHashes[[string]$module.path]=[string]$module.sha256}
         $hostState = [ordered]@{
             schema = 'python-slm-p2-host-state-v1'; status = 'PASS'; gpu = $qualifiedHost.gpu
             compute_capability = $qualifiedHost.compute_capability; driver_version = $qualifiedHost.driver_version
             cuda_toolkit_version = $qualifiedHost.cuda_toolkit_version; foreign_gpu_process_count = $contention
-            nvml_library=$nvmlLibrary;cuda_health_recoveries=@();benchmark_monitor_checks=@()
+            nvml_library=$nvmlLibrary;driver_modules=$driverModules;cuda_health_recoveries=@();benchmark_monitor_checks=@()
         }
         $hostPath = Join-Path $runRoot 'artifacts\host-state.json'; Write-P2JsonFile -Path $hostPath -Value $hostState -CreateNew
         if ($contention -ne 0) {
@@ -3079,8 +3449,9 @@ function Assert-P2PassRun {
     $cpu=[IO.File]::ReadAllText($resolved.cpu_isolation,$script:P2Utf8NoBom)|ConvertFrom-Json
     if([string]$cpu.status-cne'PASS'-or[bool]$cpu.cuda_or_python_discovered-or@($cpu.forbidden_hits).Count-ne0){throw 'P2 CPU isolation artifact is not PASS'}
     $host=[IO.File]::ReadAllText($resolved.host_state,$script:P2Utf8NoBom)|ConvertFrom-Json
-    Assert-P2ClosedObject $host @('schema','status','gpu','compute_capability','driver_version','cuda_toolkit_version','foreign_gpu_process_count','nvml_library','cuda_health_recoveries','benchmark_monitor_checks') 'P2 host state'
+    Assert-P2ClosedObject $host @('schema','status','gpu','compute_capability','driver_version','cuda_toolkit_version','foreign_gpu_process_count','nvml_library','driver_modules','cuda_health_recoveries','benchmark_monitor_checks') 'P2 host state'
     if([string]$host.status-cne'PASS'-or[string]$host.gpu-cne'NVIDIA GeForce RTX 5090'-or[string]$host.compute_capability-cne'12.0'-or[int]$host.foreign_gpu_process_count-ne0){throw 'P2 host state artifact is invalid'}
+    [void](Assert-P2DriverModuleInventory $host.driver_modules)
     $hostRecoveryIds=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
     foreach($recovery in @($host.cuda_health_recoveries)){Assert-P2ClosedObject $recovery @('candidate_id','failed_command_id','trigger','result') 'CUDA health recovery'
         if([string]$recovery.candidate_id-notin@('burn-cubecl','candle','cudarc-fallback')-or[string]$recovery.failed_command_id-cnotmatch'^C[0-9]{2,4}$'-or
@@ -3110,6 +3481,16 @@ function Assert-P2PassRun {
     $p1bEnvironment=[IO.File]::ReadAllText((Join-Path $repoRoot ([string]$p1b.environment_path).Replace('/','\')),$script:P2Utf8NoBom)|ConvertFrom-Json
     $expectedModules=@{[string]$p1bEnvironment.driver.library.path=[string]$p1bEnvironment.driver.library.sha256}
     foreach($dll in @($p1bEnvironment.cuda_toolkit.runtime_dlls)){$expectedModules[[string]$dll.path]=[string]$dll.sha256}
+    if([P2CudaHealth]::Probe()-cne'PASS'){throw 'CUDA health probe failed while revalidating driver modules'}
+    $liveDriverModules=Get-P2QualifiedDriverModuleInventory -QualifiedManifest $p1bEnvironment -WindowsRoot $env:SystemRoot
+    if([string]$liveDriverModules.package_anchor-cne[string]$host.driver_modules.package_anchor){throw 'P2 driver package anchor drifted from retained host state'}
+    foreach($module in @($host.driver_modules.observed_modules)){
+        $livePath=Resolve-P2RetainedRuntimeModule -Token ([string]$module.path) -CudaToolkitRoot ([string]$p1bEnvironment.cuda_toolkit.root).Replace('${CUDA_TOOLKIT}',$env:CUDA_PATH) `
+            -WindowsRoot $env:SystemRoot -DriverPackageAnchor ([string]$host.driver_modules.package_anchor)
+        if((Get-P2Sha256 $livePath)-cne[string]$module.sha256-or(Get-AuthenticodeSignature -LiteralPath $livePath).Status-cne'Valid'){
+            throw 'retained driver module inventory hash or signature drifted'}
+        $expectedModules[[string]$module.path]=[string]$module.sha256
+    }
     $dependency=[IO.File]::ReadAllText($resolved.dependency_inventory,$script:P2Utf8NoBom)|ConvertFrom-Json
     $candidateValues=[Collections.Generic.List[object]]::new()
     $candidateRefs=@($evidence.candidates);if($candidateRefs.Count-ne2-or(@($candidateRefs.candidate_id)-join',')-cne'burn-cubecl,candle'){throw 'P2 PASS candidate reference order is invalid'}
@@ -3120,16 +3501,9 @@ function Assert-P2PassRun {
         $path=Assert-P2FileReference $basic $RunRoot 'candidate aggregate';$aggregate=[IO.File]::ReadAllText($path,$script:P2Utf8NoBom)|ConvertFrom-Json
         $null=Assert-P2CandidateAggregate $aggregate $RunRoot
         if([string]$aggregate.status-ceq'PASS'){
-            foreach($moduleRecord in @($aggregate.runtime_provenance.loaded_modules)){
-                $moduleLeaf=Split-Path -Leaf ([string]$moduleRecord.path)
-                if([string]$moduleRecord.path-cnotmatch '^\$\{CUDA_TOOLKIT\}/(?:bin/x64/)?[^/]+\.dll$|^\$\{WINDOWS\}/System32/(?:nvcuda|nvml)\.dll$'-or
-                    ($aggregate.candidate_id-ceq'candle'-and$moduleLeaf-imatch'^cudnn')-or$moduleLeaf-imatch'^nccl'){
-                    throw 'candidate retained runtime module path violates the qualified boundary'
-                }
-                if($moduleLeaf-imatch'^(?:nvcuda|cudart|cublas|cublaslt)[^/\\]*\.dll$'){
-                    if(-not$expectedModules.ContainsKey([string]$moduleRecord.path)-or[string]$moduleRecord.sha256-cne[string]$expectedModules[[string]$moduleRecord.path]){throw 'candidate required runtime module path/hash is not P1B-bound'}
-                }
-            }
+            [void](Assert-P2RetainedRuntimeModules -Records @($aggregate.runtime_provenance.loaded_modules) `
+                    -CandidateId ([string]$aggregate.candidate_id) -ExpectedModuleHashes $expectedModules `
+                    -DriverModuleInventory $host.driver_modules -CudaToolkitRoot $env:CUDA_PATH -WindowsRoot $env:SystemRoot)
             $rawBenchmarks=[Collections.Generic.List[object]]::new()
             foreach($ref in @($aggregate.benchmark_rounds)){$rawBenchmarks.Add((Assert-P2InvocationReference -Reference $ref -RunRoot $RunRoot -CandidateId ([string]$aggregate.candidate_id)))}
             $graph=$dependency.candidate_graphs.([string]$aggregate.candidate_id)

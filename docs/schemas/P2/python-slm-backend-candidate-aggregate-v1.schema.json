@@ -174,8 +174,12 @@
       "properties": { "path": { "type": "string", "pattern": "^(?:\\$\\{CUDA_TOOLKIT\\}/(?:bin(?:/x64)?|lib/x64)/[A-Za-z0-9_.+-]+|\\$\\{WINDOWS\\}/System32/(?:DriverStore/FileRepository/[A-Za-z0-9_.+/-]+|[A-Za-z0-9_.+-]+))$" }, "sha256": { "$ref": "#/definitions/sha256" } }
     },
     "runtimeProvenance": {
-      "type": "object", "additionalProperties": false, "required": ["loaded_modules", "qualified_roots", "all_allowed"],
+      "type": "object", "additionalProperties": false, "required": ["audit_method", "audited_process_count", "successful_snapshot_count", "failed_snapshot_count", "loaded_modules", "qualified_roots", "all_allowed"],
       "properties": {
+        "audit_method": { "const": "toolhelp32" },
+        "audited_process_count": { "type": "integer", "minimum": 0 },
+        "successful_snapshot_count": { "type": "integer", "minimum": 0 },
+        "failed_snapshot_count": { "type": "integer", "minimum": 0 },
         "loaded_modules": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/definitions/loadedModule" } },
         "qualified_roots": { "type": "array", "uniqueItems": true, "items": { "enum": ["${CUDA_TOOLKIT}", "${WINDOWS}/System32", "${WINDOWS}/System32/DriverStore/FileRepository"] } },
         "all_allowed": { "type": "boolean" }
@@ -194,8 +198,22 @@
                 "required": ["path"]
               }
             },
+            "audited_process_count": { "type": "integer", "minimum": 1 },
+            "successful_snapshot_count": { "type": "integer", "minimum": 1 },
+            "failed_snapshot_count": { "const": 0 },
             "qualified_roots": { "contains": { "const": "${WINDOWS}/System32" } },
             "all_allowed": { "const": true }
+          }
+        },
+        {
+          "properties": {
+            "loaded_modules": {
+              "contains": {
+                "type": "object",
+                "properties": { "path": { "pattern": "^\\$\\{WINDOWS\\}/System32/DriverStore/FileRepository/[A-Za-z0-9_.+-]+/nvcuda64\\.dll$" } },
+                "required": ["path"]
+              }
+            }
           }
         }
       ]

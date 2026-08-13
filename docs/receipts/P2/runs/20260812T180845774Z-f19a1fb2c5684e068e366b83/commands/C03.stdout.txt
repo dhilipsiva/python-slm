@@ -1,0 +1,37 @@
+
+running 22 tests
+test config::tests::requested_shape_has_exact_count ... ok
+test config::tests::tied_and_corrected_counts_are_explicit ... ok
+test config::tests::schedule_hits_peak_then_decays ... ok
+test data::dedup::tests::unrelated_documents_survive ... ok
+test data::dedup::tests::exact_duplicates_are_removed ... ok
+test data::filter::tests::accepts_valid_python_and_rejects_syntax ... ok
+test data::filter::tests::generator_words_outside_header_do_not_trigger_banner_filter ... ok
+test data::filter::tests::rejects_generated_marker_case_insensitively ... ok
+test data::parquet_source::tests::rejects_a_clone_budget_above_the_hard_limit ... ok
+test data::tokenizer::tests::quality_proxy_penalizes_repeated_lines ... ok
+test data::corpus::tests::corpus_round_trip_and_overwrite_refusal ... ok
+test data::corpus::tests::corpus_without_completion_footer_is_rejected ... ok
+test model::tests::causal_mask_prevents_future_tokens_from_changing_prefix_logits ... ok
+test data::parquet_source::tests::preserves_invalid_utf8_for_per_document_rejection ... ok
+test data::parquet_source::tests::reads_projected_content_and_ids_in_batches ... ok
+test model::tests::kv_expansion_repeats_each_head_contiguously ... ok
+test data::tokens::tests::maps_little_endian_shards_across_boundaries ... ok
+test train::tests::default_reference_plan_fails_28_gib_preflight ... ok
+test model::tests::forward_shape_supports_tied_and_untied_heads ... ok
+test model::tests::reference_graph_backpropagates_through_attention_and_tied_head ... ok
+test train::tests::flex_autodiff_executes_one_accumulated_optimizer_step ... ok
+test data::tokenizer::tests::trains_serializes_and_reloads_byte_level_bpe ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
