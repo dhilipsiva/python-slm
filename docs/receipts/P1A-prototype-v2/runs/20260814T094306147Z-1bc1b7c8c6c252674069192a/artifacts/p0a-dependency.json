@@ -1,0 +1,23 @@
+{
+  "acceptance_path": "docs/receipts/P0A/acceptances/00000001.json",
+  "acceptance_sequence": 1,
+  "acceptance_sha256": "31434001719f50de1abfa06dd84200ffb8e1f0947e08c8673f6413c08dbc4fb4",
+  "approval_commit": "3b36781ea5cc4eb6316249d6c2fc342c61ef220e",
+  "closure_commit": "203b3580005ce59228c319d517134f910759c7bc",
+  "data_governance_approval_sha256": "8273e1fb6fb8aa812253f825dd38632770fa43ed4f8246907be622bf0b0783a3",
+  "interface_id": "portable-interface-v2",
+  "phase_id": "P0A",
+  "pointer_path": "docs/receipts/P0A/evidence.json",
+  "pointer_sha256": "c3ac49fdd2aecddb677bd315678d0f0d72bba3fbd92f773289ef98871505e15d",
+  "preapproval_commit": "f49abcca7f0b110759606c0bf9beffc911cc6635",
+  "profile_id": "prototype-windows-5090-v1",
+  "publication_commit": "f221a638f65509ee28457a0ccc03a23bc134956b",
+  "receipt_commit": "b32651bcccf285b256acfcf5f7ca19d3dd35c947",
+  "run_evidence_sha256": "c9de84843e74771fa675514f552301757b8fbadb2ea16e7afa13a0b4c40e2cd1",
+  "run_id": "20260813T111427138Z-594485fab70714426a7a3870",
+  "schema": "python-slm-p0a-dependency-v1",
+  "seal_sha256": "5248bbd6ef45e42480676a978a683a8883e68466804b0cce572af6b368044900",
+  "status": "PASS",
+  "technical_approval_sha256": "ea9eae24d1763e8ac257a35b63f6df3648bc5ed7cb7199863d6161b3142a9765",
+  "verified_at_source_commit": "c91b2aacf1fa0eb262789ce8ec20c062c818cf8c"
+}

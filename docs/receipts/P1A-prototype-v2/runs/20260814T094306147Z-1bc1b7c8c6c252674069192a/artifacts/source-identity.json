@@ -1,0 +1,15 @@
+{
+  "branch": "main",
+  "cargo_lock_sha256": "6235bfb8fbac6175b48fe3216d4496a1a043f7bb5891568836bee7ce67bc7dd6",
+  "commit": "c91b2aacf1fa0eb262789ce8ec20c062c818cf8c",
+  "dirty": false,
+  "interface_id": "portable-interface-v2",
+  "p0a_pointer_sha256": "c3ac49fdd2aecddb677bd315678d0f0d72bba3fbd92f773289ef98871505e15d",
+  "phase_id": "P1A",
+  "profile_id": "prototype-windows-5090-v1",
+  "schema": "python-slm-p1a-source-identity-v1",
+  "schema_bundle_sha256": "33d0ce3f0a47ba77f2516582ad54c412ff03071170a2b4abac4ab1724e05c8a6",
+  "support_tier": "implemented",
+  "tree": "a05144dd04868b1062c3f4d5b6304287bcfdc6b8",
+  "verifier_source_sha256": "c9638ffe54b65e9263a59a7a176dd415be52709679fe6a36d743aa83479b44ea"
+}

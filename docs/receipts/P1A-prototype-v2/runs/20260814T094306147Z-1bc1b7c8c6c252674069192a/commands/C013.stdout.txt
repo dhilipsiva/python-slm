@@ -1,0 +1,53 @@
+[
+  {
+    "catalog": {
+      "buildBranch": "d17.14",
+      "buildVersion": "17.14.36811.4",
+      "id": "VisualStudio/17.14.23+36811.4",
+      "localBuild": "build-lab",
+      "manifestName": "VisualStudio",
+      "manifestType": "installer",
+      "productDisplayVersion": "17.14.23",
+      "productLine": "Dev17",
+      "productLineVersion": "2022",
+      "productMilestone": "RTW",
+      "productMilestoneIsPreRelease": "False",
+      "productName": "Visual Studio",
+      "productPatchVersion": "23",
+      "productPreReleaseMilestoneSuffix": "1.0",
+      "productSemanticVersion": "17.14.23+36811.4",
+      "requiredEngineVersion": "3.14.2086.54749"
+    },
+    "channelId": "VisualStudio.17.Release",
+    "channelUri": "${ABSOLUTE_WINDOWS_PATH}",
+    "description": "Powerful IDE, free for students, open-source contributors, and individuals",
+    "displayName": "Visual Studio Community 2022",
+    "enginePath": "${ABSOLUTE_WINDOWS_PATH}",
+    "installDate": "2025-12-25T12:03:27Z",
+    "installationName": "VisualStudio/17.14.23+36811.4",
+    "installationPath": "${ABSOLUTE_WINDOWS_PATH}",
+    "installationVersion": "17.14.36811.4",
+    "installedChannelId": "VisualStudio.17.Release",
+    "installedChannelUri": "${ABSOLUTE_WINDOWS_PATH}",
+    "instanceId": "6e4189bd",
+    "isComplete": true,
+    "isLaunchable": true,
+    "isPrerelease": false,
+    "isRebootRequired": false,
+    "productId": "Microsoft.VisualStudio.Product.Community",
+    "productPath": "${ABSOLUTE_WINDOWS_PATH}",
+    "properties": {
+      "appLocalWPF": "true",
+      "campaignId": "",
+      "channelManifestId": "VisualStudio.17.Release/17.14.23+36811.4",
+      "includeRecommended": "0",
+      "nickname": "",
+      "setupEngineFilePath": "${ABSOLUTE_WINDOWS_PATH}"
+    },
+    "releaseNotes": "${ABSOLUTE_WINDOWS_PATH}",
+    "resolvedInstallationPath": "${ABSOLUTE_WINDOWS_PATH}",
+    "state": 4294967295,
+    "thirdPartyNotices": "${ABSOLUTE_WINDOWS_PATH}",
+    "updateDate": "2025-12-25T12:03:27.0181209Z"
+  }
+]
