@@ -2349,6 +2349,13 @@ fn require_fixed_git_argv(args: &[&str]) -> Result<()> {
             | ["ls-files", "-z", "--", ".", _]
             | ["rev-parse", "HEAD:docs/receipts/P1A"]
             | [
+                "status",
+                "--porcelain=v1",
+                "--untracked-files=all",
+                "--",
+                "docs/receipts/P1A"
+            ]
+            | [
                 "ls-tree",
                 "-r",
                 "--name-only",
@@ -8624,6 +8631,41 @@ mod tests {
             "P1A_TEST_DEPENDENCY_SCHEMA_INVALID",
         )
         .unwrap();
+    }
+
+    #[test]
+    fn historical_p1a_status_git_argv_is_allowlisted_exactly() {
+        require_fixed_git_argv(&[
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+            "--",
+            "docs/receipts/P1A",
+        ])
+        .unwrap();
+
+        for rejected in [
+            &[
+                "status",
+                "--porcelain=v1",
+                "--untracked-files=all",
+                "--",
+                "docs/receipts/P1A/evidence.json",
+            ][..],
+            &[
+                "status",
+                "--porcelain=v1",
+                "--untracked-files=all",
+                "--",
+                "docs/receipts/P1A",
+                "unexpected",
+            ][..],
+        ] {
+            assert_eq!(
+                require_fixed_git_argv(rejected).unwrap_err().code,
+                "P1A_GIT_COMMAND_NOT_ALLOWED"
+            );
+        }
     }
 
     fn test_admission(root: &Path) -> Admission {
