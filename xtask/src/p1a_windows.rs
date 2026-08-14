@@ -234,6 +234,21 @@ pub(crate) struct ToolFileIdentity {
     pub file_version: String,
 }
 
+/// Keeps the exact native Setup Configuration implementation immutable while the
+/// audited `vswhere.exe` query is in flight. The file handle deliberately permits
+/// only other readers, so neither the file bytes nor its directory entry can change
+/// between discovery and process auditing.
+pub(crate) struct VswhereRuntimeBinding {
+    setup_configuration: ToolFileIdentity,
+    _setup_configuration_lock: std::fs::File,
+}
+
+impl VswhereRuntimeBinding {
+    pub(crate) fn setup_configuration_identity(&self) -> &ToolFileIdentity {
+        &self.setup_configuration
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct FileIdentity {
@@ -490,6 +505,11 @@ pub(crate) fn discover_vswhere_path() -> Result<PathBuf> {
     imp::discover_vswhere_path()
 }
 
+#[cfg(all(windows, target_arch = "x86_64"))]
+pub(crate) fn bind_vswhere_runtime() -> Result<VswhereRuntimeBinding> {
+    imp::bind_vswhere_runtime()
+}
+
 /// Resolve the one admitted Git for P1A without consulting `PATH`, a shell, or mutable
 /// per-user configuration. The second return value is the canonical installation root
 /// that the audited process runner may use to classify Git's native executables/modules.
@@ -554,6 +574,15 @@ pub(crate) fn discover_vswhere_path() -> Result<PathBuf> {
     Err(XtaskError::gate(
         "DEFERRED_POST_P16",
         "vswhere discovery is implemented only for native Windows x86_64",
+        "Run P1A on prototype-windows-5090-v1; portable hosts are deferred until P17.",
+    ))
+}
+
+#[cfg(not(all(windows, target_arch = "x86_64")))]
+pub(crate) fn bind_vswhere_runtime() -> Result<VswhereRuntimeBinding> {
+    Err(XtaskError::gate(
+        "DEFERRED_POST_P16",
+        "vswhere runtime binding is implemented only for native Windows x86_64",
         "Run P1A on prototype-windows-5090-v1; portable hosts are deferred until P17.",
     ))
 }
@@ -634,7 +663,7 @@ mod imp {
     use sha2::{Digest, Sha256};
     use std::collections::BTreeMap;
     use std::ffi::{OsStr, c_void};
-    use std::fs::{self, OpenOptions};
+    use std::fs::{self, File, OpenOptions};
     use std::io::Read;
     use std::mem::{size_of, zeroed};
     use std::os::windows::ffi::{OsStrExt, OsStringExt};
@@ -663,6 +692,10 @@ mod imp {
     const IDENTITY_FILE_LIMIT: u64 = 1024 * 1024 * 1024;
     const TREE_ENTRY_LIMIT: u64 = 1_000_000;
     const QUALIFIED_FILE_COUNT: u32 = 19;
+    // GetSystemWow64DirectoryW treats a 32_768-unit capacity as a sizing request on
+    // the qualified host and returns a required length without populating the buffer.
+    // The largest signed 16-bit unit count remains far above the Windows path bound.
+    const SYSWOW64_DIRECTORY_BUFFER_UNITS: usize = i16::MAX as usize;
 
     type Handle = *mut c_void;
     type Hkey = *mut c_void;
@@ -687,6 +720,12 @@ mod imp {
         data2: 0xc1bf,
         data3: 0x494e,
         data4: [0xb2, 0x9c, 0x65, 0xb7, 0x32, 0xd3, 0xd2, 0x1a],
+    };
+    const FOLDERID_PROGRAM_DATA: Guid = Guid {
+        data1: 0x62ab5d82,
+        data2: 0xfdc1,
+        data3: 0x4dc3,
+        data4: [0xa9, 0xdd, 0x07, 0x0d, 0x1d, 0x49, 0x5d, 0x97],
     };
     const PROCESSOR_SETTINGS_SUBGROUP: Guid = Guid {
         data1: 0x54533251,
@@ -833,6 +872,7 @@ mod imp {
         fn LocalFree(memory: Handle) -> Handle;
         fn GetSystemPowerStatus(status: *mut SystemPowerStatus) -> i32;
         fn GetSystemDirectoryW(buffer: *mut u16, size: u32) -> u32;
+        fn GetSystemWow64DirectoryW(buffer: *mut u16, size: u32) -> u32;
         fn LoadLibraryExW(file_name: *const u16, file: Handle, flags: u32) -> Handle;
         fn GetModuleFileNameW(module: Handle, file_name: *mut u16, size: u32) -> u32;
         fn FreeLibrary(module: Handle) -> i32;
@@ -1738,6 +1778,43 @@ mod imp {
         )
     }
 
+    pub(super) fn bind_vswhere_runtime() -> Result<VswhereRuntimeBinding> {
+        // Validate the native 32-bit system directory up front. The process auditor
+        // resolves it independently when classifying loaded images; this discovery
+        // makes C013 fail before launch if the host does not expose the canonical
+        // System32/SysWOW64 sibling layout.
+        system_wow64_directory()?;
+
+        let program_data = known_folder(&FOLDERID_PROGRAM_DATA)?;
+        let setup_x86_root = require_directory(
+            &program_data
+                .join("Microsoft")
+                .join("VisualStudio")
+                .join("Setup")
+                .join("x86"),
+            "P1A_SETUP_CONFIGURATION_ROOT_INVALID",
+        )?;
+        require_contained(
+            &setup_x86_root,
+            &program_data,
+            "P1A_SETUP_CONFIGURATION_ROOT_ESCAPE",
+        )?;
+        let setup_configuration_path =
+            setup_x86_root.join("Microsoft.VisualStudio.Setup.Configuration.Native.dll");
+        let (setup_configuration, setup_configuration_lock) =
+            bind_locked_tool_identity(&setup_configuration_path)?;
+        if setup_configuration.path.parent() != Some(setup_x86_root.as_path()) {
+            return Err(XtaskError::integrity(
+                "P1A_SETUP_CONFIGURATION_PATH_ESCAPE",
+                "the canonical Setup Configuration implementation escaped its exact x86 root",
+            ));
+        }
+        Ok(VswhereRuntimeBinding {
+            setup_configuration,
+            _setup_configuration_lock: setup_configuration_lock,
+        })
+    }
+
     pub(super) fn discover_git_path() -> Result<(PathBuf, PathBuf)> {
         let (program_files, _) = native_program_files_roots()?;
         let git_root = require_directory(&program_files.join("Git"), "P1A_GIT_ROOT_NOT_FOUND")?;
@@ -1812,6 +1889,52 @@ mod imp {
         buffer.truncate(length as usize);
         let path = PathBuf::from(std::ffi::OsString::from_wide(&buffer));
         require_directory(&path, "P1A_SYSTEM_DIRECTORY_INVALID")
+    }
+
+    fn system_wow64_directory() -> Result<PathBuf> {
+        let mut buffer = vec![0_u16; SYSWOW64_DIRECTORY_BUFFER_UNITS];
+        // SAFETY: the native x86_64 process supplies one writable UTF-16 buffer with
+        // its exact capacity to the documented SysWOW64 directory query.
+        let length = unsafe { GetSystemWow64DirectoryW(buffer.as_mut_ptr(), buffer.len() as u32) };
+        if length == 0 || length as usize >= buffer.len() {
+            return Err(last_error(
+                "P1A_SYSWOW64_DIRECTORY_QUERY_FAILED",
+                "GetSystemWow64DirectoryW did not return one bounded system directory",
+            ));
+        }
+        buffer.truncate(length as usize);
+        trim_native_path_terminators(&mut buffer, "P1A_SYSWOW64_DIRECTORY_INVALID")?;
+        let path = PathBuf::from(std::ffi::OsString::from_wide(&buffer));
+        let syswow64 = require_directory(&path, "P1A_SYSWOW64_DIRECTORY_INVALID")?;
+        let system32 = system_directory()?;
+        let has_expected_leaf = syswow64
+            .file_name()
+            .and_then(OsStr::to_str)
+            .is_some_and(|leaf| leaf.eq_ignore_ascii_case("SysWOW64"));
+        if !has_expected_leaf
+            || syswow64 == system32
+            || syswow64.parent().is_none()
+            || syswow64.parent() != system32.parent()
+        {
+            return Err(XtaskError::integrity(
+                "P1A_SYSWOW64_DIRECTORY_INVALID",
+                "the native SysWOW64 directory is not the distinct canonical sibling of System32",
+            ));
+        }
+        Ok(syswow64)
+    }
+
+    fn trim_native_path_terminators(units: &mut Vec<u16>, code: &'static str) -> Result<()> {
+        while units.last() == Some(&0) {
+            units.pop();
+        }
+        if units.is_empty() || units.contains(&0) {
+            return Err(XtaskError::integrity(
+                code,
+                "native directory discovery returned an empty path or embedded NUL",
+            ));
+        }
+        Ok(())
     }
 
     fn loader_resolved_system_module(
@@ -3008,6 +3131,25 @@ mod imp {
         })
     }
 
+    fn bind_locked_tool_identity(path: &Path) -> Result<(ToolFileIdentity, File)> {
+        let locked = bind_locked_identity(path, true)?;
+        let file_version = locked.file_version.ok_or_else(|| {
+            XtaskError::integrity(
+                "P1A_TOOL_VERSION_QUERY_FAILED",
+                "internal version request returned no tool version",
+            )
+        })?;
+        Ok((
+            ToolFileIdentity {
+                path: locked.path,
+                sha256: locked.sha256,
+                bytes: locked.bytes,
+                file_version,
+            },
+            locked.file,
+        ))
+    }
+
     fn file_identity(path: &Path) -> Result<FileIdentity> {
         let (path, sha256, bytes, _) = locked_identity(path, false)?;
         Ok(FileIdentity {
@@ -3021,6 +3163,24 @@ mod imp {
         path: &Path,
         include_version: bool,
     ) -> Result<(PathBuf, String, u64, Option<String>)> {
+        let locked = bind_locked_identity(path, include_version)?;
+        Ok((
+            locked.path,
+            locked.sha256,
+            locked.bytes,
+            locked.file_version,
+        ))
+    }
+
+    struct LockedIdentity {
+        path: PathBuf,
+        sha256: String,
+        bytes: u64,
+        file_version: Option<String>,
+        file: File,
+    }
+
+    fn bind_locked_identity(path: &Path, include_version: bool) -> Result<LockedIdentity> {
         let path = require_regular_file(path, "P1A_FILE_IDENTITY_INVALID")?;
         let mut file = OpenOptions::new()
             .read(true)
@@ -3034,10 +3194,13 @@ mod imp {
             "P1A_FILE_IDENTITY_INVALID",
             "could not inspect a locked identity file",
         )?;
-        if !before.is_file() || before.file_size() > IDENTITY_FILE_LIMIT {
+        if !before.is_file()
+            || before.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0
+            || before.file_size() > IDENTITY_FILE_LIMIT
+        {
             return Err(XtaskError::integrity(
                 "P1A_FILE_IDENTITY_INVALID",
-                "identity file is nonregular or exceeds the one-GiB closed bound",
+                "identity file is nonregular, reparsed, or exceeds the one-GiB closed bound",
             ));
         }
         let mut hasher = Sha256::new();
@@ -3061,18 +3224,24 @@ mod imp {
             || before.creation_time() != after.creation_time()
             || before.last_write_time() != after.last_write_time()
             || before.file_size() != after.file_size()
+            || fs::canonicalize(&path).io_context(
+                "P1A_FILE_IDENTITY_INVALID",
+                "could not re-canonicalize a locked identity file",
+            )? != path
         {
             return Err(XtaskError::integrity(
                 "P1A_FILE_IDENTITY_DRIFT",
                 "an identity file changed while it was hashed and versioned",
             ));
         }
-        Ok((
+        require_no_reparse_ancestors(&path, "P1A_FILE_IDENTITY_INVALID")?;
+        Ok(LockedIdentity {
             path,
-            hex::encode(hasher.finalize()),
-            before.file_size(),
-            version,
-        ))
+            sha256: hex::encode(hasher.finalize()),
+            bytes: before.file_size(),
+            file_version: version,
+            file,
+        })
     }
 
     fn read_locked_text(path: &Path, maximum_bytes: u64) -> Result<String> {
@@ -3803,6 +3972,101 @@ mod imp {
                 Some("Program Files (x86)")
             );
             assert_eq!(program_files.parent(), program_files_x86.parent());
+        }
+
+        #[test]
+        fn syswow64_is_native_canonical_system32_sibling() {
+            assert_eq!(SYSWOW64_DIRECTORY_BUFFER_UNITS, 32_767);
+            let system32 = system_directory().expect("native System32 directory");
+            let syswow64 = system_wow64_directory().expect("native SysWOW64 directory");
+            assert_ne!(syswow64, system32);
+            assert_eq!(syswow64.parent(), system32.parent());
+            assert!(
+                syswow64
+                    .file_name()
+                    .and_then(OsStr::to_str)
+                    .is_some_and(|leaf| leaf.eq_ignore_ascii_case("SysWOW64"))
+            );
+            assert_eq!(
+                fs::canonicalize(&syswow64).expect("canonical SysWOW64 directory"),
+                syswow64
+            );
+        }
+
+        #[test]
+        fn native_directory_units_strip_only_trailing_nuls() {
+            let mut terminated = OsStr::new("C:\\Windows\\SysWOW64")
+                .encode_wide()
+                .chain([0, 0])
+                .collect::<Vec<_>>();
+            trim_native_path_terminators(&mut terminated, "P1A_TEST_NATIVE_PATH_INVALID")
+                .expect("strip native terminators");
+            assert!(!terminated.is_empty());
+            assert!(!terminated.contains(&0));
+
+            let mut embedded = OsStr::new("C:\\Windows")
+                .encode_wide()
+                .chain([0])
+                .chain(OsStr::new("SysWOW64").encode_wide())
+                .collect::<Vec<_>>();
+            assert!(
+                trim_native_path_terminators(&mut embedded, "P1A_TEST_NATIVE_PATH_INVALID")
+                    .is_err()
+            );
+        }
+
+        #[test]
+        fn vswhere_runtime_binds_exact_program_data_setup_x86_dll() {
+            let binding = bind_vswhere_runtime().expect("locked vswhere runtime binding");
+            let program_data = known_folder(&FOLDERID_PROGRAM_DATA).expect("native ProgramData");
+            let expected = require_regular_file(
+                &program_data
+                    .join("Microsoft")
+                    .join("VisualStudio")
+                    .join("Setup")
+                    .join("x86")
+                    .join("Microsoft.VisualStudio.Setup.Configuration.Native.dll"),
+                "P1A_TEST_SETUP_CONFIGURATION_INVALID",
+            )
+            .expect("canonical Setup Configuration implementation");
+            let identity = binding.setup_configuration_identity();
+            assert_eq!(identity.path, expected);
+            assert!(identity.path.starts_with(program_data));
+            assert!(identity.bytes > 0);
+            assert!(crate::hash::is_lower_sha256(&identity.sha256));
+            assert!(!identity.file_version.is_empty());
+        }
+
+        #[test]
+        fn retained_identity_handle_denies_write_and_delete() {
+            let workspace = fs::canonicalize(".").expect("canonical workspace");
+            let owned = tempfile::Builder::new()
+                .prefix(".p1a-locked-identity-test-")
+                .tempdir_in(workspace.join("target"))
+                .expect("create owned identity directory");
+            let path = owned.path().join("identity.dll");
+            let renamed = owned.path().join("renamed.dll");
+            fs::write(&path, b"locked identity\n").expect("write identity file");
+            let locked = bind_locked_identity(&path, false).expect("bind identity file");
+            let write_open = OpenOptions::new()
+                .write(true)
+                .share_mode(FILE_SHARE_READ)
+                .open(&path);
+            assert!(
+                write_open.is_err(),
+                "retained identity handle must deny writers"
+            );
+            assert!(
+                fs::rename(&path, &renamed).is_err(),
+                "retained identity handle must deny directory-entry replacement"
+            );
+            drop(locked);
+            OpenOptions::new()
+                .write(true)
+                .share_mode(FILE_SHARE_READ)
+                .open(&path)
+                .expect("writer admitted after identity handle closes");
+            fs::rename(&path, &renamed).expect("rename admitted after identity handle closes");
         }
 
         #[test]

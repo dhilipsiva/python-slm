@@ -516,7 +516,9 @@
     "auditedPathClass": {
       "enum": [
         "windows_system32",
+        "windows_syswow64",
         "root_tool_directory",
+        "qualified_tool_file",
         "qualified_tool_root",
         "qualified_working_tree"
       ]

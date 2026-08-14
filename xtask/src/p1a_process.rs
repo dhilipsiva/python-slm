@@ -7,6 +7,13 @@ use std::time::Duration;
 
 const MAX_CAPTURE_BYTES: u64 = 16 * 1024 * 1024;
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct QualifiedPersistentFile {
+    pub path: PathBuf,
+    pub sha256: String,
+    pub bytes: u64,
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct DirectCommand {
     pub program: PathBuf,
@@ -18,6 +25,7 @@ pub(crate) struct DirectCommand {
     pub capture_directory: PathBuf,
     pub capture_stem: String,
     pub qualified_persistent_roots: Vec<PathBuf>,
+    pub qualified_persistent_files: Vec<QualifiedPersistentFile>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -142,11 +150,15 @@ mod windows {
         JobObjectExtendedLimitInformation, QueryInformationJobObject, SetInformationJobObject,
         TerminateJobObject,
     };
-    use windows_sys::Win32::System::SystemInformation::GetSystemDirectoryW;
+    use windows_sys::Win32::System::SystemInformation::{
+        GetSystemDirectoryW, GetSystemWow64DirectoryW, IMAGE_FILE_MACHINE_AMD64,
+        IMAGE_FILE_MACHINE_I386, IMAGE_FILE_MACHINE_UNKNOWN,
+    };
     use windows_sys::Win32::System::Threading::{
         CREATE_NO_WINDOW, CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT, CreateProcessW,
-        DEBUG_PROCESS, DeleteProcThreadAttributeList, EXTENDED_STARTUPINFO_PRESENT,
-        GetCurrentProcess, GetProcessTimes, InitializeProcThreadAttributeList, OpenProcess,
+        DEBUG_PROCESS, DETACHED_PROCESS, DeleteProcThreadAttributeList,
+        EXTENDED_STARTUPINFO_PRESENT, GetCurrentProcess, GetProcessTimes,
+        InitializeProcThreadAttributeList, IsWow64Process2, OpenProcess,
         PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROCESS_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION,
         QueryFullProcessImageNameW, ResumeThread, STARTF_USESTDHANDLES, STARTUPINFOEXW,
         TerminateProcess, UpdateProcThreadAttribute, WaitForSingleObject,
@@ -156,6 +168,8 @@ mod windows {
     const CREATE_PROCESS_DEBUG_EVENT: u32 = 3;
     const EXIT_PROCESS_DEBUG_EVENT: u32 = 5;
     const LOAD_DLL_DEBUG_EVENT: u32 = 6;
+    const STATUS_WX86_BREAKPOINT: i32 = 0x4000_001f;
+    const NATIVE_DIRECTORY_BUFFER_UNITS: usize = 32_767;
 
     #[repr(C)]
     #[derive(Clone, Copy)]
@@ -297,6 +311,12 @@ mod windows {
         last_write_time: u64,
         volume_serial_number: u32,
         file_index: u64,
+    }
+
+    struct ProcessPathPolicy {
+        system32: PathBuf,
+        syswow64: PathBuf,
+        qualified_files: Vec<BoundFile>,
     }
 
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -453,7 +473,47 @@ mod windows {
     struct DebugProcessState {
         handle: OwnedHandle,
         identity: ProcessIdentity,
-        initial_breakpoint_pending: bool,
+        initial_boundary: InitialDebugBoundary,
+    }
+
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+    enum InitialDebugBoundary {
+        NativePending,
+        Wow64NativePending,
+        Wow64Pending,
+        Complete,
+    }
+
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+    enum InitialBoundaryAction {
+        NotHandled,
+        Continue,
+        Sample,
+    }
+
+    fn initial_boundary_action(
+        boundary: &mut InitialDebugBoundary,
+        first_chance: u32,
+        code: i32,
+    ) -> InitialBoundaryAction {
+        if first_chance == 0 {
+            return InitialBoundaryAction::NotHandled;
+        }
+        match (*boundary, code) {
+            (InitialDebugBoundary::NativePending, EXCEPTION_BREAKPOINT) => {
+                *boundary = InitialDebugBoundary::Complete;
+                InitialBoundaryAction::Sample
+            }
+            (InitialDebugBoundary::Wow64NativePending, EXCEPTION_BREAKPOINT) => {
+                *boundary = InitialDebugBoundary::Wow64Pending;
+                InitialBoundaryAction::Continue
+            }
+            (InitialDebugBoundary::Wow64Pending, STATUS_WX86_BREAKPOINT) => {
+                *boundary = InitialDebugBoundary::Complete;
+                InitialBoundaryAction::Sample
+            }
+            _ => InitialBoundaryAction::NotHandled,
+        }
     }
 
     #[derive(Default)]
@@ -471,6 +531,7 @@ mod windows {
     pub(crate) fn run(command: &DirectCommand) -> Result<AuditedOutput> {
         validate_spec(command)?;
         let (program_before, program_lock) = bind_executable(&command.program)?;
+        let path_policy = bind_process_path_policy(command)?;
         fs::create_dir_all(&command.capture_directory).io_context(
             "P1A_CAPTURE_DIRECTORY_FAILED",
             "could not create the private command capture directory",
@@ -559,7 +620,14 @@ mod windows {
             ));
         }
         let mut debug = DebugState::default();
-        match wait_debug_event(created.process_id, &mut debug, &mut state, command, 10_000)? {
+        match wait_debug_event(
+            created.process_id,
+            &mut debug,
+            &mut state,
+            command,
+            &path_policy,
+            10_000,
+        )? {
             DebugWait::Event {
                 code: CREATE_PROCESS_DEBUG_EVENT,
                 process_id,
@@ -609,7 +677,14 @@ mod windows {
                 command.timeout.saturating_sub(elapsed)
             };
             let wait_ms = remaining.as_millis().clamp(1, 50) as u32;
-            match wait_debug_event(created.process_id, &mut debug, &mut state, command, wait_ms)? {
+            match wait_debug_event(
+                created.process_id,
+                &mut debug,
+                &mut state,
+                command,
+                &path_policy,
+                wait_ms,
+            )? {
                 DebugWait::Event { .. } => {}
                 DebugWait::Timeout if timed_out => break,
                 DebugWait::Timeout => continue,
@@ -634,7 +709,14 @@ mod windows {
             if remaining.is_empty() {
                 break;
             }
-            match wait_debug_event(created.process_id, &mut debug, &mut state, command, 5)? {
+            match wait_debug_event(
+                created.process_id,
+                &mut debug,
+                &mut state,
+                command,
+                &path_policy,
+                5,
+            )? {
                 DebugWait::Event { .. } | DebugWait::Timeout => {}
             }
         }
@@ -656,7 +738,14 @@ mod windows {
                 process_tree_terminated = true;
                 break;
             }
-            match wait_debug_event(created.process_id, &mut debug, &mut state, command, 25)? {
+            match wait_debug_event(
+                created.process_id,
+                &mut debug,
+                &mut state,
+                command,
+                &path_policy,
+                25,
+            )? {
                 DebugWait::Event { .. } | DebugWait::Timeout => {}
             }
         }
@@ -706,6 +795,8 @@ mod windows {
                 ),
             ));
         }
+        require_qualified_files_observed(&path_policy.qualified_files, &state.loaded_modules)?;
+        require_vswhere_syswow64_observed(command, &state.loaded_modules)?;
         let program_after = identity_from_locked_file(&program_lock)?;
         if program_after != program_before {
             return Err(XtaskError::integrity(
@@ -798,6 +889,30 @@ mod windows {
                 ));
             }
         }
+        validate_qualified_persistent_file_count(command)?;
+        for file in &command.qualified_persistent_files {
+            if !file.path.is_absolute()
+                || !file.path.is_file()
+                || !crate::hash::is_lower_sha256(&file.sha256)
+                || file.bytes == 0
+            {
+                return Err(XtaskError::integrity(
+                    "P1A_QUALIFIED_FILE_INVALID",
+                    "every exact qualified process file must bind an absolute regular path, SHA-256, and positive length",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_qualified_persistent_file_count(command: &DirectCommand) -> Result<()> {
+        let expected = usize::from(is_vswhere_command(command));
+        if command.qualified_persistent_files.len() != expected {
+            return Err(XtaskError::integrity(
+                "P1A_QUALIFIED_FILE_COUNT_INVALID",
+                "the fixed vswhere command requires exactly one exact runtime file and every other command requires none",
+            ));
+        }
         Ok(())
     }
 
@@ -805,6 +920,152 @@ mod windows {
         let bound = bind_file(path, "P1A_PROGRAM")?;
         let identity = complete_file_identity(&bound)?;
         Ok((identity, bound.file))
+    }
+
+    fn bind_process_path_policy(command: &DirectCommand) -> Result<ProcessPathPolicy> {
+        let system32 = fs::canonicalize(system_directory()?).io_context(
+            "P1A_SYSTEM32_INVALID",
+            "could not canonicalize System32 for process classification",
+        )?;
+        let syswow64 = fs::canonicalize(system_wow64_directory()?).io_context(
+            "P1A_SYSWOW64_INVALID",
+            "could not canonicalize SysWOW64 for process classification",
+        )?;
+        let valid_system32 = system32
+            .file_name()
+            .and_then(OsStr::to_str)
+            .is_some_and(|leaf| leaf.eq_ignore_ascii_case("System32"));
+        let valid_syswow64 = syswow64
+            .file_name()
+            .and_then(OsStr::to_str)
+            .is_some_and(|leaf| leaf.eq_ignore_ascii_case("SysWOW64"));
+        if !valid_system32
+            || !valid_syswow64
+            || windows_path_eq(&system32, &syswow64)
+            || system32.parent().is_none()
+            || system32.parent() != syswow64.parent()
+        {
+            return Err(XtaskError::integrity(
+                "P1A_SYSTEM_RUNTIME_ROOTS_INVALID",
+                "native System32 and SysWOW64 are not distinct canonical sibling directories",
+            ));
+        }
+        Ok(ProcessPathPolicy {
+            system32,
+            syswow64,
+            qualified_files: bind_qualified_persistent_files(command)?,
+        })
+    }
+
+    fn bind_qualified_persistent_files(command: &DirectCommand) -> Result<Vec<BoundFile>> {
+        validate_qualified_persistent_file_count(command)?;
+        let program_parent = command.program.parent().ok_or_else(|| {
+            XtaskError::integrity("P1A_COMMAND_PROGRAM_INVALID", "program has no parent")
+        })?;
+        let program_parent = fs::canonicalize(program_parent).io_context(
+            "P1A_COMMAND_PROGRAM_INVALID",
+            "could not canonicalize the audited program directory",
+        )?;
+        let mut qualified_roots = Vec::with_capacity(command.qualified_persistent_roots.len());
+        for root in &command.qualified_persistent_roots {
+            qualified_roots.push(fs::canonicalize(root).io_context(
+                "P1A_QUALIFIED_ROOT_INVALID",
+                "could not canonicalize a qualified process path root",
+            )?);
+        }
+        let mut bound_files: Vec<BoundFile> =
+            Vec::with_capacity(command.qualified_persistent_files.len());
+        for expected in &command.qualified_persistent_files {
+            if !expected
+                .path
+                .file_name()
+                .and_then(OsStr::to_str)
+                .is_some_and(|leaf| {
+                    leaf.eq_ignore_ascii_case(
+                        "Microsoft.VisualStudio.Setup.Configuration.Native.dll",
+                    )
+                })
+            {
+                return Err(XtaskError::integrity(
+                    "P1A_QUALIFIED_FILE_LEAF_FORBIDDEN",
+                    "the exact vswhere runtime file does not have the fixed Setup Configuration leaf",
+                ));
+            }
+            let bound = bind_file(&expected.path, "P1A_QUALIFIED_PERSISTENT_FILE")?;
+            let observed = complete_file_identity(&bound)?;
+            if observed.sha256 != expected.sha256 || observed.bytes != expected.bytes {
+                return Err(XtaskError::integrity(
+                    "P1A_QUALIFIED_FILE_IDENTITY_MISMATCH",
+                    "the exact qualified file differs from its predeclared locked identity",
+                ));
+            }
+            if path_within(&bound.canonical_path, &program_parent)
+                || qualified_roots
+                    .iter()
+                    .any(|root| path_within(&bound.canonical_path, root))
+            {
+                return Err(XtaskError::integrity(
+                    "P1A_QUALIFIED_FILE_SCOPE_AMBIGUOUS",
+                    "an exact qualified file is already covered by a broader qualified directory",
+                ));
+            }
+            if bound_files
+                .iter()
+                .any(|existing| windows_path_eq(&bound.canonical_path, &existing.canonical_path))
+            {
+                return Err(XtaskError::integrity(
+                    "P1A_QUALIFIED_FILE_DUPLICATE",
+                    "the exact qualified file set contains a duplicate canonical path",
+                ));
+            }
+            bound_files.push(bound);
+        }
+        Ok(bound_files)
+    }
+
+    fn require_qualified_files_observed(
+        qualified_files: &[BoundFile],
+        loaded_modules: &BTreeSet<LoadedModuleIdentity>,
+    ) -> Result<()> {
+        for file in qualified_files {
+            let expected = complete_file_identity(file)?;
+            let mut matches = loaded_modules.iter().filter(|module| {
+                module.path_class == "qualified_tool_file"
+                    && module.canonical_path_sha256 == expected.canonical_path_sha256
+            });
+            let Some(observed) = matches.next() else {
+                return Err(XtaskError::integrity(
+                    "P1A_QUALIFIED_FILE_NOT_OBSERVED",
+                    "an exact qualified file was not observed in the completed module audit",
+                ));
+            };
+            if matches.next().is_some()
+                || observed.module_sha256 != expected.sha256
+                || observed.module_bytes != expected.bytes
+            {
+                return Err(XtaskError::integrity(
+                    "P1A_QUALIFIED_FILE_OBSERVATION_INVALID",
+                    "an exact qualified file was not observed exactly once with its bound identity",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn require_vswhere_syswow64_observed(
+        command: &DirectCommand,
+        loaded_modules: &BTreeSet<LoadedModuleIdentity>,
+    ) -> Result<()> {
+        let observed = loaded_modules
+            .iter()
+            .any(|module| module.path_class == "windows_syswow64");
+        if observed != is_vswhere_command(command) {
+            return Err(XtaskError::integrity(
+                "P1A_VSWHERE_SYSWOW64_OBSERVATION_INVALID",
+                "the fixed vswhere command must observe the WOW64 system runtime and no other command may do so",
+            ));
+        }
+        Ok(())
     }
 
     fn identity_from_locked_file(file: &File) -> Result<ExecutableIdentity> {
@@ -1580,7 +1841,7 @@ mod windows {
     }
 
     fn system_directory() -> Result<PathBuf> {
-        let mut buffer = vec![0_u16; 32_768];
+        let mut buffer = vec![0_u16; NATIVE_DIRECTORY_BUFFER_UNITS];
         // SAFETY: the buffer is writable for the exact length supplied to Win32.
         let length = unsafe { GetSystemDirectoryW(buffer.as_mut_ptr(), buffer.len() as u32) };
         if length == 0 || length as usize >= buffer.len() {
@@ -1589,7 +1850,41 @@ mod windows {
                 "could not resolve the native Windows system directory",
             ));
         }
-        buffer.truncate(length as usize);
+        let mut end = length as usize;
+        while end > 0 && buffer[end - 1] == 0 {
+            end -= 1;
+        }
+        if end == 0 || buffer[..end].contains(&0) {
+            return Err(XtaskError::integrity(
+                "P1A_SYSTEM_DIRECTORY_INVALID",
+                "the native Windows system directory has an invalid UTF-16 terminator",
+            ));
+        }
+        buffer.truncate(end);
+        Ok(PathBuf::from(OsString::from_wide(&buffer)))
+    }
+
+    fn system_wow64_directory() -> Result<PathBuf> {
+        let mut buffer = vec![0_u16; NATIVE_DIRECTORY_BUFFER_UNITS];
+        // SAFETY: the buffer is writable for the exact length supplied to Win32.
+        let length = unsafe { GetSystemWow64DirectoryW(buffer.as_mut_ptr(), buffer.len() as u32) };
+        if length == 0 || length as usize >= buffer.len() {
+            return Err(last_error(
+                "P1A_SYSWOW64_DIRECTORY_FAILED",
+                "could not resolve the native Windows SysWOW64 directory",
+            ));
+        }
+        let mut end = length as usize;
+        while end > 0 && buffer[end - 1] == 0 {
+            end -= 1;
+        }
+        if end == 0 || buffer[..end].contains(&0) {
+            return Err(XtaskError::integrity(
+                "P1A_SYSWOW64_DIRECTORY_INVALID",
+                "the native Windows SysWOW64 directory has an invalid UTF-16 terminator",
+            ));
+        }
+        buffer.truncate(end);
         Ok(PathBuf::from(OsString::from_wide(&buffer)))
     }
 
@@ -1741,6 +2036,14 @@ mod windows {
         startup.StartupInfo.hStdError = stderr;
         startup.lpAttributeList = attributes.raw();
         let mut information: PROCESS_INFORMATION = unsafe { zeroed() };
+        // A detached 32-bit vswhere avoids an otherwise Job-contained conhost.exe
+        // which Windows does not report through this debugger's creation stream.
+        // Preserve the established no-window mode for every other audited command.
+        let console_creation_mode = if is_vswhere_command(command) {
+            DETACHED_PROCESS
+        } else {
+            CREATE_NO_WINDOW
+        };
         // SAFETY: every pointer refers to a live, correctly terminated buffer; inherited
         // handles are constrained by PROC_THREAD_ATTRIBUTE_HANDLE_LIST to the three
         // private duplicated standard streams above.
@@ -1754,7 +2057,7 @@ mod windows {
                 CREATE_SUSPENDED
                     | DEBUG_PROCESS
                     | CREATE_UNICODE_ENVIRONMENT
-                    | CREATE_NO_WINDOW
+                    | console_creation_mode
                     | EXTENDED_STARTUPINFO_PRESENT,
                 environment.as_ptr().cast(),
                 cwd.as_ptr(),
@@ -1809,6 +2112,7 @@ mod windows {
         debug: &mut DebugState,
         state: &mut AuditState,
         command: &DirectCommand,
+        path_policy: &ProcessPathPolicy,
         milliseconds: u32,
     ) -> Result<DebugWait> {
         let mut event = RawDebugEvent::default();
@@ -1829,7 +2133,14 @@ mod windows {
             CREATE_PROCESS_DEBUG_EVENT => {
                 // SAFETY: the active union arm is selected by the event code.
                 let info = unsafe { event.payload.create_process };
-                let result = handle_create_process_debug_event(&event, info, debug, state, command);
+                let result = handle_create_process_debug_event(
+                    &event,
+                    info,
+                    debug,
+                    state,
+                    command,
+                    path_policy,
+                );
                 close_debug_file(info.file);
                 if let Err(error) = result {
                     return continue_before_error(&event, DBG_CONTINUE, error);
@@ -1839,8 +2150,14 @@ mod windows {
             LOAD_DLL_DEBUG_EVENT => {
                 // SAFETY: the active union arm is selected by the event code.
                 let info = unsafe { event.payload.load_dll };
-                let result =
-                    record_debug_module(event.process_id, info.file, debug, state, command);
+                let result = record_debug_module(
+                    event.process_id,
+                    info.file,
+                    debug,
+                    state,
+                    command,
+                    path_policy,
+                );
                 close_debug_file(info.file);
                 if let Err(error) = result {
                     return continue_before_error(&event, DBG_CONTINUE, error);
@@ -1860,19 +2177,26 @@ mod windows {
                         ),
                     );
                 };
-                if process.initial_breakpoint_pending
-                    && exception.first_chance != 0
-                    && exception.record.code == EXCEPTION_BREAKPOINT
-                {
-                    process.initial_breakpoint_pending = false;
-                    let result =
-                        sample_pid_handle(process.handle.raw(), process.identity, state, command);
-                    if let Err(error) = result {
-                        return continue_before_error(&event, DBG_CONTINUE, error);
+                match initial_boundary_action(
+                    &mut process.initial_boundary,
+                    exception.first_chance,
+                    exception.record.code,
+                ) {
+                    InitialBoundaryAction::NotHandled => DBG_EXCEPTION_NOT_HANDLED,
+                    InitialBoundaryAction::Continue => DBG_CONTINUE,
+                    InitialBoundaryAction::Sample => {
+                        let result = sample_pid_handle(
+                            process.handle.raw(),
+                            process.identity,
+                            state,
+                            command,
+                            path_policy,
+                        );
+                        if let Err(error) = result {
+                            return continue_before_error(&event, DBG_CONTINUE, error);
+                        }
+                        DBG_CONTINUE
                     }
-                    DBG_CONTINUE
-                } else {
-                    DBG_EXCEPTION_NOT_HANDLED
                 }
             }
             EXIT_PROCESS_DEBUG_EVENT => {
@@ -1886,7 +2210,7 @@ mod windows {
                         ),
                     );
                 };
-                if process.initial_breakpoint_pending {
+                if process.initial_boundary != InitialDebugBoundary::Complete {
                     return continue_before_error(
                         &event,
                         DBG_CONTINUE,
@@ -1923,6 +2247,7 @@ mod windows {
         debug: &mut DebugState,
         state: &mut AuditState,
         command: &DirectCommand,
+        path_policy: &ProcessPathPolicy,
     ) -> Result<()> {
         let process_handle = OwnedHandle::new(
             info.process,
@@ -1941,6 +2266,7 @@ mod windows {
                 "a process creation event reused an active process identifier",
             ));
         }
+        let initial_boundary = initial_debug_boundary(process_handle.raw())?;
         let debug_image = bound_file_from_debug_handle(info.file, "P1A_PROCESS_IMAGE")?;
         let queried_image = fs::canonicalize(process_image_handle(process_handle.raw())?)
             .io_context(
@@ -1958,13 +2284,14 @@ mod windows {
             complete_file_identity(&debug_image)?,
             state,
             command,
+            path_policy,
         )?;
         debug.processes.insert(
             event.process_id,
             DebugProcessState {
                 handle: process_handle,
                 identity,
-                initial_breakpoint_pending: true,
+                initial_boundary,
             },
         );
         // The initial-thread event handle is never used after the creation
@@ -1980,6 +2307,7 @@ mod windows {
         debug: &DebugState,
         state: &mut AuditState,
         command: &DirectCommand,
+        path_policy: &ProcessPathPolicy,
     ) -> Result<()> {
         if debug_file.is_null() || debug_file == INVALID_HANDLE_VALUE {
             return Err(XtaskError::integrity(
@@ -1999,6 +2327,7 @@ mod windows {
             complete_file_identity(&locked)?,
             state,
             command,
+            path_policy,
         )
     }
 
@@ -2116,6 +2445,7 @@ mod windows {
         identity: ProcessIdentity,
         state: &mut AuditState,
         command: &DirectCommand,
+        path_policy: &ProcessPathPolicy,
     ) -> Result<()> {
         state.identities.insert(identity);
         let image = process_image_handle(process)?;
@@ -2151,6 +2481,7 @@ mod windows {
                 complete_file_identity(&executable)?,
                 state,
                 command,
+                path_policy,
             )?;
         }
         let expected_executable = state
@@ -2196,7 +2527,7 @@ mod windows {
                 == expected_executable.canonical_path_sha256
                 && module.sha256 == expected_executable.executable_sha256
                 && module.bytes == expected_executable.executable_bytes;
-            record_loaded_module(identity, module, state, command)?;
+            record_loaded_module(identity, module, state, command, path_policy)?;
         }
         if !executable_module_seen {
             return Err(XtaskError::integrity(
@@ -2212,6 +2543,7 @@ mod windows {
         module: ExecutableIdentity,
         state: &mut AuditState,
         command: &DirectCommand,
+        path_policy: &ProcessPathPolicy,
     ) -> Result<()> {
         let module_name = module
             .canonical_path
@@ -2224,7 +2556,7 @@ mod windows {
                 )
             })?
             .to_ascii_lowercase();
-        let path_class = classify_path(&module.canonical_path, command)?;
+        let path_class = classify_path(&module.canonical_path, command, path_policy)?;
         if forbidden_module(&module_name) {
             state.forbidden_modules.insert(module_name.clone());
         }
@@ -2255,6 +2587,7 @@ mod windows {
         file: ExecutableIdentity,
         state: &mut AuditState,
         command: &DirectCommand,
+        path_policy: &ProcessPathPolicy,
     ) -> Result<()> {
         let leaf = file
             .canonical_path
@@ -2284,7 +2617,7 @@ mod windows {
             canonical_path_sha256: file.canonical_path_sha256,
             executable_sha256: file.sha256,
             executable_bytes: file.bytes,
-            path_class: classify_path(&file.canonical_path, command)?,
+            path_class: classify_path(&file.canonical_path, command, path_policy)?,
         };
         if let Some(existing) = state.process_identities.iter().find(|existing| {
             existing.process_id == identity.process_id
@@ -2343,19 +2676,42 @@ mod windows {
         })
     }
 
-    fn classify_path(path: &Path, command: &DirectCommand) -> Result<String> {
+    fn initial_debug_boundary(handle: HANDLE) -> Result<InitialDebugBoundary> {
+        let mut process_machine = IMAGE_FILE_MACHINE_UNKNOWN;
+        let mut native_machine = IMAGE_FILE_MACHINE_UNKNOWN;
+        // SAFETY: the process handle is live and both output pointers are writable.
+        if unsafe { IsWow64Process2(handle, &mut process_machine, &mut native_machine) } == 0 {
+            return Err(last_error(
+                "P1A_PROCESS_MACHINE_QUERY_FAILED",
+                "could not determine an observed process debug architecture",
+            ));
+        }
+        match (process_machine, native_machine) {
+            (IMAGE_FILE_MACHINE_UNKNOWN, IMAGE_FILE_MACHINE_AMD64) => {
+                Ok(InitialDebugBoundary::NativePending)
+            }
+            (IMAGE_FILE_MACHINE_I386, IMAGE_FILE_MACHINE_AMD64) => {
+                Ok(InitialDebugBoundary::Wow64NativePending)
+            }
+            _ => Err(XtaskError::gate(
+                "P1A_PROCESS_MACHINE_UNSUPPORTED",
+                "an observed process is neither native AMD64 nor x86 under AMD64 WOW64",
+                "Use only the selected native AMD64 or x86 WOW64 host tools.",
+            )),
+        }
+    }
+
+    fn classify_path(
+        path: &Path,
+        command: &DirectCommand,
+        path_policy: &ProcessPathPolicy,
+    ) -> Result<String> {
         let canonical = path;
-        let system_root = std::env::var_os("SYSTEMROOT")
-            .map(PathBuf::from)
-            .ok_or_else(|| {
-                XtaskError::environment("P1A_SYSTEMROOT_MISSING", "SystemRoot is unset")
-            })?;
-        let system32 = fs::canonicalize(system_root.join("System32")).io_context(
-            "P1A_SYSTEM32_INVALID",
-            "could not canonicalize System32 for process classification",
-        )?;
-        if path_within(canonical, &system32) {
+        if path_within(canonical, &path_policy.system32) {
             return Ok("windows_system32".to_owned());
+        }
+        if is_vswhere_command(command) && path_within(canonical, &path_policy.syswow64) {
+            return Ok("windows_syswow64".to_owned());
         }
         let program_parent = command.program.parent().ok_or_else(|| {
             XtaskError::integrity("P1A_COMMAND_PROGRAM_INVALID", "program has no parent")
@@ -2366,6 +2722,14 @@ mod windows {
         )?;
         if path_within(canonical, &program_parent) {
             return Ok("root_tool_directory".to_owned());
+        }
+        if is_vswhere_command(command)
+            && path_policy
+                .qualified_files
+                .iter()
+                .any(|file| windows_path_eq(canonical, &file.canonical_path))
+        {
+            return Ok("qualified_tool_file".to_owned());
         }
         for root in &command.qualified_persistent_roots {
             let root = fs::canonicalize(root).io_context(
@@ -2401,6 +2765,18 @@ mod windows {
             "an observed executable or loaded module is outside every closed qualified root",
             "Remove the unqualified process or module and retry without weakening path classification.",
         ))
+    }
+
+    fn is_vswhere_command(command: &DirectCommand) -> bool {
+        command
+            .display_argv
+            .first()
+            .is_some_and(|program| program == "${VSWHERE}")
+            && command
+                .program
+                .file_name()
+                .and_then(OsStr::to_str)
+                .is_some_and(|leaf| leaf.eq_ignore_ascii_case("vswhere.exe"))
     }
 
     fn process_image(pid: u32) -> Result<PathBuf> {
@@ -3081,6 +3457,35 @@ mod windows {
         }
 
         #[test]
+        fn initial_debug_boundaries_distinguish_native_and_wow64_loaders() {
+            let mut native = InitialDebugBoundary::NativePending;
+            assert_eq!(
+                initial_boundary_action(&mut native, 1, EXCEPTION_BREAKPOINT),
+                InitialBoundaryAction::Sample
+            );
+            assert_eq!(native, InitialDebugBoundary::Complete);
+
+            let mut wow64 = InitialDebugBoundary::Wow64NativePending;
+            assert_eq!(
+                initial_boundary_action(&mut wow64, 1, EXCEPTION_BREAKPOINT),
+                InitialBoundaryAction::Continue
+            );
+            assert_eq!(wow64, InitialDebugBoundary::Wow64Pending);
+            assert_eq!(
+                initial_boundary_action(&mut wow64, 1, STATUS_WX86_BREAKPOINT),
+                InitialBoundaryAction::Sample
+            );
+            assert_eq!(wow64, InitialDebugBoundary::Complete);
+
+            let mut second_chance = InitialDebugBoundary::NativePending;
+            assert_eq!(
+                initial_boundary_action(&mut second_chance, 0, EXCEPTION_BREAKPOINT),
+                InitialBoundaryAction::NotHandled
+            );
+            assert_eq!(second_chance, InitialDebugBoundary::NativePending);
+        }
+
+        #[test]
         fn audited_grandchild_helper() {
             if std::env::var_os("P1A_AUDITED_GRANDCHILD_HELPER").is_some() {
                 println!("P1A_AUDITED_GRANDCHILD_PASS");
@@ -3169,10 +3574,11 @@ mod windows {
                 ],
                 cwd: temp.path().to_path_buf(),
                 environment: environment.clone(),
-                timeout: Duration::from_secs(10),
+                timeout: Duration::from_secs(30),
                 capture_directory: temp.path().join("captures"),
                 capture_stem: format!("child-{run_index}"),
                 qualified_persistent_roots: Vec::new(),
+                qualified_persistent_files: Vec::new(),
             };
             let mut outputs = Vec::new();
             for run_index in 0..20 {
@@ -3274,6 +3680,85 @@ mod windows {
         }
 
         #[test]
+        fn audited_real_vswhere_closes_wow64_runtime_without_conhost() {
+            let Ok(program) = crate::p1a_windows::discover_vswhere_path() else {
+                return;
+            };
+            let runtime_binding = crate::p1a_windows::bind_vswhere_runtime()
+                .expect("installed vswhere must expose its locked native runtime binding");
+            let runtime_identity = runtime_binding.setup_configuration_identity();
+            let setup_runtime = QualifiedPersistentFile {
+                path: runtime_identity.path.clone(),
+                sha256: runtime_identity.sha256.clone(),
+                bytes: runtime_identity.bytes,
+            };
+            let temp = tempfile::tempdir().unwrap();
+            let output = run(&DirectCommand {
+                program,
+                args: crate::p1a_windows::VSWHERE_ARGS
+                    .iter()
+                    .map(OsString::from)
+                    .collect(),
+                display_argv: std::iter::once("${VSWHERE}".to_owned())
+                    .chain(
+                        crate::p1a_windows::VSWHERE_ARGS
+                            .iter()
+                            .map(|value| (*value).to_owned()),
+                    )
+                    .collect(),
+                cwd: temp.path().to_path_buf(),
+                environment: BTreeMap::new(),
+                timeout: Duration::from_secs(10),
+                capture_directory: temp.path().join("captures"),
+                capture_stem: "vswhere-runtime".to_owned(),
+                qualified_persistent_roots: Vec::new(),
+                qualified_persistent_files: vec![setup_runtime],
+            })
+            .unwrap();
+            assert_eq!(output.exit_code, 0);
+            assert!(output.audit.process_tree_terminated);
+            assert_eq!(output.audit.audited_process_count, 1);
+            assert_eq!(output.audit.covered_process_count, 1);
+            assert_eq!(output.audit.successful_snapshots, 1);
+            assert_eq!(output.audit.executable_names, ["vswhere.exe"]);
+            assert!(
+                !output
+                    .audit
+                    .executable_names
+                    .iter()
+                    .any(|name| name.eq_ignore_ascii_case("conhost.exe"))
+            );
+            assert!(
+                output
+                    .audit
+                    .loaded_modules
+                    .iter()
+                    .any(|module| { module.path_class == "windows_syswow64" })
+            );
+            assert_eq!(
+                output
+                    .audit
+                    .loaded_modules
+                    .iter()
+                    .filter(|module| module.path_class == "qualified_tool_file")
+                    .count(),
+                1
+            );
+            assert!(output.audit.loaded_modules.iter().all(|module| {
+                matches!(
+                    module.path_class.as_str(),
+                    "windows_system32"
+                        | "windows_syswow64"
+                        | "root_tool_directory"
+                        | "qualified_tool_file"
+                )
+            }));
+            let parsed: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+            assert!(parsed.is_array());
+            assert!(output.stderr.is_empty());
+        }
+
+        #[test]
         fn path_classification_is_component_aware_and_case_insensitive() {
             assert!(path_within(
                 Path::new(r"C:\Program Files\Git\cmd\git.exe"),
@@ -3287,6 +3772,122 @@ mod windows {
                 Path::new(r"C:\Windows\System32\kernel32.dll"),
                 Path::new(r"c:\WINDOWS\system32\KERNEL32.DLL")
             ));
+        }
+
+        #[test]
+        fn syswow64_and_exact_file_classes_are_vswhere_only() {
+            let temp = tempfile::tempdir().unwrap();
+            let cwd = temp.path().join("repository");
+            let captures = temp.path().join("private-work").join("captures");
+            let program = temp.path().join("program").join("vswhere.exe");
+            let exact = temp
+                .path()
+                .join("qualified")
+                .join("Microsoft.VisualStudio.Setup.Configuration.Native.dll");
+            fs::create_dir_all(&cwd).unwrap();
+            fs::create_dir_all(&captures).unwrap();
+            fs::create_dir_all(program.parent().unwrap()).unwrap();
+            fs::create_dir_all(exact.parent().unwrap()).unwrap();
+            let current_image = std::env::current_exe().unwrap();
+            fs::copy(&current_image, &program).unwrap();
+            fs::copy(&current_image, &exact).unwrap();
+            let exact_bound = bind_file(&exact, "P1A_TEST_QUALIFIED_FILE").unwrap();
+            let exact_identity = complete_file_identity(&exact_bound).unwrap();
+            let command = DirectCommand {
+                program,
+                args: Vec::new(),
+                display_argv: vec!["${VSWHERE}".to_owned()],
+                cwd,
+                environment: BTreeMap::new(),
+                timeout: Duration::from_secs(1),
+                capture_directory: captures,
+                capture_stem: "classification".to_owned(),
+                qualified_persistent_roots: Vec::new(),
+                qualified_persistent_files: vec![QualifiedPersistentFile {
+                    path: exact.clone(),
+                    sha256: exact_identity.sha256,
+                    bytes: exact_identity.bytes,
+                }],
+            };
+            validate_spec(&command).unwrap();
+            let mut missing_exact_file = command.clone();
+            missing_exact_file.qualified_persistent_files.clear();
+            assert_eq!(
+                validate_spec(&missing_exact_file).unwrap_err().code,
+                "P1A_QUALIFIED_FILE_COUNT_INVALID"
+            );
+            assert_eq!(
+                bind_qualified_persistent_files(&missing_exact_file)
+                    .err()
+                    .expect("vswhere without its exact runtime file must fail")
+                    .code,
+                "P1A_QUALIFIED_FILE_COUNT_INVALID"
+            );
+            let mut duplicate_exact_file = command.clone();
+            duplicate_exact_file
+                .qualified_persistent_files
+                .push(duplicate_exact_file.qualified_persistent_files[0].clone());
+            assert_eq!(
+                validate_spec(&duplicate_exact_file).unwrap_err().code,
+                "P1A_QUALIFIED_FILE_COUNT_INVALID"
+            );
+            assert_eq!(
+                bind_qualified_persistent_files(&duplicate_exact_file)
+                    .err()
+                    .expect("vswhere with duplicate exact runtime files must fail")
+                    .code,
+                "P1A_QUALIFIED_FILE_COUNT_INVALID"
+            );
+            let path_policy = bind_process_path_policy(&command).unwrap();
+            let mut mismatched_identity = command.clone();
+            mismatched_identity.qualified_persistent_files[0].sha256 = "0".repeat(64);
+            assert_eq!(
+                bind_qualified_persistent_files(&mismatched_identity)
+                    .err()
+                    .expect("mismatched exact-file identity must fail")
+                    .code,
+                "P1A_QUALIFIED_FILE_IDENTITY_MISMATCH"
+            );
+            assert_eq!(
+                classify_path(&fs::canonicalize(&exact).unwrap(), &command, &path_policy,).unwrap(),
+                "qualified_tool_file"
+            );
+            let wow64_ntdll =
+                fs::canonicalize(system_wow64_directory().unwrap().join("ntdll.dll")).unwrap();
+            assert_eq!(
+                classify_path(&wow64_ntdll, &command, &path_policy).unwrap(),
+                "windows_syswow64"
+            );
+            assert_eq!(
+                require_qualified_files_observed(&path_policy.qualified_files, &BTreeSet::new())
+                    .unwrap_err()
+                    .code,
+                "P1A_QUALIFIED_FILE_NOT_OBSERVED"
+            );
+            assert_eq!(
+                require_vswhere_syswow64_observed(&command, &BTreeSet::new())
+                    .unwrap_err()
+                    .code,
+                "P1A_VSWHERE_SYSWOW64_OBSERVATION_INVALID"
+            );
+
+            let mut non_vswhere = command.clone();
+            non_vswhere.display_argv = vec!["${TEST_BINARY}".to_owned()];
+            assert_eq!(
+                bind_qualified_persistent_files(&non_vswhere)
+                    .err()
+                    .expect("non-vswhere exact file must fail")
+                    .code,
+                "P1A_QUALIFIED_FILE_COUNT_INVALID"
+            );
+            non_vswhere.qualified_persistent_files.clear();
+            let non_vswhere_policy = bind_process_path_policy(&non_vswhere).unwrap();
+            assert_eq!(
+                classify_path(&wow64_ntdll, &non_vswhere, &non_vswhere_policy)
+                    .unwrap_err()
+                    .code,
+                "P1A_PROCESS_PATH_CLASS_REJECTED"
+            );
         }
 
         #[test]
@@ -3310,9 +3911,16 @@ mod windows {
                 capture_directory: captures,
                 capture_stem: "test".to_owned(),
                 qualified_persistent_roots: Vec::new(),
+                qualified_persistent_files: Vec::new(),
             };
+            let path_policy = bind_process_path_policy(&command).unwrap();
             assert_eq!(
-                classify_path(&fs::canonicalize(generated).unwrap(), &command).unwrap(),
+                classify_path(
+                    &fs::canonicalize(generated).unwrap(),
+                    &command,
+                    &path_policy,
+                )
+                .unwrap(),
                 "qualified_working_tree"
             );
         }

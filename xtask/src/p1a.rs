@@ -1,7 +1,7 @@
 use crate::error::{Category, IoContext, Result, XtaskError};
 use crate::hash;
 use crate::json_schema;
-use crate::p1a_process::{AuditedOutput, DirectCommand, ProcessAudit};
+use crate::p1a_process::{AuditedOutput, DirectCommand, ProcessAudit, QualifiedPersistentFile};
 use crate::p1a_receipt::ReceiptSchemas;
 use crate::p1a_windows::{
     CpuIsolationPolicy, EXPECTED_CPU_BRAND, EXPECTED_CPU_VENDOR, PrototypeWindowsHostReport,
@@ -1893,12 +1893,14 @@ fn execute_qualification(
     work: &WorkPaths,
     visual_studio_instance_id: Option<&str>,
 ) -> Result<Value> {
+    let vswhere_runtime = crate::p1a_windows::bind_vswhere_runtime()?;
     let vswhere_path = crate::p1a_windows::discover_vswhere_path()?;
     let vswhere_args: Vec<OsString> = crate::p1a_windows::VSWHERE_ARGS
         .iter()
         .map(OsString::from)
         .collect();
-    let vswhere_output = admission.recorder.run_audited(
+    let setup_configuration = vswhere_runtime.setup_configuration_identity();
+    let vswhere_output = admission.recorder.run_audited_with_files(
         repository,
         &work.work_root,
         &vswhere_path,
@@ -1914,6 +1916,11 @@ fn execute_qualification(
         minimal_native_environment()?,
         Duration::from_secs(30),
         Vec::new(),
+        vec![QualifiedPersistentFile {
+            path: setup_configuration.path.clone(),
+            sha256: setup_configuration.sha256.clone(),
+            bytes: setup_configuration.bytes,
+        }],
         "not_applicable",
     )?;
     require_audited_pass(&vswhere_output, "P1A_VSWHERE_FAILED")?;
@@ -2138,6 +2145,7 @@ impl P1aRecorder {
             capture_directory: capture_directory.clone(),
             capture_stem: id.clone(),
             qualified_persistent_roots: vec![git_root],
+            qualified_persistent_files: Vec::new(),
         });
         let duration_ns = duration_ns(started.elapsed());
         let (finished_at_utc, _, _) = time::now();
@@ -2203,9 +2211,39 @@ impl P1aRecorder {
         args: Vec<OsString>,
         display_argv: Vec<String>,
         cwd_token: &str,
+        environment: BTreeMap<String, Option<OsString>>,
+        timeout: Duration,
+        qualified_persistent_roots: Vec<PathBuf>,
+        network_mode: &str,
+    ) -> Result<AuditedOutput> {
+        self.run_audited_with_files(
+            repository,
+            work_root,
+            program,
+            args,
+            display_argv,
+            cwd_token,
+            environment,
+            timeout,
+            qualified_persistent_roots,
+            Vec::new(),
+            network_mode,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn run_audited_with_files(
+        &mut self,
+        repository: &Path,
+        work_root: &Path,
+        program: &Path,
+        args: Vec<OsString>,
+        display_argv: Vec<String>,
+        cwd_token: &str,
         mut environment: BTreeMap<String, Option<OsString>>,
         timeout: Duration,
         qualified_persistent_roots: Vec<PathBuf>,
+        qualified_persistent_files: Vec<QualifiedPersistentFile>,
         network_mode: &str,
     ) -> Result<AuditedOutput> {
         if !matches!(cwd_token, "${REPO}" | "${P1A_TEMP}")
@@ -2244,6 +2282,7 @@ impl P1aRecorder {
             capture_directory,
             capture_stem: id.clone(),
             qualified_persistent_roots,
+            qualified_persistent_files,
         });
         let duration_ns = duration_ns(started.elapsed());
         let (finished_at_utc, _, _) = time::now();

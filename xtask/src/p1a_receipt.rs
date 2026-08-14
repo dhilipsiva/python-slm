@@ -1611,6 +1611,7 @@ fn validate_process_audit(command: &Value) -> Result<()> {
         .iter()
         .cloned()
         .collect::<BTreeSet<_>>();
+    validate_process_path_classes(command, &audit, &processes, &modules)?;
     let expected_executable_names = audit
         .process_identities
         .iter()
@@ -1672,7 +1673,103 @@ fn has_executable_module(
             && module.canonical_path_sha256 == process.canonical_path_sha256
             && module.module_sha256 == process.executable_sha256
             && module.module_bytes == process.executable_bytes
+            && module.path_class == process.path_class
     })
+}
+
+fn validate_process_path_classes(
+    command: &Value,
+    audit: &ProcessAudit,
+    processes: &BTreeSet<AuditedProcessIdentity>,
+    modules: &BTreeSet<LoadedModuleIdentity>,
+) -> Result<()> {
+    const CODE: &str = "P1A_PROCESS_PATH_CLASS_RELATION_INVALID";
+    const QUALIFIED_TOOL_FILE: &str = "qualified_tool_file";
+    const WINDOWS_SYSWOW64: &str = "windows_syswow64";
+    const VSWHERE_SETUP_MODULE: &str = "Microsoft.VisualStudio.Setup.Configuration.Native.dll";
+
+    let valid_class = |class: &str| {
+        matches!(
+            class,
+            "windows_system32"
+                | WINDOWS_SYSWOW64
+                | "root_tool_directory"
+                | QUALIFIED_TOOL_FILE
+                | "qualified_tool_root"
+                | "qualified_working_tree"
+        )
+    };
+    for process in processes {
+        if !valid_class(&process.path_class) {
+            return Err(XtaskError::integrity(
+                CODE,
+                "process audit contains an unknown executable path class",
+            ));
+        }
+        if matches!(
+            process.path_class.as_str(),
+            WINDOWS_SYSWOW64 | QUALIFIED_TOOL_FILE
+        ) {
+            return Err(XtaskError::integrity(
+                CODE,
+                "module-only path class was applied to a process executable",
+            ));
+        }
+    }
+
+    let is_vswhere = command.pointer("/argv/0").and_then(Value::as_str) == Some("${VSWHERE}");
+    let is_root_module = |module: &LoadedModuleIdentity| {
+        module.process_id == audit.root_process_id
+            && module.creation_time_100ns == audit.root_creation_time_100ns
+    };
+    let mut syswow64_modules = 0usize;
+    let mut qualified_tool_files = 0usize;
+    for module in modules {
+        if !valid_class(&module.path_class) {
+            return Err(XtaskError::integrity(
+                CODE,
+                "process audit contains an unknown module path class",
+            ));
+        }
+        match module.path_class.as_str() {
+            WINDOWS_SYSWOW64 => {
+                if !is_vswhere
+                    || !is_root_module(module)
+                    || !module.module_name.to_ascii_lowercase().ends_with(".dll")
+                {
+                    return Err(XtaskError::integrity(
+                        CODE,
+                        "SysWOW64 classification is not a root-bound vswhere DLL module",
+                    ));
+                }
+                syswow64_modules += 1;
+            }
+            QUALIFIED_TOOL_FILE => {
+                qualified_tool_files += 1;
+                if !is_vswhere
+                    || !is_root_module(module)
+                    || !module
+                        .module_name
+                        .eq_ignore_ascii_case(VSWHERE_SETUP_MODULE)
+                {
+                    return Err(XtaskError::integrity(
+                        CODE,
+                        "exact qualified file is not the root-bound vswhere setup module",
+                    ));
+                }
+            }
+            _ => {}
+        }
+    }
+    let expected_qualified_tool_files = usize::from(is_vswhere);
+    if qualified_tool_files != expected_qualified_tool_files || is_vswhere != (syswow64_modules > 0)
+    {
+        return Err(XtaskError::integrity(
+            CODE,
+            "process audit does not contain the exact command-bound WOW64 runtime class set",
+        ));
+    }
+    Ok(())
 }
 
 fn read_json(path: &Path, code: &'static str) -> Result<Value> {
@@ -1839,7 +1936,7 @@ mod tests {
                     "canonical_path_sha256": digest('a'),
                     "executable_sha256": digest('b'),
                     "executable_bytes": 3,
-                    "path_class": "qualified_tool"
+                    "path_class": "qualified_tool_root"
                 }],
                 "loaded_modules": [{
                     "process_id": 1,
@@ -1848,7 +1945,7 @@ mod tests {
                     "canonical_path_sha256": digest('a'),
                     "module_sha256": digest('b'),
                     "module_bytes": 3,
-                    "path_class": "qualified_tool"
+                    "path_class": "qualified_tool_root"
                 }],
                 "forbidden_processes": [],
                 "forbidden_modules": [],
@@ -1858,6 +1955,37 @@ mod tests {
                 "timed_out": false
             }
         })
+    }
+
+    #[test]
+    fn evidence_schema_closes_the_process_path_class_vocabulary() {
+        let schema: Value = serde_json::from_slice(include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../docs/schemas/P1A-prototype-v2/python-slm-p1a-phase-evidence-v1.schema.json"
+        )))
+        .unwrap();
+        let path_class = schema.pointer("/definitions/auditedPathClass").unwrap();
+        for class in [
+            "windows_system32",
+            "windows_syswow64",
+            "root_tool_directory",
+            "qualified_tool_file",
+            "qualified_tool_root",
+            "qualified_working_tree",
+        ] {
+            json_schema::validate(path_class, &json!(class), "P1A_TEST_PATH_CLASS_INVALID")
+                .unwrap();
+        }
+        assert_eq!(
+            json_schema::validate(
+                path_class,
+                &json!("unreviewed_future_root"),
+                "P1A_TEST_PATH_CLASS_INVALID",
+            )
+            .unwrap_err()
+            .code,
+            "P1A_TEST_PATH_CLASS_INVALID"
+        );
     }
 
     #[test]
@@ -2394,6 +2522,113 @@ mod tests {
         assert_eq!(
             validate_process_audit(&mutated).unwrap_err().code,
             "P1A_PROCESS_AUDIT_RELATION_INVALID"
+        );
+
+        let mut mutated = audit_command_fixture();
+        mutated["process_audit"]["loaded_modules"][0]["path_class"] = json!("windows_system32");
+        assert_eq!(
+            validate_process_audit(&mutated).unwrap_err().code,
+            "P1A_PROCESS_AUDIT_RELATION_INVALID"
+        );
+    }
+
+    #[test]
+    fn process_path_classes_keep_exact_vswhere_files_closed_and_root_bound() {
+        let runtime_module = |name: &str, path_class: &str, character: char| {
+            json!({
+                "process_id": 1,
+                "creation_time_100ns": 2,
+                "module_name": name,
+                "canonical_path_sha256": digest(character),
+                "module_sha256": digest(character),
+                "module_bytes": 4,
+                "path_class": path_class
+            })
+        };
+        let mut command = audit_command_fixture();
+        command["argv"] = json!(["${VSWHERE}"]);
+        command["process_audit"]["loaded_modules"]
+            .as_array_mut()
+            .unwrap()
+            .extend([
+                runtime_module("ntdll.dll", "windows_syswow64", 'c'),
+                runtime_module(
+                    "Microsoft.VisualStudio.Setup.Configuration.Native.dll",
+                    "qualified_tool_file",
+                    'd',
+                ),
+            ]);
+        validate_process_audit(&command).unwrap();
+
+        let mut mutated = command.clone();
+        mutated["process_audit"]["loaded_modules"]
+            .as_array_mut()
+            .unwrap()
+            .remove(1);
+        assert_eq!(
+            validate_process_audit(&mutated).unwrap_err().code,
+            "P1A_PROCESS_PATH_CLASS_RELATION_INVALID"
+        );
+
+        let mut mutated = command.clone();
+        mutated["process_audit"]["loaded_modules"]
+            .as_array_mut()
+            .unwrap()
+            .pop();
+        assert_eq!(
+            validate_process_audit(&mutated).unwrap_err().code,
+            "P1A_PROCESS_PATH_CLASS_RELATION_INVALID"
+        );
+
+        let mut mutated = command.clone();
+        mutated["process_audit"]["loaded_modules"]
+            .as_array_mut()
+            .unwrap()
+            .push(runtime_module(
+                "Microsoft.VisualStudio.Setup.Configuration.Native.dll",
+                "qualified_tool_file",
+                'e',
+            ));
+        assert_eq!(
+            validate_process_audit(&mutated).unwrap_err().code,
+            "P1A_PROCESS_PATH_CLASS_RELATION_INVALID"
+        );
+
+        let mut mutated = command.clone();
+        mutated["process_audit"]["loaded_modules"][2]["module_name"] = json!("unrelated.dll");
+        assert_eq!(
+            validate_process_audit(&mutated).unwrap_err().code,
+            "P1A_PROCESS_PATH_CLASS_RELATION_INVALID"
+        );
+
+        let mut mutated = command.clone();
+        mutated["argv"] = json!(["${RUSTC}"]);
+        assert_eq!(
+            validate_process_audit(&mutated).unwrap_err().code,
+            "P1A_PROCESS_PATH_CLASS_RELATION_INVALID"
+        );
+
+        let mut mutated = command.clone();
+        mutated["process_audit"]["loaded_modules"][2]["process_id"] = json!(3);
+        assert_eq!(
+            validate_process_audit(&mutated).unwrap_err().code,
+            "P1A_PROCESS_PATH_CLASS_RELATION_INVALID"
+        );
+
+        let mut mutated = command.clone();
+        mutated["process_audit"]["process_identities"][0]["path_class"] =
+            json!("qualified_tool_file");
+        assert_eq!(
+            validate_process_audit(&mutated).unwrap_err().code,
+            "P1A_PROCESS_PATH_CLASS_RELATION_INVALID"
+        );
+
+        let mut mutated = command;
+        mutated["process_audit"]["loaded_modules"][0]["path_class"] =
+            json!("unreviewed_future_root");
+        assert_eq!(
+            validate_process_audit(&mutated).unwrap_err().code,
+            "P1A_PROCESS_PATH_CLASS_RELATION_INVALID"
         );
     }
 }
