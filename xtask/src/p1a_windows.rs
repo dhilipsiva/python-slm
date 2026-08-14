@@ -8,7 +8,7 @@
 
 use crate::error::{Result, XtaskError};
 use serde::Serialize;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
 pub(crate) const ISOLATION_WINDOW_MILLISECONDS: u64 = 2_000;
@@ -197,6 +197,10 @@ pub(crate) struct ForeignProcessLoad {
     pub known_compute_name: bool,
 }
 
+pub(crate) fn is_competing_foreign_load(load: &ForeignProcessLoad) -> bool {
+    !load.approved && load.single_core_basis_points > MAXIMUM_FOREIGN_SINGLE_CORE_BASIS_POINTS
+}
+
 #[derive(Clone, Debug, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct CpuIsolationMeasurement {
@@ -344,7 +348,7 @@ pub(crate) struct HostToolchainStabilitySnapshot {
     pub bundle_sha256: String,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct CanonicalGroupMask {
     pub group: u16,
@@ -385,88 +389,132 @@ pub(crate) fn canonical_core_topology(
     topology: &ProcessorTopology,
 ) -> Result<Vec<CanonicalCoreTopology>> {
     if topology.active_group_count != 1
-        || topology.active_logical_processors != 32
-        || topology.physical_core_count != 16
+        || !(1..=32).contains(&topology.active_logical_processors)
+        || !(1..=16).contains(&topology.physical_core_count)
         || topology.package_count != 1
-        || topology.cores.len() != 16
+        || topology.cores.len() != topology.physical_core_count as usize
     {
         return Err(XtaskError::integrity(
             "P1A_CPU_TOPOLOGY_MISMATCH",
-            "the prototype topology is not exactly one package, one group, sixteen cores, and thirty-two logical processors",
+            "the Windows-visible 9950X3D topology is empty, exceeds the hardware, or has inconsistent aggregate counts",
         ));
     }
 
-    let mut observed = Vec::with_capacity(16);
-    let mut union = 0_u64;
+    let mut observed = Vec::with_capacity(topology.cores.len());
+    let mut unions = BTreeMap::<u16, u64>::new();
+    let mut observed_logical_processors = 0_u32;
     for core in &topology.cores {
-        if !core.smt || core.group_masks.len() != 1 {
+        if core.group_masks.len() != 1 {
             return Err(XtaskError::integrity(
                 "P1A_CPU_TOPOLOGY_LAYOUT_MISMATCH",
-                "every prototype core must be one SMT core with exactly one processor-group mask",
+                "a Windows processor core does not have exactly one group-0 mask",
             ));
         }
-        let group_mask = &core.group_masks[0];
-        if group_mask.group != 0
-            || group_mask.mask == 0
-            || group_mask.mask.count_ones() != 2
-            || group_mask.logical_processors != 2
-            || union & group_mask.mask != 0
-        {
+        let mut canonical_masks = Vec::with_capacity(core.group_masks.len());
+        let mut core_logical_processors = 0_u32;
+        for group_mask in &core.group_masks {
+            let bit_count = group_mask.mask.count_ones();
+            let union = unions.entry(group_mask.group).or_default();
+            if group_mask.group >= topology.active_group_count
+                || group_mask.mask == 0
+                || group_mask.logical_processors != bit_count
+                || *union & group_mask.mask != 0
+            {
+                return Err(XtaskError::integrity(
+                    "P1A_CPU_TOPOLOGY_LAYOUT_MISMATCH",
+                    "Windows processor-group masks are empty, overlapping, out of range, or internally inconsistent",
+                ));
+            }
+            *union |= group_mask.mask;
+            core_logical_processors =
+                core_logical_processors
+                    .checked_add(bit_count)
+                    .ok_or_else(|| {
+                        XtaskError::integrity(
+                            "P1A_CPU_TOPOLOGY_LAYOUT_MISMATCH",
+                            "Windows processor topology logical-processor counts overflowed",
+                        )
+                    })?;
+            canonical_masks.push(CanonicalGroupMask {
+                group: group_mask.group,
+                mask: format!("0x{:016X}", group_mask.mask),
+                logical_processors: bit_count,
+            });
+        }
+        if core.smt != (core_logical_processors > 1) {
             return Err(XtaskError::integrity(
                 "P1A_CPU_TOPOLOGY_LAYOUT_MISMATCH",
-                "prototype core masks must be disjoint two-bit masks in processor group zero",
+                "a Windows processor core's SMT flag disagrees with its logical-processor masks",
             ));
         }
-        union |= group_mask.mask;
-        observed.push((group_mask.mask, core.efficiency_class));
+        observed_logical_processors = observed_logical_processors
+            .checked_add(core_logical_processors)
+            .ok_or_else(|| {
+                XtaskError::integrity(
+                    "P1A_CPU_TOPOLOGY_LAYOUT_MISMATCH",
+                    "Windows processor topology logical-processor counts overflowed",
+                )
+            })?;
+        canonical_masks.sort();
+        observed.push((canonical_masks, core.efficiency_class, core.smt));
     }
-    if union != u64::from(u32::MAX) {
+    if unions.len() != topology.active_group_count as usize
+        || observed_logical_processors != topology.active_logical_processors
+    {
         return Err(XtaskError::integrity(
             "P1A_CPU_TOPOLOGY_LAYOUT_MISMATCH",
-            "the sixteen prototype core masks do not cover exactly logical processors 0 through 31",
+            "Windows processor-group masks do not cover the reported groups and logical processors exactly",
         ));
     }
 
-    observed.sort_unstable();
+    observed.sort();
     Ok(observed
         .into_iter()
         .enumerate()
         .map(
-            |(core_index, (mask, efficiency_class))| CanonicalCoreTopology {
+            |(core_index, (group_masks, efficiency_class, smt))| CanonicalCoreTopology {
                 core_index: core_index as u32,
                 efficiency_class,
-                smt: true,
-                group_masks: vec![CanonicalGroupMask {
-                    group: 0,
-                    mask: format!("0x{mask:016X}"),
-                    logical_processors: 2,
-                }],
+                smt,
+                group_masks,
             },
         )
         .collect())
 }
 
 pub(crate) fn processor_group_union_mask(topology: &ProcessorTopology, group: u16) -> Result<u64> {
-    if group != 0 {
+    if group >= topology.active_group_count {
         return Err(XtaskError::integrity(
             "P1A_CPU_TOPOLOGY_GROUP_INVALID",
-            "the prototype topology exposes only processor group zero",
+            "the selected processor group is outside the Windows topology",
         ));
     }
     let canonical = canonical_core_topology(topology)?;
-    canonical.iter().try_fold(0_u64, |union, core| {
-        let mask = core.group_masks[0]
-            .mask
-            .strip_prefix("0x")
-            .and_then(|value| u64::from_str_radix(value, 16).ok())
-            .ok_or_else(|| {
-                XtaskError::integrity(
-                    "P1A_CPU_TOPOLOGY_CANONICALIZATION_FAILED",
-                    "an internal canonical processor mask was malformed",
-                )
-            })?;
-        Ok(union | mask)
-    })
+    let union = canonical.iter().try_fold(0_u64, |union, core| {
+        core.group_masks
+            .iter()
+            .filter(|mask| mask.group == group)
+            .try_fold(union, |union, group_mask| {
+                let mask = group_mask
+                    .mask
+                    .strip_prefix("0x")
+                    .and_then(|value| u64::from_str_radix(value, 16).ok())
+                    .ok_or_else(|| {
+                        XtaskError::integrity(
+                            "P1A_CPU_TOPOLOGY_CANONICALIZATION_FAILED",
+                            "an internal canonical processor mask was malformed",
+                        )
+                    })?;
+                Ok(union | mask)
+            })
+    })?;
+    if union == 0 {
+        return Err(XtaskError::integrity(
+            "P1A_CPU_TOPOLOGY_GROUP_INVALID",
+            "the selected processor group has no active logical processors",
+        ));
+    }
+    Ok(union)
 }
 
 pub(crate) fn processor_topology_sha256(topology: &ProcessorTopology) -> Result<String> {
@@ -1036,28 +1084,11 @@ mod imp {
                 "the prototype CPU lacks a required, OS-enabled Zen 5 instruction-set feature",
             );
         }
-        if topology.active_group_count != 1
-            || topology.active_logical_processors != 32
-            || topology.physical_core_count != 16
-            || topology.package_count != 1
-        {
-            finding(
-                &mut findings,
-                "P1A_CPU_TOPOLOGY_MISMATCH",
-                format!(
-                    "expected 1 group/32 logical/16 physical/1 package, observed {}/{}/{}/{}",
-                    topology.active_group_count,
-                    topology.active_logical_processors,
-                    topology.physical_core_count,
-                    topology.package_count
-                ),
-            );
-        }
         if canonical_core_topology(&topology).is_err() {
             finding(
                 &mut findings,
                 "P1A_CPU_TOPOLOGY_LAYOUT_MISMATCH",
-                "expected sixteen disjoint two-thread SMT cores covering exactly group-0 logical processors 0 through 31",
+                "Windows reported an empty, overlapping, or internally inconsistent processor topology",
             );
         }
         if power_policy.ac_line_status != "online"
@@ -3580,9 +3611,7 @@ mod imp {
             }
             if approved {
                 approved_cpu = approved_cpu.saturating_add(delta);
-            } else if !known_compute_name
-                && single_core_basis_points <= MAXIMUM_FOREIGN_SINGLE_CORE_BASIS_POINTS
-            {
+            } else if single_core_basis_points <= MAXIMUM_FOREIGN_SINGLE_CORE_BASIS_POINTS {
                 ordinary_os_cpu = ordinary_os_cpu.saturating_add(delta);
                 ordinary_os_process_count = ordinary_os_process_count.saturating_add(1);
             }
@@ -3692,11 +3721,7 @@ mod imp {
         }
         let competing_loads: Vec<&ForeignProcessLoad> = loads
             .iter()
-            .filter(|load| {
-                !load.approved
-                    && (load.known_compute_name
-                        || load.single_core_basis_points > MAXIMUM_FOREIGN_SINGLE_CORE_BASIS_POINTS)
-            })
+            .filter(|load| is_competing_foreign_load(load))
             .collect();
         if !competing_loads.is_empty() {
             finding(
@@ -3926,6 +3951,24 @@ mod imp {
         fn single_core_fraction_uses_wall_capacity() {
             assert_eq!(basis_points(10_000_000, 20_000_000), 5_000);
             assert_eq!(basis_points(20_000_000, 20_000_000), 10_000);
+        }
+
+        #[test]
+        fn known_background_compute_is_competing_only_when_load_exceeds_limit() {
+            let mut load = ForeignProcessLoad {
+                process_id: 42,
+                creation_time_100ns: Some(1),
+                image_name: "pythonw.exe".to_owned(),
+                cpu_time_100ns: 1,
+                single_core_basis_points: 73,
+                approved: false,
+                known_compute_name: true,
+            };
+            assert!(!is_competing_foreign_load(&load));
+            load.single_core_basis_points = MAXIMUM_FOREIGN_SINGLE_CORE_BASIS_POINTS + 1;
+            assert!(is_competing_foreign_load(&load));
+            load.approved = true;
+            assert!(!is_competing_foreign_load(&load));
         }
 
         #[test]
@@ -4193,6 +4236,31 @@ mod imp {
                     })
                     .collect(),
             }
+        }
+
+        #[test]
+        fn windows_exposed_eight_core_topology_is_accepted_as_observed() {
+            let topology = ProcessorTopology {
+                active_group_count: 1,
+                active_logical_processors: 8,
+                physical_core_count: 8,
+                package_count: 1,
+                cores: (0..8)
+                    .map(|index| CoreTopology {
+                        efficiency_class: 0,
+                        smt: false,
+                        group_masks: vec![GroupMask {
+                            group: 0,
+                            mask: 1_u64 << index,
+                            logical_processors: 1,
+                        }],
+                    })
+                    .collect(),
+            };
+            let canonical = canonical_core_topology(&topology).expect("Windows-visible topology");
+            assert_eq!(canonical.len(), 8);
+            assert!(canonical.iter().all(|core| !core.smt));
+            assert_eq!(processor_group_union_mask(&topology, 0).unwrap(), 0xFF);
         }
 
         #[test]

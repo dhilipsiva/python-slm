@@ -6077,14 +6077,7 @@ fn build_cpu_isolation(host: &PrototypeWindowsHostReport) -> Result<Value> {
         .foreign_process_loads
         .iter()
         .filter_map(|load| {
-            if load.approved {
-                return None;
-            }
-            let reason = if load.known_compute_name {
-                Some("known_compute_process")
-            } else if load.single_core_basis_points
-                > crate::p1a_windows::MAXIMUM_FOREIGN_SINGLE_CORE_BASIS_POINTS
-            {
+            let reason = if crate::p1a_windows::is_competing_foreign_load(load) {
                 Some("cpu_fraction_exceeded")
             } else {
                 None

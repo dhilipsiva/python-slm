@@ -190,34 +190,16 @@
         "model": { "const": 68 },
         "stepping": { "const": 0 },
         "physical_packages": { "const": 1 },
-        "physical_cores": { "const": 16 },
-        "logical_processors": { "const": 32 },
+        "physical_cores": { "type": "integer", "minimum": 1, "maximum": 16 },
+        "logical_processors": { "type": "integer", "minimum": 1, "maximum": 32 },
         "processor_groups": { "const": 1 },
-        "logical_processor_union_mask": { "const": "0x00000000FFFFFFFF" },
+        "logical_processor_union_mask": { "type": "string", "pattern": "^0x[0-9A-F]{16}$" },
         "core_topology": {
           "type": "array",
-          "minItems": 16,
+          "minItems": 1,
           "maxItems": 16,
           "uniqueItems": true,
-          "items": { "$ref": "#/definitions/coreTopologyEntry" },
-          "allOf": [
-            { "contains": { "properties": { "core_index": { "const": 0 } }, "required": ["core_index"] } },
-            { "contains": { "properties": { "core_index": { "const": 1 } }, "required": ["core_index"] } },
-            { "contains": { "properties": { "core_index": { "const": 2 } }, "required": ["core_index"] } },
-            { "contains": { "properties": { "core_index": { "const": 3 } }, "required": ["core_index"] } },
-            { "contains": { "properties": { "core_index": { "const": 4 } }, "required": ["core_index"] } },
-            { "contains": { "properties": { "core_index": { "const": 5 } }, "required": ["core_index"] } },
-            { "contains": { "properties": { "core_index": { "const": 6 } }, "required": ["core_index"] } },
-            { "contains": { "properties": { "core_index": { "const": 7 } }, "required": ["core_index"] } },
-            { "contains": { "properties": { "core_index": { "const": 8 } }, "required": ["core_index"] } },
-            { "contains": { "properties": { "core_index": { "const": 9 } }, "required": ["core_index"] } },
-            { "contains": { "properties": { "core_index": { "const": 10 } }, "required": ["core_index"] } },
-            { "contains": { "properties": { "core_index": { "const": 11 } }, "required": ["core_index"] } },
-            { "contains": { "properties": { "core_index": { "const": 12 } }, "required": ["core_index"] } },
-            { "contains": { "properties": { "core_index": { "const": 13 } }, "required": ["core_index"] } },
-            { "contains": { "properties": { "core_index": { "const": 14 } }, "required": ["core_index"] } },
-            { "contains": { "properties": { "core_index": { "const": 15 } }, "required": ["core_index"] } }
-          ]
+          "items": { "$ref": "#/definitions/coreTopologyEntry" }
         },
         "core_topology_sha256": { "$ref": "#/definitions/sha256" },
         "instruction_sets": {
@@ -308,11 +290,12 @@
       "properties": {
         "core_index": { "type": "integer", "minimum": 0, "maximum": 15 },
         "efficiency_class": { "type": "integer", "minimum": 0, "maximum": 255 },
-        "smt": { "const": true },
+        "smt": { "type": "boolean" },
         "group_masks": {
           "type": "array",
           "minItems": 1,
           "maxItems": 1,
+          "uniqueItems": true,
           "items": { "$ref": "#/definitions/coreGroupMask" }
         }
       }
@@ -324,7 +307,7 @@
       "properties": {
         "group": { "const": 0 },
         "mask": { "type": "string", "pattern": "^0x[0-9A-F]{16}$" },
-        "logical_processors": { "const": 2 }
+        "logical_processors": { "type": "integer", "minimum": 1, "maximum": 64 }
       }
     },
     "nativeToolchain": {

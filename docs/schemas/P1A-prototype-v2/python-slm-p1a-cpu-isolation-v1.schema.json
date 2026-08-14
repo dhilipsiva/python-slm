@@ -119,8 +119,8 @@
       ],
       "properties": {
         "processor_group_count": { "const": 1 },
-        "active_logical_processors": { "const": 32 },
-        "logical_processor_union_mask": { "const": "0x00000000FFFFFFFF" },
+        "active_logical_processors": { "type": "integer", "minimum": 1, "maximum": 32 },
+        "logical_processor_union_mask": { "$ref": "#/definitions/hexMask" },
         "core_topology_sha256": { "$ref": "#/definitions/sha256" },
         "process_group": { "const": 0 },
         "thread_group_mask": { "$ref": "#/definitions/hexMask" },
@@ -172,7 +172,7 @@
       "properties": {
         "sample_duration_ms": { "const": 2000 },
         "actual_elapsed_ns": { "type": "integer", "minimum": 2000000000 },
-        "logical_processor_capacity": { "const": 32 },
+        "logical_processor_capacity": { "type": "integer", "minimum": 1, "maximum": 32 },
         "system_idle_delta_100ns": { "type": "integer", "minimum": 0 },
         "system_kernel_delta_100ns": { "type": "integer", "minimum": 1 },
         "system_user_delta_100ns": { "type": "integer", "minimum": 0 },
@@ -208,7 +208,7 @@
                 ]
               },
               "image_name": { "$ref": "#/definitions/processImageName" },
-              "reason": { "enum": ["known_compute_process", "cpu_fraction_exceeded"] }
+              "reason": { "const": "cpu_fraction_exceeded" }
             }
           }
         }
