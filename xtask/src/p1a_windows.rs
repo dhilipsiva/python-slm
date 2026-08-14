@@ -1544,33 +1544,70 @@ mod imp {
                 format!("Process32NextW failed with Win32 error {final_error}"),
             ));
         }
+        let ancestry_process_ids =
+            verifier_ancestry_process_ids(&parents, &names, std::process::id())?;
         let mut ancestry = BTreeSet::new();
+        for process_id in ancestry_process_ids {
+            ancestry.insert(process_identity(process_id)?);
+        }
+        Ok(ancestry)
+    }
+
+    fn verifier_ancestry_process_ids(
+        parents: &BTreeMap<u32, u32>,
+        names: &BTreeMap<u32, String>,
+        verifier_process_id: u32,
+    ) -> Result<Vec<u32>> {
+        let mut ancestry = Vec::new();
         let mut visited_pids = BTreeSet::new();
-        let mut current = std::process::id();
+        let mut current = verifier_process_id;
+        let mut reached_interactive_boundary = false;
         for _ in 0..64 {
             if current == 0 || !visited_pids.insert(current) {
                 break;
             }
-            if names
-                .get(&current)
-                .is_some_and(|name| crate::p1a_process::forbidden_python_process_name(name))
-            {
+            let image_name = names.get(&current).ok_or_else(|| {
+                XtaskError::integrity(
+                    "P1A_PROCESS_ANCESTRY_INVALID",
+                    "the verifier ancestry contains a process absent from the kernel snapshot",
+                )
+            })?;
+            if crate::p1a_process::forbidden_python_process_name(image_name) {
                 return Err(XtaskError::gate(
                     "P1A_PYTHON_LAUNCHER_REJECTED",
                     "the verifier process ancestry contains a Python executable",
                     "Invoke Cargo directly from an ordinary native Windows shell.",
                 ));
             }
-            ancestry.insert(process_identity(current)?);
+            if is_native_interactive_boundary(image_name) {
+                // Windows Terminal is activated by a service, so its kernel parent is
+                // normally svchost.exe rather than the user process that requested the
+                // terminal.  That protected service ancestry neither launched the
+                // verifier nor belongs in the CPU-load exception set.  The desktop or
+                // terminal process is a boundary marker only and is not itself approved.
+                reached_interactive_boundary = true;
+                current = 0;
+                break;
+            }
+            ancestry.push(current);
             current = parents.get(&current).copied().unwrap_or(0);
         }
-        if !visited_pids.contains(&std::process::id()) || current != 0 {
+        if !visited_pids.contains(&verifier_process_id)
+            || current != 0
+            || !reached_interactive_boundary
+            || ancestry.is_empty()
+        {
             return Err(XtaskError::integrity(
                 "P1A_PROCESS_ANCESTRY_INVALID",
-                "the verifier ancestry was missing or exceeded its closed bound",
+                "the verifier launcher ancestry did not reach one closed native interactive boundary",
             ));
         }
         Ok(ancestry)
+    }
+
+    fn is_native_interactive_boundary(image_name: &str) -> bool {
+        image_name.eq_ignore_ascii_case("WindowsTerminal.exe")
+            || image_name.eq_ignore_ascii_case("explorer.exe")
     }
 
     fn process_identity(process_id: u32) -> Result<ProcessIdentity> {
@@ -4067,6 +4104,58 @@ mod imp {
                 .open(&path)
                 .expect("writer admitted after identity handle closes");
             fs::rename(&path, &renamed).expect("rename admitted after identity handle closes");
+        }
+
+        #[test]
+        fn verifier_ancestry_stops_before_windows_terminal_service_activation() {
+            let parents =
+                BTreeMap::from([(10, 20), (20, 30), (30, 40), (40, 50), (50, 60), (60, 0)]);
+            let names = BTreeMap::from([
+                (10, "xtask.exe".to_owned()),
+                (20, "cargo.exe".to_owned()),
+                (30, "powershell.exe".to_owned()),
+                (40, "WindowsTerminal.exe".to_owned()),
+                (50, "svchost.exe".to_owned()),
+                (60, "services.exe".to_owned()),
+            ]);
+            assert_eq!(
+                verifier_ancestry_process_ids(&parents, &names, 10)
+                    .expect("closed native launcher ancestry"),
+                vec![10, 20, 30]
+            );
+        }
+
+        #[test]
+        fn verifier_ancestry_rejects_python_before_the_interactive_boundary() {
+            let parents = BTreeMap::from([(10, 20), (20, 30), (30, 40), (40, 0)]);
+            let names = BTreeMap::from([
+                (10, "xtask.exe".to_owned()),
+                (20, "cargo.exe".to_owned()),
+                (30, "python313.exe".to_owned()),
+                (40, "explorer.exe".to_owned()),
+            ]);
+            assert_eq!(
+                verifier_ancestry_process_ids(&parents, &names, 10)
+                    .expect_err("Python-launched verifier must fail")
+                    .code,
+                "P1A_PYTHON_LAUNCHER_REJECTED"
+            );
+        }
+
+        #[test]
+        fn verifier_ancestry_requires_a_closed_interactive_boundary() {
+            let parents = BTreeMap::from([(10, 20), (20, 30), (30, 0)]);
+            let names = BTreeMap::from([
+                (10, "xtask.exe".to_owned()),
+                (20, "cargo.exe".to_owned()),
+                (30, "service-launcher.exe".to_owned()),
+            ]);
+            assert_eq!(
+                verifier_ancestry_process_ids(&parents, &names, 10)
+                    .expect_err("service-launched verifier must not truncate ancestry")
+                    .code,
+                "P1A_PROCESS_ANCESTRY_INVALID"
+            );
         }
 
         #[test]
