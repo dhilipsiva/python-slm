@@ -1,0 +1,61 @@
+{
+  "bundle_sha256": "33d0ce3f0a47ba77f2516582ad54c412ff03071170a2b4abac4ab1724e05c8a6",
+  "entries": [
+    {
+      "path": "docs/schemas/P1A-prototype-v2/python-slm-p0a-dependency-v1.schema.json",
+      "sha256": "25f1f2b98b98dee0000748be8cde47305f99de0e4ed7005aa5c7bc36357f489d"
+    },
+    {
+      "path": "docs/schemas/P1A-prototype-v2/python-slm-p1a-cpu-isolation-v1.schema.json",
+      "sha256": "ebb9a801f9043ffc4cfbf50def9782db3aaf87656d832a3b83e463e3790481c7"
+    },
+    {
+      "path": "docs/schemas/P1A-prototype-v2/python-slm-p1a-host-environment-v1.schema.json",
+      "sha256": "937508b4b953855e6a8626d6d9080348b40205950da33d9714146a534fb1f5c6"
+    },
+    {
+      "path": "docs/schemas/P1A-prototype-v2/python-slm-p1a-native-abi-probe-v1.schema.json",
+      "sha256": "a837a9c231b8a2d8981551ead10ea5b4998626e67a590ff9d47011482b82987b"
+    },
+    {
+      "path": "docs/schemas/P1A-prototype-v2/python-slm-p1a-phase-acceptance-v1.schema.json",
+      "sha256": "7b7d8110abbc56ce419da72d9b8dc0948fe0f36317ec0d39f1a4f504303359a4"
+    },
+    {
+      "path": "docs/schemas/P1A-prototype-v2/python-slm-p1a-phase-evidence-v1.schema.json",
+      "sha256": "f72abce19e23e8bf0f369f17999504fb8a5486ddf7eaa6eef61e69067e73b20d"
+    },
+    {
+      "path": "docs/schemas/P1A-prototype-v2/python-slm-p1a-phase-pointer-v1.schema.json",
+      "sha256": "362d30b5b904aae7be60dfa55b5fa4be4d3d0b6f1d043ec382828835e53cb02f"
+    },
+    {
+      "path": "docs/schemas/P1A-prototype-v2/python-slm-p1a-schema-bundle-v1.schema.json",
+      "sha256": "0b23c138f3a036a596bf06a144f81be7338a5d77f46a66ff8205c6fa7fc42b3e"
+    },
+    {
+      "path": "docs/schemas/P1A-prototype-v2/python-slm-p1a-source-identity-v1.schema.json",
+      "sha256": "3f813cef2c7326d67348e1425170875e97dadf088d52fe07bec94c0095f80937"
+    },
+    {
+      "path": "docs/schemas/portable-v2/python-slm-prototype-profile-v1.schema.json",
+      "sha256": "078749c04ae065b937ee810c4e1fe6e82ac37d0f1093f70b4a02c5c33cef6046"
+    },
+    {
+      "path": "docs/schemas/portable-v2/python-slm-prototype-sla-v1.schema.json",
+      "sha256": "7ac2e543af7afa49ee378cfccaf18de237ea558c6d97bfc2aa06175204021149"
+    },
+    {
+      "path": "docs/schemas/portable-v2/python-slm-training-memory-policy-v1.schema.json",
+      "sha256": "09502d239d31140780a7073c40cd38d73636a8dd42b5c963e3ea691ed4da5e33"
+    },
+    {
+      "path": "docs/schemas/portable-v2/tree-sitter-python-compatibility-v1.json",
+      "sha256": "2ab794ee66b0e7c6e37de2331b0bc2cdb30e1994e5ce92939f9008706c3e846a"
+    }
+  ],
+  "interface_id": "portable-interface-v2",
+  "phase_id": "P1A",
+  "profile_id": "prototype-windows-5090-v1",
+  "schema": "python-slm-p1a-schema-bundle-v1"
+}
