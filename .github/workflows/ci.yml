@@ -1,0 +1,68 @@
+name: CPU and Windows CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p13-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cpu-linux:
+    name: CPU contracts (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check out the immutable revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Install the minimum supported Rust toolchain
+        run: rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy
+      - name: Select Rust 1.96.0
+        run: rustup default 1.96.0
+      - name: Fetch the locked dependency graph
+        run: cargo fetch --locked
+      - name: Verify formatting
+        run: cargo fmt --all -- --check
+      - name: Reject warnings across the CPU workspace
+        run: cargo clippy --locked --workspace --all-targets --offline -- -D warnings
+      - name: Prove the active xtask closure remains zero-Python
+        run: cargo test --locked -p xtask --offline live_xtask_runtime_and_build_closure_is_zero_python_and_native_link_free
+      - name: Run CPU exact-gradient, loader-cleanup, resume, and synthetic end-to-end tests
+        run: cargo test --locked --features cpu-reference --offline
+      - name: Compile the dependency-minimal product
+        run: cargo check --locked --no-default-features --offline
+
+  windows-quality:
+    name: Windows automated quality gate
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - name: Check out the immutable revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Install the minimum supported Rust toolchain
+        run: rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy
+      - name: Select Rust 1.96.0
+        run: rustup default 1.96.0
+      - name: Fetch the locked dependency graph
+        run: cargo fetch --locked
+      - name: Run the non-publishing Windows quality gate
+        run: cargo run --locked -p xtask --bin xtask --offline -- quality-gate
+
+  cuda-hardware-status:
+    name: Windows/CUDA hardware (UNVERIFIED)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Report the optional hardware lane without blocking development
+        run: |
+          echo '{"schema":"python-slm-p13-cuda-ci-status-v1","status":"UNVERIFIED","qualification_status":"SKIPPED","reason":"required-ci-does-not-use-self-hosted-hardware"}'
+          {
+            echo '### Windows/CUDA lane: UNVERIFIED'
+            echo 'Required CI does not claim compatible hardware. Dispatch windows-cuda.yml when the fixed runner is available.'
+          } >> "$GITHUB_STEP_SUMMARY"

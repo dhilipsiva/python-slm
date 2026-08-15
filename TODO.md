@@ -481,7 +481,7 @@ Dependencies: P9B, P10, and P11.
 
 ## Phase 13 — Automated Windows/CUDA CI
 
-- [ ] P13 implementation
+- [x] P13 implementation
 - Manual qualification and publication gate: **SKIPPED**.
 
 Dependencies: P12.

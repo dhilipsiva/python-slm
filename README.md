@@ -283,6 +283,34 @@ automated suite proves interruption, corruption, identity-mismatch, final-tail, 
 byte-identical continuation behavior; it does not claim a completed full-model run, hardware
 qualification, throughput, SLA admission, final model quality, or P16/P16A acceptance.
 
+## Automated CPU and optional Windows/CUDA CI
+
+Phase 13 adds required hosted CI in [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+The Linux lane runs formatting, warning-free Clippy, the zero-Python xtask closure, the complete
+CPU-reference suite, and the dependency-minimal product check. The Windows lane runs the
+non-publishing quality gate, including the P2 and product CUDA compile boundaries. The P13
+synthetic test carries ordered P11 spans through bounded transfer, P12 training, create-new
+checkpoint publication, restore, and byte-identical continuation.
+
+Actual CUDA execution is isolated in
+[`windows-cuda.yml`](.github/workflows/windows-cuda.yml). Required CI reports the hardware lane
+as `UNVERIFIED`; the separate diagnostic workflow is manual-only and defaults to a
+successful `UNVERIFIED` report, accepts no pull-request trigger, and can run only from `main` on
+the fixed `[self-hosted, Windows, X64, cuda, rtx-5090]` labels. Enable it only when that runner is
+available:
+
+```powershell
+gh workflow run windows-cuda.yml --ref main -f run_hardware=true
+# Add -f device_uuid=GPU-... when more than one RTX 5090 is visible.
+```
+
+Once enabled, CUDA failures are real failures: the lane has no fallback and no
+`continue-on-error`. It runs the CUDA-aware tests, the non-publishing P1B probe, and the P2
+backend selector, requires a clean repository afterward, and removes its owned Cargo and target
+state. `DIAGNOSTIC_OK` still means only that automated diagnostics ran; absent hardware remains
+`UNVERIFIED`, and neither state is host qualification, performance admission, full-run evidence,
+or a publication receipt.
+
 Phase 7A adds hash-bound governed-source metadata to every curation outcome. The checked-in
 default policy labels manifest-declared provenance, license, and removal facts ASSUMED;
 freshness and aggregate source status remain UNVERIFIED while external review is unavailable.

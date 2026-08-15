@@ -1,0 +1,114 @@
+name: Optional Windows CUDA diagnostics
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_hardware:
+        description: Run diagnostics on the fixed self-hosted RTX 5090 lane
+        required: true
+        type: boolean
+        default: false
+      device_uuid:
+        description: Optional exact CUDA GPU UUID when multiple RTX 5090 devices are visible
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p13-windows-cuda-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  request-policy:
+    name: CUDA availability report
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Reject hardware execution outside main
+        if: inputs.run_hardware && github.ref != 'refs/heads/main'
+        run: |
+          echo 'Hardware diagnostics are permitted only from refs/heads/main.' >&2
+          exit 1
+      - name: Report unavailable or unrequested hardware honestly
+        if: ${{ !inputs.run_hardware }}
+        run: |
+          echo '{"schema":"python-slm-p13-cuda-ci-status-v1","status":"UNVERIFIED","qualification_status":"SKIPPED","reason":"compatible-self-hosted-runner-not-requested"}'
+          {
+            echo '### Windows/CUDA lane: UNVERIFIED'
+            echo 'No compatible self-hosted RTX 5090 runner was requested. This does not block CPU development.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  windows-cuda:
+    name: Windows RTX 5090 diagnostics
+    needs: request-policy
+    if: inputs.run_hardware && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, Windows, X64, cuda, rtx-5090]
+    timeout-minutes: 120
+    env:
+      CARGO_HOME: ${{ runner.temp }}\python-slm-p13-cargo-${{ github.run_id }}-${{ github.run_attempt }}
+      CARGO_TARGET_DIR: ${{ runner.temp }}\python-slm-p13-target-${{ github.run_id }}-${{ github.run_attempt }}
+      P13_DEVICE_UUID: ${{ inputs.device_uuid }}
+    steps:
+      - name: Check out main without persisted credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Install the minimum supported Rust toolchain
+        shell: pwsh
+        run: rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy
+      - name: Bind direct Cargo and fetch the locked dependency graph
+        shell: pwsh
+        run: |
+          $cargo = (& rustup which --toolchain 1.96.0 cargo).Trim()
+          if (-not (Test-Path -LiteralPath $cargo -PathType Leaf)) { throw "direct Cargo not found" }
+          Remove-Item Env:RUSTUP_TOOLCHAIN -ErrorAction SilentlyContinue
+          & $cargo fetch --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run CUDA compile, exact-gradient, resume, cleanup, and synthetic tests
+        shell: pwsh
+        run: |
+          $cargo = (& rustup which --toolchain 1.96.0 cargo).Trim()
+          Remove-Item Env:RUSTUP_TOOLCHAIN -ErrorAction SilentlyContinue
+          & $cargo test --locked -p xtask --features p2-cuda --offline
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $cargo test --locked --features cuda --offline --test p10_accelerator_backend --test p11_data_loader --test p12_trainer --test p13_automated_ci
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run the non-publishing CUDA probe
+        shell: pwsh
+        run: |
+          $cargo = (& rustup which --toolchain 1.96.0 cargo).Trim()
+          Remove-Item Env:RUSTUP_TOOLCHAIN -ErrorAction SilentlyContinue
+          $arguments = @('run', '--locked', '-p', 'xtask', '--bin', 'xtask', '--offline', '--', 'probe-cuda')
+          if ($env:P13_DEVICE_UUID) { $arguments += @('--device-uuid', $env:P13_DEVICE_UUID) }
+          & $cargo @arguments
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run the non-publishing backend selector
+        shell: pwsh
+        run: |
+          $cargo = (& rustup which --toolchain 1.96.0 cargo).Trim()
+          Remove-Item Env:RUSTUP_TOOLCHAIN -ErrorAction SilentlyContinue
+          $arguments = @('run', '--locked', '-p', 'xtask', '--features', 'p2-cuda', '--bin', 'xtask', '--offline', '--', 'select-backend')
+          if ($env:P13_DEVICE_UUID) { $arguments += @('--device-uuid', $env:P13_DEVICE_UUID) }
+          & $cargo @arguments
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Require a clean repository and report diagnostic success
+        shell: pwsh
+        run: |
+          $changes = @(git status --porcelain=v1 --untracked-files=all)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($changes.Count -ne 0) { throw "CUDA diagnostics changed the repository" }
+          Write-Output '{"schema":"python-slm-p13-cuda-ci-status-v1","status":"DIAGNOSTIC_OK","qualification_status":"SKIPPED","hardware":"windows-rtx-5090-cuda"}'
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value '### Windows/CUDA lane: DIAGNOSTIC_OK'
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value 'Automated diagnostics passed. This is not host qualification, performance admission, or full-run verification.'
+      - name: Remove owned Cargo and target state
+        if: always()
+        shell: pwsh
+        run: |
+          foreach ($owned in @($env:CARGO_TARGET_DIR, $env:CARGO_HOME)) {
+            if ($owned -and (Test-Path -LiteralPath $owned)) {
+              Remove-Item -LiteralPath $owned -Recurse -Force
+            }
+          }
