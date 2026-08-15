@@ -1,5 +1,5 @@
 use crate::error::{Category, Result, XtaskError};
-use crate::{p0, p0a, p1a};
+use crate::{p0, p0a, p1a, p1b};
 use clap::{Parser, Subcommand};
 use serde_json::{Value, json};
 use std::ffi::OsString;
@@ -30,6 +30,15 @@ enum Command {
         finalize: bool,
         #[arg(long)]
         profile: Option<String>,
+    },
+    /// Compile, inspect, and execute the non-publishing prototype CUDA probe.
+    ProbeCuda {
+        #[arg(long)]
+        cuda_root: Option<PathBuf>,
+        #[arg(long)]
+        vs_instance_id: Option<String>,
+        #[arg(long)]
+        device_uuid: Option<String>,
     },
     /// Qualify an implemented host or accelerator environment profile.
     VerifyEnv {
@@ -104,6 +113,15 @@ pub fn run(args: impl IntoIterator<Item = OsString>) -> Result<Value> {
                 p0a::prepare(&repository, &output_root)
             }
         }
+        Command::ProbeCuda {
+            cuda_root,
+            vs_instance_id,
+            device_uuid,
+        } => p1b::probe(p1b::ProbeOptions {
+            cuda_root,
+            vs_instance_id,
+            device_uuid,
+        }),
         Command::VerifyEnv {
             mode,
             profile,
@@ -150,6 +168,36 @@ fn require_p1a_host_selection(mode: &str, profile: &str, provider: Option<&str>)
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn probe_cuda_cli_has_only_nonpublishing_overrides() {
+        let parsed = Arguments::try_parse_from([
+            "xtask",
+            "probe-cuda",
+            "--cuda-root",
+            r"C:\CUDA",
+            "--vs-instance-id",
+            "vs-17",
+            "--device-uuid",
+            "GPU-00000000-0000-0000-0000-000000000001",
+        ])
+        .unwrap();
+        match parsed.command {
+            Command::ProbeCuda {
+                cuda_root,
+                vs_instance_id,
+                device_uuid,
+            } => {
+                assert_eq!(cuda_root.unwrap(), PathBuf::from(r"C:\CUDA"));
+                assert_eq!(vs_instance_id.as_deref(), Some("vs-17"));
+                assert_eq!(
+                    device_uuid.as_deref(),
+                    Some("GPU-00000000-0000-0000-0000-000000000001")
+                );
+            }
+            _ => panic!("probe-cuda parsed as the wrong command"),
+        }
+    }
 
     #[test]
     fn rejects_uninstalled_phase() {

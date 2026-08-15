@@ -7,6 +7,12 @@ use std::time::Duration;
 
 const MAX_CAPTURE_BYTES: u64 = 16 * 1024 * 1024;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum ProcessPolicy {
+    HostOnly,
+    CudaProbe,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct QualifiedPersistentFile {
     pub path: PathBuf,
@@ -16,6 +22,7 @@ pub(crate) struct QualifiedPersistentFile {
 
 #[derive(Clone, Debug)]
 pub(crate) struct DirectCommand {
+    pub policy: ProcessPolicy,
     pub program: PathBuf,
     pub args: Vec<OsString>,
     pub display_argv: Vec<String>,
@@ -796,7 +803,9 @@ mod windows {
             ));
         }
         require_qualified_files_observed(&path_policy.qualified_files, &state.loaded_modules)?;
-        require_vswhere_syswow64_observed(command, &state.loaded_modules)?;
+        if command.policy == ProcessPolicy::HostOnly {
+            require_vswhere_syswow64_observed(command, &state.loaded_modules)?;
+        }
         let program_after = identity_from_locked_file(&program_lock)?;
         if program_after != program_before {
             return Err(XtaskError::integrity(
@@ -906,7 +915,10 @@ mod windows {
     }
 
     fn validate_qualified_persistent_file_count(command: &DirectCommand) -> Result<()> {
-        let expected = usize::from(is_vswhere_command(command));
+        let expected = match command.policy {
+            ProcessPolicy::HostOnly => usize::from(is_vswhere_command(command)),
+            ProcessPolicy::CudaProbe => 0,
+        };
         if command.qualified_persistent_files.len() != expected {
             return Err(XtaskError::integrity(
                 "P1A_QUALIFIED_FILE_COUNT_INVALID",
@@ -1285,7 +1297,7 @@ mod windows {
         }
 
         for library in libraries {
-            if forbidden_module(&library) {
+            if forbidden_module(&library, ProcessPolicy::HostOnly) {
                 markers.insert(format!("pe-import-library:{library}"));
             }
         }
@@ -2557,7 +2569,7 @@ mod windows {
             })?
             .to_ascii_lowercase();
         let path_class = classify_path(&module.canonical_path, command, path_policy)?;
-        if forbidden_module(&module_name) {
+        if forbidden_module(&module_name, command.policy) {
             state.forbidden_modules.insert(module_name.clone());
         }
         if let Some(marker) = forbidden_identity_marker(&module, state) {
@@ -2566,6 +2578,9 @@ mod windows {
                 .insert(format!("{module_name}:{marker}"));
         }
         for marker in &module.forbidden_content_markers {
+            if cuda_content_marker_allowed(command.policy, marker) {
+                continue;
+            }
             state
                 .forbidden_modules
                 .insert(format!("{module_name}:{marker}"));
@@ -2601,13 +2616,16 @@ mod windows {
             })?
             .to_ascii_lowercase();
         state.executable_names.insert(leaf.clone());
-        if forbidden_process(&leaf) {
+        if forbidden_process(&leaf, command.policy) {
             state.forbidden_processes.insert(leaf.clone());
         }
         if let Some(marker) = forbidden_identity_marker(&file, state) {
             state.forbidden_processes.insert(format!("{leaf}:{marker}"));
         }
         for marker in &file.forbidden_content_markers {
+            if cuda_content_marker_allowed(command.policy, marker) {
+                continue;
+            }
             state.forbidden_processes.insert(format!("{leaf}:{marker}"));
         }
         let record = AuditedProcessIdentity {
@@ -3047,7 +3065,7 @@ mod windows {
         Ok(state.forbidden_processes.is_empty() && state.forbidden_modules.is_empty())
     }
 
-    fn forbidden_process(leaf: &str) -> bool {
+    fn forbidden_process(leaf: &str, policy: ProcessPolicy) -> bool {
         let lower = leaf.to_ascii_lowercase();
         let stem = lower.strip_suffix(".exe").unwrap_or(&lower);
         super::forbidden_python_process_name(leaf)
@@ -3070,25 +3088,23 @@ mod windows {
                     | "g++"
                     | "clang"
                     | "clang-cl"
-                    | "nvcc"
-                    | "ptxas"
-                    | "nvlink"
-                    | "fatbinary"
-                    | "cudafe++"
                     | "hipcc"
                     | "hipconfig"
                     | "clang-offload-bundler"
                     | "rocminfo"
             )
+            || (policy == ProcessPolicy::HostOnly
+                && matches!(stem, "nvcc" | "ptxas" | "nvlink" | "fatbinary" | "cudafe++"))
     }
 
-    fn forbidden_module(leaf: &str) -> bool {
+    fn forbidden_module(leaf: &str, policy: ProcessPolicy) -> bool {
         let lower = leaf.to_ascii_lowercase();
         ((lower.starts_with("python") || lower.starts_with("pypy")) && lower.ends_with(".dll"))
+            || (policy == ProcessPolicy::HostOnly
+                && ["nvcuda", "cudart", "cublas"]
+                    .iter()
+                    .any(|token| lower.contains(token)))
             || [
-                "nvcuda",
-                "cudart",
-                "cublas",
                 "cudnn",
                 "nvrtc",
                 "nvml",
@@ -3110,6 +3126,22 @@ mod windows {
             ]
             .iter()
             .any(|token| lower.contains(token))
+    }
+
+    fn cuda_content_marker_allowed(policy: ProcessPolicy, marker: &str) -> bool {
+        policy == ProcessPolicy::CudaProbe
+            && (marker == "pe-section:nvidia-fatbin"
+                || marker == "pe-symbol:cuda-driver-api"
+                || marker == "pe-symbol:cuda-runtime-api"
+                || marker == "pe-symbol:cublas-api"
+                || marker
+                    .strip_prefix("pe-import-library:")
+                    .is_some_and(|library| {
+                        let lower = library.to_ascii_lowercase();
+                        ["nvcuda", "cudart", "cublas"]
+                            .iter()
+                            .any(|token| lower.contains(token))
+                    }))
     }
 
     fn environment_block(overrides: &BTreeMap<String, Option<OsString>>) -> Result<Vec<u16>> {
@@ -3353,23 +3385,49 @@ mod windows {
 
         #[test]
         fn sensitive_process_and_module_names_are_closed() {
-            assert!(forbidden_process("python.exe"));
-            assert!(forbidden_process("python3.13.exe"));
-            assert!(forbidden_process("pypy310.exe"));
-            assert!(forbidden_process("pip3.13.exe"));
-            assert!(forbidden_process("nvcc.exe"));
-            assert!(forbidden_process("powershell.exe"));
-            assert!(forbidden_process("pwsh.exe"));
-            assert!(forbidden_process("cmd.exe"));
-            assert!(forbidden_process("wsl.exe"));
-            assert!(forbidden_process("bash.exe"));
-            assert!(!forbidden_process("rustc.exe"));
-            assert!(!forbidden_process("cl.exe"));
-            assert!(forbidden_module("python313.dll"));
-            assert!(forbidden_module("pypy3.10.dll"));
-            assert!(forbidden_module("cublas64_13.dll"));
-            assert!(forbidden_module("onnxruntime_providers_cuda.dll"));
-            assert!(!forbidden_module("tree-sitter-python.dll"));
+            for leaf in [
+                "python.exe",
+                "python3.13.exe",
+                "pypy310.exe",
+                "pip3.13.exe",
+                "powershell.exe",
+                "pwsh.exe",
+                "cmd.exe",
+                "wsl.exe",
+                "bash.exe",
+            ] {
+                assert!(forbidden_process(leaf, ProcessPolicy::HostOnly));
+                assert!(forbidden_process(leaf, ProcessPolicy::CudaProbe));
+            }
+            assert!(forbidden_process("nvcc.exe", ProcessPolicy::HostOnly));
+            assert!(!forbidden_process("nvcc.exe", ProcessPolicy::CudaProbe));
+            assert!(!forbidden_process("ptxas.exe", ProcessPolicy::CudaProbe));
+            assert!(!forbidden_process("nvlink.exe", ProcessPolicy::CudaProbe));
+            assert!(!forbidden_process("rustc.exe", ProcessPolicy::HostOnly));
+            assert!(!forbidden_process("cl.exe", ProcessPolicy::HostOnly));
+            assert!(forbidden_module("python313.dll", ProcessPolicy::CudaProbe));
+            assert!(forbidden_module("pypy3.10.dll", ProcessPolicy::CudaProbe));
+            assert!(forbidden_module("cublas64_13.dll", ProcessPolicy::HostOnly));
+            assert!(!forbidden_module(
+                "cublas64_13.dll",
+                ProcessPolicy::CudaProbe
+            ));
+            assert!(forbidden_module(
+                "onnxruntime_providers_cuda.dll",
+                ProcessPolicy::CudaProbe
+            ));
+            assert!(!forbidden_module(
+                "tree-sitter-python.dll",
+                ProcessPolicy::HostOnly
+            ));
+            assert!(cuda_content_marker_allowed(
+                ProcessPolicy::CudaProbe,
+                "pe-section:nvidia-fatbin"
+            ));
+            assert!(!cuda_content_marker_allowed(
+                ProcessPolicy::HostOnly,
+                "pe-section:nvidia-fatbin"
+            ));
         }
 
         #[test]
@@ -3560,6 +3618,7 @@ mod windows {
                 ))),
             );
             let make_command = |run_index: usize| DirectCommand {
+                policy: ProcessPolicy::HostOnly,
                 program: std::env::current_exe().unwrap(),
                 args: vec![
                     OsString::from("--exact"),
@@ -3694,6 +3753,7 @@ mod windows {
             };
             let temp = tempfile::tempdir().unwrap();
             let output = run(&DirectCommand {
+                policy: ProcessPolicy::HostOnly,
                 program,
                 args: crate::p1a_windows::VSWHERE_ARGS
                     .iter()
@@ -3794,6 +3854,7 @@ mod windows {
             let exact_bound = bind_file(&exact, "P1A_TEST_QUALIFIED_FILE").unwrap();
             let exact_identity = complete_file_identity(&exact_bound).unwrap();
             let command = DirectCommand {
+                policy: ProcessPolicy::HostOnly,
                 program,
                 args: Vec::new(),
                 display_argv: vec!["${VSWHERE}".to_owned()],
@@ -3902,6 +3963,7 @@ mod windows {
             fs::create_dir_all(generated.parent().unwrap()).unwrap();
             fs::write(&generated, b"test-only").unwrap();
             let command = DirectCommand {
+                policy: ProcessPolicy::HostOnly,
                 program: std::env::current_exe().unwrap(),
                 args: Vec::new(),
                 display_argv: vec!["${TEST_BINARY}".to_owned()],

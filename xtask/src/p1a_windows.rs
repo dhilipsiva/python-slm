@@ -554,8 +554,21 @@ pub(crate) fn discover_vswhere_path() -> Result<PathBuf> {
 }
 
 #[cfg(all(windows, target_arch = "x86_64"))]
+pub(crate) fn select_visual_studio(
+    requested_instance: Option<&str>,
+    audited_vswhere_stdout: &[u8],
+) -> Result<VisualStudioToolchain> {
+    imp::visual_studio(requested_instance, audited_vswhere_stdout)
+}
+
+#[cfg(all(windows, target_arch = "x86_64"))]
 pub(crate) fn bind_vswhere_runtime() -> Result<VswhereRuntimeBinding> {
     imp::bind_vswhere_runtime()
+}
+
+#[cfg(all(windows, target_arch = "x86_64"))]
+pub(crate) fn discover_windows_sdk() -> Result<WindowsSdkToolchain> {
+    imp::windows_sdk()
 }
 
 /// Resolve the one admitted Git for P1A without consulting `PATH`, a shell, or mutable
@@ -2764,7 +2777,7 @@ mod imp {
         })
     }
 
-    fn windows_sdk() -> Result<WindowsSdkToolchain> {
+    pub(super) fn windows_sdk() -> Result<WindowsSdkToolchain> {
         let kits_root = windows_kits_root()?;
         let include_root = kits_root.join("Include");
         let mut complete_versions = Vec::new();

@@ -1,7 +1,9 @@
 use crate::error::{Category, IoContext, Result, XtaskError};
 use crate::hash;
 use crate::json_schema;
-use crate::p1a_process::{AuditedOutput, DirectCommand, ProcessAudit, QualifiedPersistentFile};
+use crate::p1a_process::{
+    AuditedOutput, DirectCommand, ProcessAudit, ProcessPolicy, QualifiedPersistentFile,
+};
 use crate::p1a_receipt::ReceiptSchemas;
 use crate::p1a_windows::{
     CpuIsolationPolicy, EXPECTED_CPU_BRAND, EXPECTED_CPU_VENDOR, PrototypeWindowsHostReport,
@@ -2136,6 +2138,7 @@ impl P1aRecorder {
         let (started_at_utc, _, _) = time::now();
         let started = Instant::now();
         let output = crate::p1a_process::run(&DirectCommand {
+            policy: ProcessPolicy::HostOnly,
             program: git,
             args: args.iter().map(OsString::from).collect(),
             display_argv: display_argv.clone(),
@@ -2273,6 +2276,7 @@ impl P1aRecorder {
         let (started_at_utc, _, _) = time::now();
         let started = Instant::now();
         let output = crate::p1a_process::run(&DirectCommand {
+            policy: ProcessPolicy::HostOnly,
             program: program.to_path_buf(),
             args,
             display_argv: display_argv.clone(),

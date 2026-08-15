@@ -48,6 +48,32 @@ Using 12 KV heads (ordinary MHA) with the original widths would instead produce
 
 Use `--gqa-135m` to inspect the corrected 135M variant.
 
+## Non-publishing RTX 5090/CUDA probe
+
+The active Phase 1B diagnostic is a Rust xtask command with the fixed
+prototype-windows-5090-v1 defaults:
+
+~~~powershell
+cargo run --locked -p xtask --bin xtask -- probe-cuda
+~~~
+
+It discovers VS 2022 and standard Program Files CUDA installations, selects the highest
+toolkit at least 12.8 that supports both sm_120 and compute_120, compiles native-plus-PTX
+and PTX-only executables, inspects their images/imports, and exercises the exact
+2,952,790,016-byte allocation on the sole runtime-visible RTX 5090 with compute
+capability 12.0. CUDA 13.x is accepted when those compile and runtime checks pass.
+
+Fail-closed overrides are available for ambiguous or nonstandard installations:
+
+~~~powershell
+cargo run --locked -p xtask --bin xtask -- probe-cuda --cuda-root 'C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v13.1' --vs-instance-id '<vswhere-instance-id>' --device-uuid 'GPU-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+~~~
+
+The command writes one closed JSON result to stdout. It uses an owned temporary directory,
+removes it on success and failure, and never creates a qualification receipt, approval,
+acceptance, pointer, output root, or repository artifact. A live invocation is optional
+diagnostic execution; automated tests complete P1B without a manual hardware step.
+
 ## Windows build
 
 Use an **x64 Developer PowerShell for Visual Studio 2022**, Rust's MSVC target,

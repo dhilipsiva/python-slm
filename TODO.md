@@ -299,7 +299,7 @@ No host run, receipt, approval, acceptance, pointer, or review commit is require
 
 ## Phase 1B — Prototype RTX 5090/CUDA Implementation
 
-- [ ] P1B implementation
+- [x] P1B implementation
 - Manual qualification and publication gate: **SKIPPED**.
 
 Dependencies: P1A defaults.
