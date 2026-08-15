@@ -253,7 +253,7 @@ fn tokenize_windows(config_path: &Path) -> Result<Value> {
         Some(&config.corpus_manifest.sha256),
         "CORPUS_MANIFEST_READ_FAILED",
     )?;
-    let corpus: GovernedCorpusManifestV1 = parse_closed(&corpus_bytes, "CORPUS_MANIFEST_INVALID")?;
+    let corpus = parse_governed_corpus(&corpus_bytes, &config)?;
     validate_corpus(&corpus, &config)?;
 
     let sample_bytes = read_control_file(
@@ -540,6 +540,36 @@ fn validate_config(config: &TokenMaterializeConfigV1) -> Result<()> {
         ));
     }
     Ok(())
+}
+fn parse_governed_corpus(
+    bytes: &[u8],
+    config: &TokenMaterializeConfigV1,
+) -> Result<GovernedCorpusManifestV1> {
+    let value: Value = serde_json::from_slice(bytes).map_err(|_| {
+        ProductError::integrity(
+            "CORPUS_MANIFEST_INVALID",
+            "the governed corpus manifest is malformed",
+        )
+    })?;
+    match value.get("schema").and_then(Value::as_str) {
+        Some(CORPUS_MANIFEST_SCHEMA) => parse_closed(bytes, "CORPUS_MANIFEST_INVALID"),
+        Some(crate::corpus::GOVERNED_CORPUS_SCHEMA) => {
+            let corpus: crate::corpus::GovernedCorpusManifestV2 =
+                parse_closed(bytes, "CORPUS_MANIFEST_INVALID")?;
+            Ok(GovernedCorpusManifestV1 {
+                schema: CORPUS_MANIFEST_SCHEMA.to_owned(),
+                source_generation_manifest_sha256: corpus.source_generation_manifest_sha256,
+                split_manifest_sha256: corpus.split_manifest_sha256,
+                tokenizer_sample_manifest_sha256: corpus.tokenizer_sample_manifest_sha256,
+                tokenizer_artifact_sha256: config.tokenizer_artifact.sha256.clone(),
+                documents: corpus.documents,
+            })
+        }
+        _ => Err(ProductError::integrity(
+            "CORPUS_MANIFEST_INVALID",
+            "the governed corpus manifest schema is unsupported",
+        )),
+    }
 }
 
 fn validate_corpus(
@@ -1420,5 +1450,57 @@ mod tests {
             validate_corpus(&corpus, &config).unwrap_err().code,
             "CORPUS_DOCUMENT_DUPLICATE"
         );
+    }
+    #[test]
+    fn p9a_v2_manifest_is_normalized_with_the_explicit_tokenizer_binding() {
+        let hash = "a".repeat(64);
+        let corpus = crate::corpus::GovernedCorpusManifestV2 {
+            schema: crate::corpus::GOVERNED_CORPUS_SCHEMA.to_owned(),
+            source_generation_manifest_sha256: hash.clone(),
+            split_manifest_sha256: "b".repeat(64),
+            tokenizer_sample_manifest_sha256: "c".repeat(64),
+            documents: vec![GovernedCorpusDocumentV1 {
+                component_id: hash.clone(),
+                repository_group_id: hash.clone(),
+                source_id: hash.clone(),
+                curated_sha256_raw: hash.clone(),
+                canonical_sha256: hash,
+                canonical_bytes: 100,
+                relative_path: "documents/a.py".to_owned(),
+                split: CorpusSplit::Train,
+            }],
+        };
+        let config = TokenMaterializeConfigV1 {
+            schema: CONFIG_SCHEMA.to_owned(),
+            profile: PROTOTYPE_PROFILE.to_owned(),
+            corpus_manifest: HashBoundInput {
+                path: PathBuf::from("C:/corpus.json"),
+                sha256: "d".repeat(64),
+            },
+            content_root: PathBuf::from("C:/content"),
+            tokenizer_sample_manifest: HashBoundInput {
+                path: PathBuf::from("C:/sample.json"),
+                sha256: "c".repeat(64),
+            },
+            tokenizer_artifact: HashBoundInput {
+                path: PathBuf::from("C:/tokenizer.json"),
+                sha256: "e".repeat(64),
+            },
+            output_root: PathBuf::from("C:/output"),
+            limits: MaterializationLimits {
+                maximum_documents: 1,
+                maximum_total_canonical_bytes: 1_000,
+                maximum_total_stored_ids: 1_000,
+                shard_maximum_ids: 100,
+            },
+        };
+        let bytes = compact_json_line(&corpus, "TEST").unwrap();
+        let normalized = parse_governed_corpus(&bytes, &config).unwrap();
+        assert_eq!(normalized.schema, CORPUS_MANIFEST_SCHEMA);
+        assert_eq!(
+            normalized.tokenizer_artifact_sha256,
+            config.tokenizer_artifact.sha256
+        );
+        assert_eq!(normalized.documents, corpus.documents);
     }
 }

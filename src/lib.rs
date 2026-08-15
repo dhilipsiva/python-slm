@@ -3,6 +3,7 @@
 pub mod backend;
 pub mod commands;
 pub mod config;
+pub mod corpus;
 pub mod data;
 pub mod error;
 pub mod model;

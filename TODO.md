@@ -423,7 +423,7 @@ Dependencies: P7A.
 
 ## Phase 9A — Deduplication, Decontamination, Splits, and Span Order
 
-- [ ] P9A implementation
+- [x] P9A implementation
 - Manual qualification and publication gate: **SKIPPED**.
 
 Dependencies: P8.

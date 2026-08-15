@@ -32,6 +32,16 @@ enum Command {
         #[arg(long)]
         config: PathBuf,
     },
+    /// Deduplicate, decontaminate, split, and prepare governed corpus manifests.
+    PrepareCorpus {
+        #[arg(long)]
+        config: PathBuf,
+    },
+    /// Materialize the deterministic SPAN-001 order over a verified token corpus.
+    PlanSpans {
+        #[arg(long)]
+        config: PathBuf,
+    },
     /// Inspect an immutable artifact. Implemented by the owning artifact phase.
     Inspect {
         #[arg(long)]
@@ -89,6 +99,8 @@ pub fn run(args: impl IntoIterator<Item = OsString>) -> Result<Value> {
         Command::Curate { config } => crate::data::curate(&config),
         Command::TrainTokenizer { config } => crate::tokenizer::train_tokenizer(&config),
         Command::Tokenize { config } => crate::storage::tokenize(&config),
+        Command::PrepareCorpus { config } => crate::corpus::prepare(&config),
+        Command::PlanSpans { config } => crate::corpus::plan_spans(&config),
         Command::Inspect { config } => deferred("future artifact phase", "inspect", config),
         Command::Bench { config } => deferred("performance phase", "bench", config),
         Command::Train { config } => deferred("training phase", "train", config),

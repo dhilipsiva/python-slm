@@ -123,6 +123,45 @@ Small synthetic corpora are valid automated diagnostics and report
 `training_target_satisfied: false`; only a later governed production manifest can reach
 the fixed 2,000,000,001-ID prefix. P8 remains non-qualifying and writes no receipt.
 
+## Corpus policy and span order
+
+Phase 9A adds two deterministic, non-publishing commands:
+
+```powershell
+cargo run --locked --bin python-slm -- prepare-corpus --config <absolute-config-path>
+cargo run --locked --bin python-slm -- plan-spans --config <absolute-config-path>
+```
+
+`prepare-corpus` consumes a hash-bound v4 source generation and a separately
+materialized, hash-bound `evalplus-v0.3.1` protection manifest. The benchmark
+manifest binds the pinned EvalPlus commit, HumanEval+ `v0.1.10`, MBPP+
+`v0.2.0`, and normalized module, fragment, and canonical-JSON records; this
+phase does not download assets or execute Python.
+
+The engine applies exact canonical-byte deduplication before the frozen
+Tree-sitter lexical-token 5-gram policy, 256 affine MinHash components, 32-by-8
+LSH candidate retrieval, and exact Jaccard rejection strictly above `0.85`.
+It retains every duplicate-cluster member identity, selects the representative
+by complete provenance, comment ratio, lexical-token count, then source ID, and
+rejects an entire duplicate cluster if any member matches a protected benchmark
+by exact bytes, exact Jaccard, a protected 50-token span, a complete short
+sequence, or canonical JSON bytes.
+
+Remaining repository/duplicate connected components receive deterministic
+`SPLIT-001` 98/1/1 assignment. A create-new
+`python-slm-corpus-policy-generation-v1` contains deduplication,
+decontamination, split, tokenizer-sample, and
+`python-slm-governed-corpus-manifest-v2` artifacts plus representative source
+bytes. P8 accepts both its immutable v1 governed manifest and P9A's v2 manifest;
+the explicit P8 configuration supplies and verifies the later tokenizer
+artifact binding, avoiding a circular pre-training hash.
+
+`plan-spans` opens a fully verified P8 token generation, hashes the exact
+frozen-decision byte range, and applies `rand_chacha 0.10.0`
+`ChaCha12Rng` with the rejection-sampled descending Fisher-Yates algorithm.
+Every complete 2,048-target span appears exactly once, token order inside spans
+is unchanged, and the partial span remains last. Both commands keep
+`qualification_status: "SKIPPED"`, publish no receipts, and refuse overwrite.
 
 Phase 7A adds hash-bound governed-source metadata to every curation outcome. The checked-in
 default policy labels manifest-declared provenance, license, and removal facts ASSUMED;
