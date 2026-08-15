@@ -222,6 +222,37 @@ writes no receipt and makes no full-model VRAM, optimizer/resume, throughput,
 SLA, hardware-qualification, or cross-provider claim. P11 owns transfers and
 P12 owns optimizer state and exact resume.
 
+## Deterministic data loading and transfers
+
+Phase 11 consumes P8's immutable sequence index through `VerifiedTokenCorpus`.
+Each read revalidates the contained regular shard, stable file identity, byte
+length, and SHA-256 before exposing one ordered autoregressive span. Inputs and
+targets are overlapping views over the same `valid_targets + 1` token IDs, so a
+complete sequence yields exactly 2,048 targets without duplicating or skipping
+the boundary token.
+
+The loader has explicit, nonzero capacities for both host buffering and
+in-flight transfers. It rejects reordered or discontinuous indexes, propagates
+short-read and backing-file mutation failures, makes cancellation monotonic,
+and returns a stable end-of-stream. Transfer tickets are retired in source
+order; any submission/wait failure or pipeline drop cancels and releases all
+remaining tickets.
+
+Under the Windows `cuda` feature, `CudaPinnedTransfer` loads only System32's
+CUDA driver, retains the selected device's primary context, allocates true CUDA
+page-locked host staging with `cuMemAllocHost`, and submits a nonblocking
+`cuMemcpyHtoDAsync`. The ticket owns the host allocation, stream, context
+reference, and device allocation until synchronization. Successful completion
+releases staging and the stream while returning an opaque owned device batch;
+failure, cancellation, and drop synchronize and release acquired resources in
+reverse ownership order. CPU and no-default-feature builds contain no CUDA
+loader or discovery path.
+
+P11 is an implementation boundary with `qualification_status: "SKIPPED"`. It
+writes no receipt, pointer, acceptance, checkpoint, or persistent loader
+artifact and makes no throughput, hardware-qualification, full-training, or
+resume claim. P12 owns optimizer state, checkpointing, and exact resume.
+
 Phase 7A adds hash-bound governed-source metadata to every curation outcome. The checked-in
 default policy labels manifest-declared provenance, license, and removal facts ASSUMED;
 freshness and aggregate source status remain UNVERIFIED while external review is unavailable.
