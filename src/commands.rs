@@ -88,7 +88,7 @@ pub fn run(args: impl IntoIterator<Item = OsString>) -> Result<Value> {
         }),
         Command::Curate { config } => crate::data::curate(&config),
         Command::TrainTokenizer { config } => crate::tokenizer::train_tokenizer(&config),
-        Command::Tokenize { config } => deferred("P8", "tokenize", config),
+        Command::Tokenize { config } => crate::storage::tokenize(&config),
         Command::Inspect { config } => deferred("future artifact phase", "inspect", config),
         Command::Bench { config } => deferred("performance phase", "bench", config),
         Command::Train { config } => deferred("training phase", "train", config),
@@ -117,7 +117,7 @@ mod tests {
 
     #[test]
     fn every_future_command_fails_with_the_same_typed_gate() {
-        for command in ["tokenize", "inspect", "bench", "train"] {
+        for command in ["inspect", "bench", "train"] {
             let error = run([
                 "python-slm".into(),
                 command.into(),
@@ -128,6 +128,23 @@ mod tests {
             assert_eq!(error.code, "PHASE_NOT_IMPLEMENTED");
             assert_eq!(error.exit_code(), 5);
         }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn tokenize_is_active_and_reads_its_explicit_configuration() {
+        let directory = tempfile::tempdir().unwrap();
+        let missing = directory.path().join("missing.json").into_os_string();
+        let error = run([
+            "python-slm".into(),
+            "tokenize".into(),
+            "--config".into(),
+            missing,
+        ])
+        .unwrap_err();
+        assert_eq!(error.code, "TOKEN_CONFIG_READ_FAILED");
+        assert_eq!(error.exit_code(), 4);
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 0);
     }
 
     #[test]

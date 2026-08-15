@@ -23,7 +23,7 @@ It emits one compact `python-slm-plan-result-v1` JSON object. The canonical mode
 37,888 final-update targets, 2,952,790,016-byte compatibility allocation,
 25,920-second admission projection, and 28,800-second completion SLA.
 
-The remaining future command names `tokenize`, `inspect`, `bench`, and `train` fail
+The remaining future command names `inspect`, `bench`, and `train` fail
 before reading configuration or mutating state with the typed `PHASE_NOT_IMPLEMENTED`
 gate until their owning phases land. Configurations are versioned, explicit, and reject
 unknown fields; there are no legacy fallbacks or hidden production defaults.
@@ -96,7 +96,32 @@ is create-new with adjacent temporary cleanup.
 
 Training reports whether the sample falls within the contract's qualified byte range,
 but `qualification_status` remains `SKIPPED`; P7 adds no receipt or manual workflow.
-Corpus token-shard materialization and EOS insertion remain Phase 8 responsibilities.
+
+## Corpus and token materialization
+
+Phase 8 activates deterministic, create-new corpus tokenization:
+
+```powershell
+cargo run --locked --bin python-slm -- tokenize --config <absolute-config-path>
+```
+
+The closed `python-slm-token-materialize-config-v1` configuration binds a governed
+`python-slm-governed-corpus-manifest-v1`, content root, P7 tokenizer sample and
+tokenizer artifact, output root, and explicit document, byte, token, and shard limits.
+The materializer sorts each split by component, repository group, source, and curated
+hash identity; encodes each complete document; appends exactly one EOS; and writes
+immutable little-endian `u16` shards plus closed document and 2,049-ID sequence indexes.
+
+The installed `python-slm-token-corpus-generation-v1` generation copies the exact
+governed manifest, tokenizer sample, and tokenizer artifact and binds every file by
+length and SHA-256. The verified reader rejects path escape, reparse entries, malformed
+IDs, broken document/EOS boundaries, count drift, and backing-file mutation before
+returning a document or sequence. Publication uses a unique adjacent partial generation,
+syncs every file, never overwrites, and removes interrupted partial output.
+
+Small synthetic corpora are valid automated diagnostics and report
+`training_target_satisfied: false`; only a later governed production manifest can reach
+the fixed 2,000,000,001-ID prefix. P8 remains non-qualifying and writes no receipt.
 
 
 Phase 7A adds hash-bound governed-source metadata to every curation outcome. The checked-in

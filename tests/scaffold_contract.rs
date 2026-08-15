@@ -26,7 +26,7 @@ fn deferred_command_does_not_read_config_or_write_the_working_directory() {
     let missing = directory.path().join("missing.json");
     let output = Command::new(env!("CARGO_BIN_EXE_python-slm"))
         .current_dir(directory.path())
-        .args(["tokenize", "--config"])
+        .args(["inspect", "--config"])
         .arg(&missing)
         .output()
         .unwrap();

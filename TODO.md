@@ -411,7 +411,7 @@ Dependencies: P6A and P7.
 
 ## Phase 8 — Corpus and Token Materialization
 
-- [ ] P8 implementation
+- [x] P8 implementation
 - Manual qualification and publication gate: **SKIPPED**.
 
 Dependencies: P7A.
