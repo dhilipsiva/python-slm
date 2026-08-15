@@ -227,14 +227,14 @@ fn scan_lines(
         if let Some((name, value)) = assigned_string(line) {
             let name = String::from_utf8_lossy(name).to_ascii_lowercase();
             if secret_like_name(&name, &registry.secret_like_names) {
-                if entropy_qualifies(value, &registry.entropy) {
+                if entropy_qualifies(&value, &registry.entropy) {
                     confirmed.insert("HIGH_ENTROPY_NAMED_SECRET");
-                } else if value.len() >= 8 && !obvious_placeholder(value) {
+                } else if value.len() >= 8 && !obvious_placeholder(&value) {
                     uncertain.insert("POSSIBLE_NAMED_SECRET");
                 }
             }
-            if looks_like_postal_address(value) {
-                if contains_postal_code(value) {
+            if looks_like_postal_address(&value) {
+                if contains_postal_code(&value) {
                     confirmed.insert("POSTAL_ADDRESS");
                 } else {
                     uncertain.insert("POSSIBLE_POSTAL_ADDRESS");
@@ -242,11 +242,11 @@ fn scan_lines(
             }
             if government_like_name(&name)
                 && value.iter().filter(|byte| byte.is_ascii_digit()).count() >= 8
-                && !contains_valid_ssn(value)
+                && !contains_valid_ssn(&value)
             {
                 uncertain.insert("POSSIBLE_GOVERNMENT_IDENTIFIER");
             }
-            if telephone_like_name(&name) && telephone_digit_count(value).is_some() {
+            if telephone_like_name(&name) && telephone_digit_count(&value).is_some() {
                 confirmed.insert("TELEPHONE_NUMBER");
             }
         }
@@ -410,7 +410,7 @@ fn contains_credentialed_url(source: &[u8], cancellation: &CancellationToken) ->
     Ok(false)
 }
 
-fn assigned_string(line: &[u8]) -> Option<(&[u8], &[u8])> {
+fn assigned_string(line: &[u8]) -> Option<(&[u8], Vec<u8>)> {
     let equals = line.iter().position(|byte| *byte == b'=')?;
     let left = trim_ascii(&line[..equals]);
     let left = left
@@ -425,15 +425,61 @@ fn assigned_string(line: &[u8]) -> Option<(&[u8], &[u8])> {
     if name.is_empty() || !name[0].is_ascii_alphabetic() && name[0] != b'_' {
         return None;
     }
-    let right = trim_ascii(&line[equals + 1..]);
-    let quote = *right.first()?;
+    let mut right = trim_ascii(&line[equals + 1..]);
+    let mut value = Vec::new();
+    loop {
+        let (fragment, consumed) = python_string_fragment(right)?;
+        value.extend_from_slice(fragment);
+        right = trim_ascii(&right[consumed..]);
+        if right.is_empty() || right.starts_with(b"#") {
+            break;
+        }
+        if !starts_python_string(right) {
+            break;
+        }
+    }
+    Some((name, value))
+}
+
+fn starts_python_string(value: &[u8]) -> bool {
+    python_string_fragment(value).is_some()
+}
+
+fn python_string_fragment(value: &[u8]) -> Option<(&[u8], usize)> {
+    let mut quote_at = 0;
+    while quote_at < value.len()
+        && quote_at < 2
+        && matches!(
+            value[quote_at],
+            b'r' | b'R' | b'b' | b'B' | b'u' | b'U' | b'f' | b'F'
+        )
+    {
+        quote_at += 1;
+    }
+    let quote = *value.get(quote_at)?;
     if !matches!(quote, b'\'' | b'"') {
         return None;
     }
-    let end = right[1..].iter().position(|byte| *byte == quote)? + 1;
-    Some((name, &right[1..end]))
+    let triple = value.get(quote_at..quote_at + 3) == Some(&[quote, quote, quote]);
+    let delimiter = if triple { 3 } else { 1 };
+    let start = quote_at + delimiter;
+    let mut at = start;
+    while at < value.len() {
+        if triple {
+            if value.get(at..at + 3) == Some(&[quote, quote, quote]) {
+                return Some((&value[start..at], at + 3));
+            }
+        } else if value[at] == quote {
+            return Some((&value[start..at], at + 1));
+        }
+        if value[at] == b'\\' && at + 1 < value.len() {
+            at += 2;
+        } else {
+            at += 1;
+        }
+    }
+    None
 }
-
 fn entropy_qualifies(value: &[u8], policy: &EntropyPolicy) -> bool {
     if !(policy.minimum_length..=policy.maximum_length).contains(&value.len())
         || character_classes(value) < policy.minimum_character_classes

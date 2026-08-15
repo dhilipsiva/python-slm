@@ -319,12 +319,14 @@ mod tests {
         let path = directory.path().join("document.py");
         fs::write(&path, b"a".repeat(128)).unwrap();
         let before = fs::metadata(&path).unwrap();
-        let mut denied = false;
+        let mut denied = [false; 3];
         let bytes = read_stable_document_with(&path, &before, || {
-            denied = OpenOptions::new().write(true).open(&path).is_err();
+            denied[0] = OpenOptions::new().write(true).open(&path).is_err();
+            denied[1] = fs::remove_file(&path).is_err();
+            denied[2] = fs::rename(&path, directory.path().join("moved.py")).is_err();
         })
         .unwrap();
-        assert!(denied);
+        assert!(denied.into_iter().all(|result| result));
         assert_eq!(bytes.len(), 128);
     }
     #[test]

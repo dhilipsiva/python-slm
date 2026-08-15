@@ -1,0 +1,239 @@
+{
+  "schema": "python-slm-p6a-adversarial-filter-cases-v1",
+  "document_cases": [
+    {
+      "id": "comment-generated-marker",
+      "source_base64": "IyBBdVRvLUdlTmVSYVRlRCBieSB0b29sCnZhbHVlID0gMQo=",
+      "license_expression": "MIT",
+      "expected_status": "REJECTED",
+      "expected_reason": "GENERATED_MARKER"
+    },
+    {
+      "id": "comment-generated-split",
+      "source_base64": "IyBnZW5lcmF0ZWQKIyBieSB0b29sCnZhbHVlID0gMQo=",
+      "license_expression": "MIT",
+      "expected_status": "POLICY_ACCEPTED",
+      "expected_reason": null
+    },
+    {
+      "id": "comment-ratio-exceeded",
+      "source_base64": "IyBjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjYwp2YWx1ZSA9IDEK",
+      "license_expression": "MIT",
+      "expected_status": "REJECTED",
+      "expected_reason": "COMMENT_RATIO_EXCEEDED"
+    },
+    {
+      "id": "comment-secret",
+      "source_base64": "IyBjbGllbnRfc2VjcmV0ID0gImFCMyFkRTVAZ0g3I2pLOSRtTjIlcVI0JiIKdmFsdWUgPSAxCg==",
+      "license_expression": "MIT",
+      "expected_status": "REJECTED",
+      "expected_reason": "SENSITIVE_CONTENT_DETECTED"
+    },
+    {
+      "id": "encoding-ascii-nonascii",
+      "source_base64": "IyBjb2Rpbmc6IGFzY2lpCnZhbHVlID0gImNhZsOpIgo=",
+      "license_expression": "MIT",
+      "expected_status": "REJECTED",
+      "expected_reason": "ENCODING_INVALID"
+    },
+    {
+      "id": "encoding-bom-ascii-conflict",
+      "source_base64": "77u/IyBjb2Rpbmc6IGFzY2lpCnZhbHVlID0gMQo=",
+      "license_expression": "MIT",
+      "expected_status": "REJECTED",
+      "expected_reason": "ENCODING_CONFLICT"
+    },
+    {
+      "id": "encoding-bom-utf8",
+      "source_base64": "77u/IyBjb2Rpbmc6IHV0Zi04CnZhbHVlID0gImNhZsOpIgo=",
+      "license_expression": "MIT",
+      "expected_status": "POLICY_ACCEPTED",
+      "expected_reason": null
+    },
+    {
+      "id": "encoding-conflicting-cookies",
+      "source_base64": "IyBjb2Rpbmc6IHV0Zi04CiMgY29kaW5nOiBhc2NpaQp2YWx1ZSA9IDEK",
+      "license_expression": "MIT",
+      "expected_status": "REJECTED",
+      "expected_reason": "ENCODING_CONFLICT"
+    },
+    {
+      "id": "encoding-invalid-utf8",
+      "source_base64": "dmFsdWUgPSAi/yIK",
+      "license_expression": "MIT",
+      "expected_status": "REJECTED",
+      "expected_reason": "ENCODING_INVALID"
+    },
+    {
+      "id": "encoding-line-three-cookie-ignored",
+      "source_base64": "dmFsdWUgPSAxCnZhbHVlID0gMgojIGNvZGluZzogbGF0aW4tMQo=",
+      "license_expression": "MIT",
+      "expected_status": "POLICY_ACCEPTED",
+      "expected_reason": null
+    },
+    {
+      "id": "encoding-nul",
+      "source_base64": "dmFsdWUgPSAiYQBiIgo=",
+      "license_expression": "MIT",
+      "expected_status": "REJECTED",
+      "expected_reason": "NUL_BYTE"
+    },
+    {
+      "id": "generated-marker-string",
+      "source_base64": "dmFsdWUgPSAiZ2VuZXJhdGVkIGJ5IHRvb2wiCg==",
+      "license_expression": "MIT",
+      "expected_status": "POLICY_ACCEPTED",
+      "expected_reason": null
+    },
+    {
+      "id": "license-and-denied",
+      "source_base64": "dmFsdWUgPSAxCg==",
+      "license_expression": "MIT AND GPL-3.0-only",
+      "expected_status": "REJECTED",
+      "expected_reason": "LICENSE_NOT_ALLOWED"
+    },
+    {
+      "id": "license-or-allowed",
+      "source_base64": "dmFsdWUgPSAxCg==",
+      "license_expression": "MIT OR GPL-3.0-only",
+      "expected_status": "POLICY_ACCEPTED",
+      "expected_reason": null
+    },
+    {
+      "id": "pii-email-casefold",
+      "source_base64": "Y29udGFjdCA9ICJBbGljZUBDb3JwLlRlc3QiCg==",
+      "license_expression": "MIT",
+      "expected_status": "REJECTED",
+      "expected_reason": "SENSITIVE_CONTENT_DETECTED"
+    },
+    {
+      "id": "pii-email-reserved-subdomain",
+      "source_base64": "Y29udGFjdCA9ICJkZXZAc3ViLmV4YW1wbGUub3JnIgo=",
+      "license_expression": "MIT",
+      "expected_status": "POLICY_ACCEPTED",
+      "expected_reason": null
+    },
+    {
+      "id": "pii-iban-lowercase",
+      "source_base64": "YWNjb3VudCA9ICJnYjgyd2VzdDEyMzQ1Njk4NzY1NDMyIgo=",
+      "license_expression": "MIT",
+      "expected_status": "REJECTED",
+      "expected_reason": "SENSITIVE_CONTENT_DETECTED"
+    },
+    {
+      "id": "pii-ssn-digit-boundary-lookalike",
+      "source_base64": "dmFsdWUgPSAiMTEyMy00NS02Nzg5MCIK",
+      "license_expression": "MIT",
+      "expected_status": "POLICY_ACCEPTED",
+      "expected_reason": null
+    },
+    {
+      "id": "secret-bytes-literal",
+      "source_base64": "Y2xpZW50X3NlY3JldCA9IGIiYUIzIWRFNUBnSDcjaks5JG1OMiVxUjQmIgo=",
+      "license_expression": "MIT",
+      "expected_status": "REJECTED",
+      "expected_reason": "SENSITIVE_CONTENT_DETECTED"
+    },
+    {
+      "id": "secret-concatenated-literals",
+      "source_base64": "Y2xpZW50X3NlY3JldCA9ICJhQjMhZEU1QGdINyMiICJqSzkkbU4yJXFSNCYiCg==",
+      "license_expression": "MIT",
+      "expected_status": "REJECTED",
+      "expected_reason": "SENSITIVE_CONTENT_DETECTED"
+    },
+    {
+      "id": "secret-escaped-quote",
+      "source_base64": "Y2xpZW50X3NlY3JldCA9ICJhQjMhZEU1XCJAZ0g3I2pLOSRtTjIlcVI0JiIK",
+      "license_expression": "MIT",
+      "expected_status": "REJECTED",
+      "expected_reason": "SENSITIVE_CONTENT_DETECTED"
+    },
+    {
+      "id": "secret-f-string-literal",
+      "source_base64": "Y2xpZW50X3NlY3JldCA9IGYiYUIzIWRFNUBnSDcjaks5JG1OMiVxUjQmIgo=",
+      "license_expression": "MIT",
+      "expected_status": "REJECTED",
+      "expected_reason": "SENSITIVE_CONTENT_DETECTED"
+    },
+    {
+      "id": "secret-placeholder",
+      "source_base64": "Y2xpZW50X3NlY3JldCA9ICJub3QtYS1zZWNyZXQiCg==",
+      "license_expression": "MIT",
+      "expected_status": "POLICY_ACCEPTED",
+      "expected_reason": null
+    },
+    {
+      "id": "secret-raw-literal",
+      "source_base64": "Y2xpZW50X3NlY3JldCA9IHIiYUIzIWRFNUBnSDcjaks5JG1OMiVxUjQmIgo=",
+      "license_expression": "MIT",
+      "expected_status": "REJECTED",
+      "expected_reason": "SENSITIVE_CONTENT_DETECTED"
+    },
+    {
+      "id": "secret-triple-literal",
+      "source_base64": "Y2xpZW50X3NlY3JldCA9ICIiImFCMyFkRTVAZ0g3I2pLOSRtTjIlcVI0JiIiIgo=",
+      "license_expression": "MIT",
+      "expected_status": "REJECTED",
+      "expected_reason": "SENSITIVE_CONTENT_DETECTED"
+    }
+  ],
+  "path_cases": [
+    {
+      "id": "absolute-drive",
+      "relative_path": "C:/outside.py",
+      "expected_error": "DOCUMENT_PATH_INVALID"
+    },
+    {
+      "id": "absolute-root",
+      "relative_path": "/outside.py",
+      "expected_error": "DOCUMENT_PATH_INVALID"
+    },
+    {
+      "id": "alternate-stream",
+      "relative_path": "pkg/module.py:stream",
+      "expected_error": "DOCUMENT_PATH_INVALID"
+    },
+    {
+      "id": "backslash",
+      "relative_path": "pkg\\module.py",
+      "expected_error": "DOCUMENT_PATH_INVALID"
+    },
+    {
+      "id": "current-component",
+      "relative_path": "pkg/./module.py",
+      "expected_error": "DOCUMENT_PATH_INVALID"
+    },
+    {
+      "id": "double-separator",
+      "relative_path": "pkg//module.py",
+      "expected_error": "DOCUMENT_PATH_INVALID"
+    },
+    {
+      "id": "empty",
+      "relative_path": "",
+      "expected_error": "DOCUMENT_PATH_INVALID"
+    },
+    {
+      "id": "parent-traversal",
+      "relative_path": "../outside.py",
+      "expected_error": "DOCUMENT_PATH_INVALID"
+    }
+  ],
+  "mutation_cases": [
+    {
+      "id": "delete-bound-file",
+      "operation": "delete",
+      "expected": "DENIED"
+    },
+    {
+      "id": "rename-bound-file",
+      "operation": "rename",
+      "expected": "DENIED"
+    },
+    {
+      "id": "write-bound-file",
+      "operation": "write",
+      "expected": "DENIED"
+    }
+  ]
+}

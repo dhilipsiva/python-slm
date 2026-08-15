@@ -60,10 +60,15 @@ government identifiers, and postal addresses produce `QUARANTINED`. Policy artif
 contain only stable rule IDs, counts, source hashes, and the registry binding—never the
 matched value. Canonical `.py` bytes are stored only for `POLICY_ACCEPTED` documents.
 
-P6 is a deterministic conservative filter, not a proof that every possible sensitive
-value has been recognized. P6A owns adversarial expansion; exact/near deduplication,
-decontamination, and downstream corpus acceptance remain later phases. Live Stack-v2 or
-Software Heritage acquisition also remains outside this command.
+P6A pins the closed, hash-checked
+`tests/fixtures/p6a/adversarial-filter-cases-v1.json` no-code corpus. It exercises encoding
+cookies/BOMs/invalid bytes, quoting forms, comments and generated markers, secret and PII
+boundaries, portable-path attacks, deterministic repeat publication, restricted-value
+non-disclosure, and concurrent write/delete/rename denial. The suite remains a
+deterministic conservative regression boundary, not proof that every possible sensitive
+value has been recognized. Exact/near deduplication, decontamination, and downstream
+corpus acceptance remain later phases. Live Stack-v2 or Software Heritage acquisition
+also remains outside this command.
 
 ## Automated quality gate
 

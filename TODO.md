@@ -376,7 +376,7 @@ Dependencies: P5.
 
 ## Phase 6A — Adversarial Filter Cases
 
-- [ ] P6A implementation
+- [x] P6A implementation
 - Manual qualification and publication gate: **SKIPPED**.
 
 Dependencies: P6.
