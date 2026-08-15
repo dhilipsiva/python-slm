@@ -41,22 +41,29 @@ The closed `python-slm-curate-config-v1` configuration names an absolute materia
 source manifest, content root, hash-bound removal manifests, create-new output root, and
 explicit document/byte budgets. Generated corpus data belongs under the ignored `data/`
 root or another ignored location; it is not a qualification receipt.
-P4 output has not passed the P6 sensitive-data boundary: keep it access-restricted and
-never publish it as a safe corpus.
-
-A successful command emits one compact `python-slm-curate-result-v2` object and installs
-an immutable `python-slm-source-generation-v2` generation. The in-process Rust boundary
+An eligible document passes the P4 license, provenance, removal, encoding, and
+generated-content policies before reaching the P5 parser and P6 sensitive-data policy.
+A successful command emits one compact `python-slm-curate-result-v3` object and installs
+an immutable `python-slm-source-generation-v3` generation. The in-process Rust boundary
 uses exactly `tree-sitter 0.25.8` and `tree-sitter-python 0.25.0`; its checked-in identity
 manifest binds the locked packages, generated parser/scanner sources, runtime sources,
 language ABI, frozen compatibility corpus, and canonical bundle hash. Complete Python 3
 modules are evaluated with parser-derived comment ranges against the existing
-comment-ratio and `generated-v1` rules. Outcomes are `PARSER_ACCEPTED` or `REJECTED`, and
-canonical `.py` bytes are stored only for accepted documents. No Python executable,
-generator, subprocess, or second parser is used.
+comment-ratio and `generated-v1` rules. No Python executable, generator, subprocess, or
+second parser is used.
 
-`PARSER_ACCEPTED` is only the P5 syntax and comment-policy decision. It does not claim P6
-sensitive-data safety, exact/near deduplication, decontamination, or downstream corpus
-acceptance. Live Stack-v2/Software Heritage acquisition also remains outside this command.
+The hash-bound `sensitive-rules-v1` registry detects confirmed private keys, provider
+credentials, credentialed URLs, high-entropy named secrets, personal email addresses,
+telephone numbers, government identifiers, payment-card/IBAN identifiers, and postal
+addresses. Confirmed findings produce `REJECTED`; lower-confidence labeled secrets,
+government identifiers, and postal addresses produce `QUARANTINED`. Policy artifacts
+contain only stable rule IDs, counts, source hashes, and the registry binding—never the
+matched value. Canonical `.py` bytes are stored only for `POLICY_ACCEPTED` documents.
+
+P6 is a deterministic conservative filter, not a proof that every possible sensitive
+value has been recognized. P6A owns adversarial expansion; exact/near deduplication,
+decontamination, and downstream corpus acceptance remain later phases. Live Stack-v2 or
+Software Heritage acquisition also remains outside this command.
 
 ## Automated quality gate
 

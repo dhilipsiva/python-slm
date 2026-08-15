@@ -271,17 +271,21 @@ fn curate_publishes_only_parser_accepted_sources_and_closed_facts() {
     );
     assert!(result.stderr.is_empty());
     let result_json: Value = serde_json::from_slice(&result.stdout).unwrap();
-    assert_eq!(result_json["schema"], "python-slm-curate-result-v2");
+    assert_eq!(result_json["schema"], "python-slm-curate-result-v3");
     assert_eq!(result_json["parser_status"], "COMPLETE");
     assert_eq!(result_json["parser_accepted_count"], 1);
+    assert_eq!(result_json["policy_accepted_count"], 1);
+    assert_eq!(result_json["quarantined_count"], 0);
     assert_eq!(result_json["rejected_count"], 1);
 
     let manifest_bytes = fs::read(output.join("manifest.json")).unwrap();
     let manifest: Value = serde_json::from_slice(&manifest_bytes).unwrap();
-    assert_eq!(manifest["schema"], "python-slm-source-generation-v2");
+    assert_eq!(manifest["schema"], "python-slm-source-generation-v3");
     assert_eq!(manifest["parser_status"], "COMPLETE");
+    assert_eq!(manifest["policy_status"], "COMPLETE");
     assert_eq!(fs::read_dir(output.join("documents")).unwrap().count(), 1);
     assert_eq!(fs::read_dir(output.join("parser")).unwrap().count(), 2);
+    assert_eq!(fs::read_dir(output.join("policy")).unwrap().count(), 1);
     assert!(
         !String::from_utf8(manifest_bytes)
             .unwrap()

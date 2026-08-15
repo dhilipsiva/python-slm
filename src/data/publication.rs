@@ -65,6 +65,10 @@ impl PartialGeneration {
         self.create_directory("parser")
     }
 
+    pub(crate) fn create_policy_directory(&mut self) -> Result<()> {
+        self.create_directory("policy")
+    }
+
     fn create_directory(&mut self, name: &str) -> Result<()> {
         fs::create_dir(self.partial_path.join(name)).map_err(|_| {
             ProductError::environment(

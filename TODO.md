@@ -365,7 +365,7 @@ Dependencies: P4.
 
 ## Phase 6 — Privacy, Secret, and Policy Filtering
 
-- [ ] P6 implementation
+- [x] P6 implementation
 - Manual qualification and publication gate: **SKIPPED**.
 
 Dependencies: P5.

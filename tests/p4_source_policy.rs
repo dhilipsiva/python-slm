@@ -39,11 +39,13 @@ fn materializes_deterministic_parser_and_rejected_outcomes() {
     );
     assert!(first.stderr.is_empty());
     let first_result: Value = serde_json::from_slice(&first.stdout).unwrap();
-    assert_eq!(first_result["schema"], "python-slm-curate-result-v2");
+    assert_eq!(first_result["schema"], "python-slm-curate-result-v3");
     assert_eq!(first_result["status"], "SOURCE_MATERIALIZED");
     assert_eq!(first_result["qualification_status"], "SKIPPED");
     assert_eq!(first_result["document_count"], 5);
     assert_eq!(first_result["parser_accepted_count"], 2);
+    assert_eq!(first_result["policy_accepted_count"], 2);
+    assert_eq!(first_result["quarantined_count"], 0);
     assert_eq!(first_result["rejected_count"], 3);
     assert_eq!(first_result["receipts_written"], false);
 
@@ -67,8 +69,9 @@ fn materializes_deterministic_parser_and_rejected_outcomes() {
     assert!(!public.contains(&fixture._root.path().display().to_string()));
     assert!(!public.contains("C:\\"));
     let manifest: Value = serde_json::from_slice(&first_manifest).unwrap();
-    assert_eq!(manifest["schema"], "python-slm-source-generation-v2");
+    assert_eq!(manifest["schema"], "python-slm-source-generation-v3");
     assert_eq!(manifest["parser_status"], "COMPLETE");
+    assert_eq!(manifest["policy_status"], "COMPLETE");
 
     let outcomes = manifest["outcomes"].as_array().unwrap();
     let source_ids = outcomes
@@ -79,7 +82,7 @@ fn materializes_deterministic_parser_and_rejected_outcomes() {
     assert_eq!(
         outcomes
             .iter()
-            .filter(|outcome| outcome["status"] == "PARSER_ACCEPTED")
+            .filter(|outcome| outcome["status"] == "POLICY_ACCEPTED")
             .count(),
         2
     );
@@ -123,7 +126,7 @@ fn materializes_deterministic_parser_and_rejected_outcomes() {
     assert_eq!(generated_documents, 2);
     for outcome in outcomes
         .iter()
-        .filter(|outcome| outcome["status"] == "PARSER_ACCEPTED")
+        .filter(|outcome| outcome["status"] == "POLICY_ACCEPTED")
     {
         let relative = outcome["content_path"].as_str().unwrap();
         assert_eq!(

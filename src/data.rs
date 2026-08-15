@@ -2,6 +2,7 @@
 
 mod policy;
 mod publication;
+mod sensitive;
 mod source;
 
 use crate::backend::PROTOTYPE_PROFILE;
@@ -17,14 +18,19 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 pub use policy::{ByteRange, ParserFacts, ParserPolicyDecision, evaluate_parser_policy};
+pub use sensitive::{
+    SENSITIVE_POLICY_ID, SENSITIVE_REGISTRY_ID, SENSITIVE_RESULT_SCHEMA, SensitivePolicyBinding,
+    SensitivePolicyRegistry, SensitivePolicyResult, evaluate_sensitive_policy,
+    policy_binding as sensitive_policy_binding, policy_registry,
+};
 pub use source::{repository_group_id, source_id};
 
-pub const IMPLEMENTATION_PHASE: &str = "P5";
+pub const IMPLEMENTATION_PHASE: &str = "P6";
 pub const CURATE_CONFIG_SCHEMA: &str = "python-slm-curate-config-v1";
 pub const SOURCE_MANIFEST_SCHEMA: &str = "python-slm-materialized-source-manifest-v1";
 pub const REMOVAL_MANIFEST_SCHEMA: &str = "python-slm-removal-manifest-v1";
-pub const GENERATION_SCHEMA: &str = "python-slm-source-generation-v2";
-pub const CURATE_RESULT_SCHEMA: &str = "python-slm-curate-result-v2";
+pub const GENERATION_SCHEMA: &str = "python-slm-source-generation-v3";
+pub const CURATE_RESULT_SCHEMA: &str = "python-slm-curate-result-v3";
 pub const ADAPTER_NAMESPACE: &str = "stack-v2-swh-materialized-v1";
 pub const AUTHORIZATION_SCHEME: &str = "materialized-source-authorization-v1";
 pub const LICENSE_POLICY: &str = "permissive-v1";
@@ -126,6 +132,8 @@ struct GenerationManifest {
     generated_marker_policy: &'static str,
     parser_status: &'static str,
     parser_bundle: ParserBundleBinding,
+    policy_status: &'static str,
+    sensitive_policy: SensitivePolicyBinding,
     removal_snapshots: Vec<RemovalSnapshotBinding>,
     outcomes: Vec<DocumentOutcome>,
 }
@@ -158,6 +166,8 @@ struct DocumentOutcome {
     provenance: Provenance,
     parser_result_path: Option<String>,
     parser_result_sha256: Option<String>,
+    policy_result_path: Option<String>,
+    policy_result_sha256: Option<String>,
     content_path: Option<String>,
 }
 
@@ -171,8 +181,11 @@ struct CurateResult {
     generation_manifest_sha256: String,
     document_count: u64,
     parser_accepted_count: u64,
+    policy_accepted_count: u64,
+    quarantined_count: u64,
     rejected_count: u64,
     parser_status: &'static str,
+    policy_status: &'static str,
     output_created: bool,
     receipts_written: bool,
 }
@@ -210,11 +223,13 @@ fn curate_windows(config_path: &Path) -> Result<Value> {
     let content_root = source::require_existing_root(&config.content_root, "CONTENT_ROOT_INVALID")?;
     source::require_output_boundary(&config.output_root, &content_root)?;
     let parser_bundle = parser_bundle_binding()?;
+    let sensitive_policy = sensitive_policy_binding()?;
     let cancellation = CancellationToken::default();
 
     let mut generation = PartialGeneration::create(&config.output_root)?;
     generation.create_documents_directory()?;
     generation.create_parser_directory()?;
+    generation.create_policy_directory()?;
     let mut outcomes = Vec::with_capacity(prepared.len());
     for document in prepared {
         outcomes.push(process_document(
@@ -248,6 +263,8 @@ fn curate_windows(config_path: &Path) -> Result<Value> {
         generated_marker_policy: GENERATED_POLICY,
         parser_status: "COMPLETE",
         parser_bundle,
+        policy_status: "COMPLETE",
+        sensitive_policy,
         removal_snapshots,
         outcomes,
     };
@@ -259,9 +276,19 @@ fn curate_windows(config_path: &Path) -> Result<Value> {
     let parser_accepted_count = manifest
         .outcomes
         .iter()
-        .filter(|outcome| outcome.status == "PARSER_ACCEPTED")
+        .filter(|outcome| outcome.policy_result_path.is_some())
         .count() as u64;
-    let rejected_count = manifest.outcomes.len() as u64 - parser_accepted_count;
+    let policy_accepted_count = manifest
+        .outcomes
+        .iter()
+        .filter(|outcome| outcome.status == "POLICY_ACCEPTED")
+        .count() as u64;
+    let quarantined_count = manifest
+        .outcomes
+        .iter()
+        .filter(|outcome| outcome.status == "QUARANTINED")
+        .count() as u64;
+    let rejected_count = manifest.outcomes.len() as u64 - policy_accepted_count - quarantined_count;
     serde_json::to_value(CurateResult {
         schema: CURATE_RESULT_SCHEMA,
         status: "SOURCE_MATERIALIZED",
@@ -270,8 +297,11 @@ fn curate_windows(config_path: &Path) -> Result<Value> {
         generation_manifest_sha256,
         document_count: manifest.outcomes.len() as u64,
         parser_accepted_count,
+        policy_accepted_count,
+        quarantined_count,
         rejected_count,
         parser_status: "COMPLETE",
+        policy_status: "COMPLETE",
         output_created: true,
         receipts_written: false,
     })
@@ -377,13 +407,28 @@ fn process_document(
         parser_result = Some(parsed.result);
     }
 
-    let status = if parser_result
+    let mut policy_result: Option<SensitivePolicyResult> = None;
+    if parser_result
         .as_ref()
         .is_some_and(|result| result.status == "PARSER_ACCEPTED")
     {
-        "PARSER_ACCEPTED"
-    } else {
-        "REJECTED"
+        let bytes = canonical.as_deref().ok_or_else(|| {
+            ProductError::internal(
+                "POLICY_CONTENT_MISSING",
+                "a policy-eligible document has no canonical bytes",
+            )
+        })?;
+        let result = evaluate_sensitive_policy(bytes, cancellation)?;
+        if let Some(reason) = result.reason {
+            reasons.push(reason);
+        }
+        policy_result = Some(result);
+    }
+
+    let status = match policy_result.as_ref().map(|result| result.status) {
+        Some("ACCEPTED") => "POLICY_ACCEPTED",
+        Some("QUARANTINED") => "QUARANTINED",
+        _ => "REJECTED",
     };
     let (parser_result_path, parser_result_sha256) = if let Some(result) = &parser_result {
         let relative = format!("parser/{}.json", prepared.source_id);
@@ -394,12 +439,21 @@ fn process_document(
     } else {
         (None, None)
     };
-    let content_path = if status == "PARSER_ACCEPTED" {
+    let (policy_result_path, policy_result_sha256) = if let Some(result) = &policy_result {
+        let relative = format!("policy/{}.json", prepared.source_id);
+        let bytes = source::compact_json_line(result, "POLICY_RESULT_SERIALIZATION_FAILED")?;
+        let hash = source::sha256(&bytes);
+        generation.write_file(Path::new(&relative), &bytes)?;
+        (Some(relative), Some(hash))
+    } else {
+        (None, None)
+    };
+    let content_path = if status == "POLICY_ACCEPTED" {
         let relative = format!("documents/{}.py", prepared.source_id);
         let bytes = canonical.as_deref().ok_or_else(|| {
             ProductError::internal(
                 "ACCEPTED_CONTENT_MISSING",
-                "a parser-accepted document has no canonical bytes",
+                "a policy-accepted document has no canonical bytes",
             )
         })?;
         generation.write_file(Path::new(&relative), bytes)?;
@@ -422,6 +476,8 @@ fn process_document(
         provenance: document.provenance.clone(),
         parser_result_path,
         parser_result_sha256,
+        policy_result_path,
+        policy_result_sha256,
         content_path,
     })
 }
