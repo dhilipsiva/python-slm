@@ -269,6 +269,7 @@ fn required_ci_is_read_only_pinned_and_runs_the_phase_contracts() {
         "permissions:\n  contents: read",
         "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
         "rustup toolchain install 1.96.0",
+        "fetch-depth: 0",
         "runs-on: windows-latest",
         "cargo run --locked -p xtask --bin xtask --offline -- quality-gate",
         "required-ci-does-not-use-self-hosted-hardware",
