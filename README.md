@@ -193,6 +193,35 @@ SLA, checkpoint, or qualification claim. The full initialization stream is a
 developer diagnostic and may take appreciably longer than the small automated
 oracle regressions.
 
+## Accelerator model backend
+
+Phase 10 implements the selected `burn-cubecl-cuda` model boundary behind the
+provider-neutral result and cancellation types. The CUDA feature contains a
+one-layer GQA transformer graph with the same P9B fixture parameters and
+semantics: BF16 parameters and activations, explicit FP32 normalization,
+attention and loss accumulation, head-local RoPE, causal GQA, SwiGLU,
+valid-target-normalized cross-entropy, autodiff, and ordered FP32 gradient
+readback.
+
+The path runs the fixture twice on one CUDA device, synchronizes at every
+forward/loss/backward/cleanup boundary, releases owned tensors before a final
+synchronization, and accepts only literal equality with P9B's logits, loss, and
+complete gradient bytes. Cancellation is monotonic and checked between each
+resource or execution stage. A mismatch, missing gradient, incomplete stage,
+cleanup failure, or repeated-execution drift fails closed.
+
+The CUDA implementation remains isolated from CPU/data builds and can be
+compile-checked without launching hardware:
+
+```powershell
+cargo check --locked --no-default-features --features cuda --offline
+```
+
+P10 is an implementation boundary with `qualification_status: "SKIPPED"`; it
+writes no receipt and makes no full-model VRAM, optimizer/resume, throughput,
+SLA, hardware-qualification, or cross-provider claim. P11 owns transfers and
+P12 owns optimizer state and exact resume.
+
 Phase 7A adds hash-bound governed-source metadata to every curation outcome. The checked-in
 default policy labels manifest-declared provenance, license, and removal facts ASSUMED;
 freshness and aggregate source status remain UNVERIFIED while external review is unavailable.

@@ -727,6 +727,36 @@ fn fixture_parameter_value(name: &str, index: usize, cursor: usize) -> f32 {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CpuOracleFixtureParameter {
+    pub name: String,
+    pub shape: Vec<usize>,
+    pub values_bf16_bits: Vec<u16>,
+}
+
+pub fn cpu_oracle_fixture_parameters() -> Vec<CpuOracleFixtureParameter> {
+    let mut cursor = 0;
+    fixture_gradient_layout()
+        .into_iter()
+        .map(|(name, shape)| {
+            let elements = shape.iter().product::<usize>();
+            let values_bf16_bits = (0..elements)
+                .map(|index| {
+                    let value = fixture_parameter_value(&name, index, cursor);
+                    cursor += 1;
+                    f32_to_bf16_bits(value)
+                })
+                .collect();
+            CpuOracleFixtureParameter {
+                name,
+                shape,
+                values_bf16_bits,
+            }
+        })
+        .collect()
+}
+
 fn add_fixture_parameter(
     tape: &mut Tape,
     parameters: &mut BTreeMap<String, FixtureParameter>,

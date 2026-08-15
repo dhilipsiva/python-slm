@@ -1,6 +1,8 @@
 use serde::Serialize;
 
+pub mod accelerator;
 pub mod oracle;
+pub use accelerator::*;
 pub use oracle::*;
 
 pub const CANONICAL_MODEL_ID: &str = "gqa-135m-v1";
