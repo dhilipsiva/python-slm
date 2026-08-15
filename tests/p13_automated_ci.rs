@@ -271,7 +271,14 @@ fn required_ci_is_read_only_pinned_and_runs_the_phase_contracts() {
         "rustup toolchain install 1.96.0",
         "fetch-depth: 0",
         "runs-on: windows-latest",
-        "cargo run --locked -p xtask --bin xtask --offline -- quality-gate",
+        "cargo fmt --all -- --check",
+        "cargo clippy --locked --workspace --all-targets --offline -- -D warnings",
+        "live_xtask_runtime_and_build_closure_is_zero_python_and_native_link_free",
+        "cargo test --locked --features cpu-reference --offline",
+        "cargo check --locked --no-default-features --offline",
+        "cargo test --locked -p xtask --features p2-cuda --no-run --offline",
+        "cargo check --locked --no-default-features --features cuda --offline",
+        "git status --porcelain=v1 --untracked-files=all",
         "required-ci-does-not-use-self-hosted-hardware",
     ] {
         assert!(

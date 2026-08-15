@@ -29,8 +29,26 @@ jobs:
         run: rustup default 1.96.0
       - name: Fetch the locked dependency graph
         run: cargo fetch --locked
-      - name: Run the non-publishing Windows quality gate
-        run: cargo run --locked -p xtask --bin xtask --offline -- quality-gate
+      - name: Verify formatting
+        run: cargo fmt --all -- --check
+      - name: Reject warnings across the Windows workspace
+        run: cargo clippy --locked --workspace --all-targets --offline -- -D warnings
+      - name: Prove the active xtask closure remains zero-Python
+        run: cargo test --locked -p xtask --offline live_xtask_runtime_and_build_closure_is_zero_python_and_native_link_free
+      - name: Run exact-gradient, loader-cleanup, resume, and synthetic end-to-end tests
+        run: cargo test --locked --features cpu-reference --offline
+      - name: Compile the dependency-minimal product
+        run: cargo check --locked --no-default-features --offline
+      - name: Compile the P2 CUDA xtask surface without launching hardware
+        run: cargo test --locked -p xtask --features p2-cuda --no-run --offline
+      - name: Compile the product CUDA surface without launching hardware
+        run: cargo check --locked --no-default-features --features cuda --offline
+      - name: Require repository stability
+        shell: pwsh
+        run: |
+          $changes = @(git status --porcelain=v1 --untracked-files=all)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($changes.Count -ne 0) { throw "automated CI changed the repository" }
 
   cuda-hardware-status:
     name: Windows/CUDA hardware (UNVERIFIED)
