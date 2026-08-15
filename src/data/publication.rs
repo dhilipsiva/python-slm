@@ -58,10 +58,18 @@ impl PartialGeneration {
     }
 
     pub(crate) fn create_documents_directory(&mut self) -> Result<()> {
-        fs::create_dir(self.partial_path.join("documents")).map_err(|_| {
+        self.create_directory("documents")
+    }
+
+    pub(crate) fn create_parser_directory(&mut self) -> Result<()> {
+        self.create_directory("parser")
+    }
+
+    fn create_directory(&mut self, name: &str) -> Result<()> {
+        fs::create_dir(self.partial_path.join(name)).map_err(|_| {
             ProductError::environment(
                 "OUTPUT_DIRECTORY_CREATE_FAILED",
-                "could not create the document output directory",
+                "could not create an output generation directory",
             )
         })
     }

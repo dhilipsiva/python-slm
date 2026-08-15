@@ -1,5 +1,6 @@
 use super::{MAX_CANONICAL_BYTES, MIN_CANONICAL_BYTES};
 use crate::error::{ProductError, Result};
+use serde::Serialize;
 use std::collections::BTreeSet;
 
 pub(crate) const UTF8_BOM: &[u8] = b"\xEF\xBB\xBF";
@@ -34,7 +35,8 @@ pub struct ParserFacts {
     pub comment_ranges: Vec<ByteRange>,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct ByteRange {
     pub start: usize,
     pub end: usize,

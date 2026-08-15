@@ -353,7 +353,7 @@ Dependencies: P3.
 
 ## Phase 5 — Pinned Python Parser Boundary
 
-- [ ] P5 implementation
+- [x] P5 implementation
 - Manual qualification and publication gate: **SKIPPED**.
 
 Dependencies: P4.

@@ -44,13 +44,19 @@ root or another ignored location; it is not a qualification receipt.
 P4 output has not passed the P6 sensitive-data boundary: keep it access-restricted and
 never publish it as a safe corpus.
 
-A successful command emits one compact `python-slm-curate-result-v1` object and installs
-an immutable `python-slm-source-generation-v1` generation. Byte-valid, licensed,
-provenance-complete, non-removed documents are deliberately labeled `PARSER_PENDING`.
-Phase 5 supplies pinned Tree-sitter facts and activates the exact syntax, comment-ratio,
-and generated-marker decision. Phase 4 never reports parser or full-policy acceptance.
-Live Stack-v2/Software Heritage acquisition, sensitive-data filtering, and deduplication
-remain outside this command.
+A successful command emits one compact `python-slm-curate-result-v2` object and installs
+an immutable `python-slm-source-generation-v2` generation. The in-process Rust boundary
+uses exactly `tree-sitter 0.25.8` and `tree-sitter-python 0.25.0`; its checked-in identity
+manifest binds the locked packages, generated parser/scanner sources, runtime sources,
+language ABI, frozen compatibility corpus, and canonical bundle hash. Complete Python 3
+modules are evaluated with parser-derived comment ranges against the existing
+comment-ratio and `generated-v1` rules. Outcomes are `PARSER_ACCEPTED` or `REJECTED`, and
+canonical `.py` bytes are stored only for accepted documents. No Python executable,
+generator, subprocess, or second parser is used.
+
+`PARSER_ACCEPTED` is only the P5 syntax and comment-policy decision. It does not claim P6
+sensitive-data safety, exact/near deduplication, decontamination, or downstream corpus
+acceptance. Live Stack-v2/Software Heritage acquisition also remains outside this command.
 
 ## Automated quality gate
 

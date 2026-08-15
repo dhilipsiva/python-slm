@@ -4431,6 +4431,7 @@ name = "rust-llm-pretrain"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64 0.22.1",
  "burn",
  "clap",
  "half",
@@ -4439,6 +4440,8 @@ dependencies = [
  "serde_json",
  "sha2",
  "tempfile",
+ "tree-sitter",
+ "tree-sitter-python",
  "windows-sys 0.61.2",
 ]
 

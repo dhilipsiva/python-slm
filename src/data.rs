@@ -6,6 +6,9 @@ mod source;
 
 use crate::backend::PROTOTYPE_PROFILE;
 use crate::error::{ProductError, Result};
+use crate::parser::{
+    CancellationToken, ParserBundleBinding, PythonParserResult, parse_python, parser_bundle_binding,
+};
 use publication::PartialGeneration;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -16,12 +19,12 @@ use std::path::{Path, PathBuf};
 pub use policy::{ByteRange, ParserFacts, ParserPolicyDecision, evaluate_parser_policy};
 pub use source::{repository_group_id, source_id};
 
-pub const IMPLEMENTATION_PHASE: &str = "P4";
+pub const IMPLEMENTATION_PHASE: &str = "P5";
 pub const CURATE_CONFIG_SCHEMA: &str = "python-slm-curate-config-v1";
 pub const SOURCE_MANIFEST_SCHEMA: &str = "python-slm-materialized-source-manifest-v1";
 pub const REMOVAL_MANIFEST_SCHEMA: &str = "python-slm-removal-manifest-v1";
-pub const GENERATION_SCHEMA: &str = "python-slm-source-generation-v1";
-pub const CURATE_RESULT_SCHEMA: &str = "python-slm-curate-result-v1";
+pub const GENERATION_SCHEMA: &str = "python-slm-source-generation-v2";
+pub const CURATE_RESULT_SCHEMA: &str = "python-slm-curate-result-v2";
 pub const ADAPTER_NAMESPACE: &str = "stack-v2-swh-materialized-v1";
 pub const AUTHORIZATION_SCHEME: &str = "materialized-source-authorization-v1";
 pub const LICENSE_POLICY: &str = "permissive-v1";
@@ -122,6 +125,7 @@ struct GenerationManifest {
     license_policy: &'static str,
     generated_marker_policy: &'static str,
     parser_status: &'static str,
+    parser_bundle: ParserBundleBinding,
     removal_snapshots: Vec<RemovalSnapshotBinding>,
     outcomes: Vec<DocumentOutcome>,
 }
@@ -152,6 +156,8 @@ struct DocumentOutcome {
     bom_removed: bool,
     license_expression: String,
     provenance: Provenance,
+    parser_result_path: Option<String>,
+    parser_result_sha256: Option<String>,
     content_path: Option<String>,
 }
 
@@ -164,8 +170,9 @@ struct CurateResult {
     profile: &'static str,
     generation_manifest_sha256: String,
     document_count: u64,
-    parser_pending_count: u64,
+    parser_accepted_count: u64,
     rejected_count: u64,
+    parser_status: &'static str,
     output_created: bool,
     receipts_written: bool,
 }
@@ -202,15 +209,19 @@ fn curate_windows(config_path: &Path) -> Result<Value> {
     let prepared = source::prepare_documents(&source_manifest)?;
     let content_root = source::require_existing_root(&config.content_root, "CONTENT_ROOT_INVALID")?;
     source::require_output_boundary(&config.output_root, &content_root)?;
+    let parser_bundle = parser_bundle_binding()?;
+    let cancellation = CancellationToken::default();
 
     let mut generation = PartialGeneration::create(&config.output_root)?;
     generation.create_documents_directory()?;
+    generation.create_parser_directory()?;
     let mut outcomes = Vec::with_capacity(prepared.len());
     for document in prepared {
         outcomes.push(process_document(
             &document,
             &content_root,
             &removals,
+            &cancellation,
             &mut generation,
         )?);
     }
@@ -235,7 +246,8 @@ fn curate_windows(config_path: &Path) -> Result<Value> {
         authorization: source_manifest.authorization,
         license_policy: LICENSE_POLICY,
         generated_marker_policy: GENERATED_POLICY,
-        parser_status: "PENDING_P5",
+        parser_status: "COMPLETE",
+        parser_bundle,
         removal_snapshots,
         outcomes,
     };
@@ -244,12 +256,12 @@ fn curate_windows(config_path: &Path) -> Result<Value> {
     generation.write_file(Path::new("manifest.json"), &manifest_bytes)?;
     generation.publish()?;
 
-    let parser_pending_count = manifest
+    let parser_accepted_count = manifest
         .outcomes
         .iter()
-        .filter(|outcome| outcome.status == "PARSER_PENDING")
+        .filter(|outcome| outcome.status == "PARSER_ACCEPTED")
         .count() as u64;
-    let rejected_count = manifest.outcomes.len() as u64 - parser_pending_count;
+    let rejected_count = manifest.outcomes.len() as u64 - parser_accepted_count;
     serde_json::to_value(CurateResult {
         schema: CURATE_RESULT_SCHEMA,
         status: "SOURCE_MATERIALIZED",
@@ -257,8 +269,9 @@ fn curate_windows(config_path: &Path) -> Result<Value> {
         profile: PROTOTYPE_PROFILE,
         generation_manifest_sha256,
         document_count: manifest.outcomes.len() as u64,
-        parser_pending_count,
+        parser_accepted_count,
         rejected_count,
+        parser_status: "COMPLETE",
         output_created: true,
         receipts_written: false,
     })
@@ -274,6 +287,7 @@ fn process_document(
     prepared: &PreparedDocument,
     content_root: &Path,
     removals: &BTreeMap<String, SelectedRemovalSnapshot>,
+    cancellation: &CancellationToken,
     generation: &mut PartialGeneration,
 ) -> Result<DocumentOutcome> {
     let document = &prepared.document;
@@ -338,17 +352,54 @@ fn process_document(
         }
     }
 
-    let status = if reasons.is_empty() {
-        "PARSER_PENDING"
+    let mut parser_result: Option<PythonParserResult> = None;
+    if reasons.is_empty() {
+        let bytes = canonical.as_deref().ok_or_else(|| {
+            ProductError::internal(
+                "PARSER_CONTENT_MISSING",
+                "a parser-eligible document has no canonical bytes",
+            )
+        })?;
+        let mut parsed = parse_python(bytes, cancellation)?;
+        if parsed.result.status == "PARSER_ACCEPTED" {
+            let facts = ParserFacts {
+                dialect_accepted: true,
+                comment_ranges: parsed.result.comment_ranges.clone(),
+            };
+            match evaluate_parser_policy(bytes, &facts)? {
+                ParserPolicyDecision::Accepted => parsed.result.apply_policy(true, None),
+                ParserPolicyDecision::Rejected(reason) => {
+                    parsed.result.apply_policy(false, Some(reason));
+                }
+            }
+        }
+        reasons.extend(parsed.result.reasons.iter().copied());
+        parser_result = Some(parsed.result);
+    }
+
+    let status = if parser_result
+        .as_ref()
+        .is_some_and(|result| result.status == "PARSER_ACCEPTED")
+    {
+        "PARSER_ACCEPTED"
     } else {
         "REJECTED"
     };
-    let content_path = if status == "PARSER_PENDING" {
+    let (parser_result_path, parser_result_sha256) = if let Some(result) = &parser_result {
+        let relative = format!("parser/{}.json", prepared.source_id);
+        let bytes = source::compact_json_line(result, "PARSER_RESULT_SERIALIZATION_FAILED")?;
+        let hash = source::sha256(&bytes);
+        generation.write_file(Path::new(&relative), &bytes)?;
+        (Some(relative), Some(hash))
+    } else {
+        (None, None)
+    };
+    let content_path = if status == "PARSER_ACCEPTED" {
         let relative = format!("documents/{}.py", prepared.source_id);
         let bytes = canonical.as_deref().ok_or_else(|| {
             ProductError::internal(
-                "PENDING_CONTENT_MISSING",
-                "a parser-pending document has no canonical bytes",
+                "ACCEPTED_CONTENT_MISSING",
+                "a parser-accepted document has no canonical bytes",
             )
         })?;
         generation.write_file(Path::new(&relative), bytes)?;
@@ -369,6 +420,8 @@ fn process_document(
         bom_removed,
         license_expression: document.license_expression.clone(),
         provenance: document.provenance.clone(),
+        parser_result_path,
+        parser_result_sha256,
         content_path,
     })
 }

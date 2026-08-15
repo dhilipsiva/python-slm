@@ -28,7 +28,7 @@ struct Fixture {
 }
 
 #[test]
-fn materializes_deterministic_pending_and_rejected_outcomes() {
+fn materializes_deterministic_parser_and_rejected_outcomes() {
     let fixture = build_fixture();
 
     let first = run_curate(&fixture.first_config);
@@ -39,11 +39,11 @@ fn materializes_deterministic_pending_and_rejected_outcomes() {
     );
     assert!(first.stderr.is_empty());
     let first_result: Value = serde_json::from_slice(&first.stdout).unwrap();
-    assert_eq!(first_result["schema"], "python-slm-curate-result-v1");
+    assert_eq!(first_result["schema"], "python-slm-curate-result-v2");
     assert_eq!(first_result["status"], "SOURCE_MATERIALIZED");
     assert_eq!(first_result["qualification_status"], "SKIPPED");
     assert_eq!(first_result["document_count"], 5);
-    assert_eq!(first_result["parser_pending_count"], 2);
+    assert_eq!(first_result["parser_accepted_count"], 2);
     assert_eq!(first_result["rejected_count"], 3);
     assert_eq!(first_result["receipts_written"], false);
 
@@ -67,8 +67,8 @@ fn materializes_deterministic_pending_and_rejected_outcomes() {
     assert!(!public.contains(&fixture._root.path().display().to_string()));
     assert!(!public.contains("C:\\"));
     let manifest: Value = serde_json::from_slice(&first_manifest).unwrap();
-    assert_eq!(manifest["schema"], "python-slm-source-generation-v1");
-    assert_eq!(manifest["parser_status"], "PENDING_P5");
+    assert_eq!(manifest["schema"], "python-slm-source-generation-v2");
+    assert_eq!(manifest["parser_status"], "COMPLETE");
 
     let outcomes = manifest["outcomes"].as_array().unwrap();
     let source_ids = outcomes
@@ -79,7 +79,7 @@ fn materializes_deterministic_pending_and_rejected_outcomes() {
     assert_eq!(
         outcomes
             .iter()
-            .filter(|outcome| outcome["status"] == "PARSER_PENDING")
+            .filter(|outcome| outcome["status"] == "PARSER_ACCEPTED")
             .count(),
         2
     );
@@ -123,7 +123,7 @@ fn materializes_deterministic_pending_and_rejected_outcomes() {
     assert_eq!(generated_documents, 2);
     for outcome in outcomes
         .iter()
-        .filter(|outcome| outcome["status"] == "PARSER_PENDING")
+        .filter(|outcome| outcome["status"] == "PARSER_ACCEPTED")
     {
         let relative = outcome["content_path"].as_str().unwrap();
         assert_eq!(
@@ -187,7 +187,7 @@ fn newest_removal_snapshot_is_selected_and_missing_authority_is_fatal() {
         String::from_utf8_lossy(&ordered.stderr)
     );
     let result: Value = serde_json::from_slice(&ordered.stdout).unwrap();
-    assert_eq!(result["parser_pending_count"], 2);
+    assert_eq!(result["parser_accepted_count"], 2);
     let manifest: Value =
         serde_json::from_slice(&fs::read(output.join("manifest.json")).unwrap()).unwrap();
     assert_eq!(
