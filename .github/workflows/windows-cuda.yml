@@ -27,12 +27,12 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Reject hardware execution outside main
-        if: inputs.run_hardware && github.ref != 'refs/heads/main'
+        if: ${{ inputs.run_hardware == true && github.ref != 'refs/heads/main' }}
         run: |
           echo 'Hardware diagnostics are permitted only from refs/heads/main.' >&2
           exit 1
       - name: Report unavailable or unrequested hardware honestly
-        if: ${{ !inputs.run_hardware }}
+        if: ${{ inputs.run_hardware == false }}
         run: |
           echo '{"schema":"python-slm-p13-cuda-ci-status-v1","status":"UNVERIFIED","qualification_status":"SKIPPED","reason":"compatible-self-hosted-runner-not-requested"}'
           {
@@ -43,7 +43,7 @@ jobs:
   windows-cuda:
     name: Windows RTX 5090 diagnostics
     needs: request-policy
-    if: inputs.run_hardware && github.ref == 'refs/heads/main'
+    if: ${{ inputs.run_hardware == true && github.ref == 'refs/heads/main' }}
     runs-on: [self-hosted, Windows, X64, cuda, rtx-5090]
     timeout-minutes: 120
     env:

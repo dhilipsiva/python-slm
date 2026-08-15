@@ -286,11 +286,12 @@ qualification, throughput, SLA admission, final model quality, or P16/P16A accep
 ## Automated CPU and optional Windows/CUDA CI
 
 Phase 13 adds required hosted CI in [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
-The Linux lane runs formatting, warning-free Clippy, the zero-Python xtask closure, the complete
-CPU-reference suite, and the dependency-minimal product check. The Windows lane runs the
-non-publishing quality gate, including the P2 and product CUDA compile boundaries. The P13
-synthetic test carries ordered P11 spans through bounded transfer, P12 training, create-new
-checkpoint publication, restore, and byte-identical continuation.
+The required Windows lane runs the non-publishing quality gate: formatting, warning-free Clippy,
+the zero-Python xtask closure, the complete CPU-reference suite, the dependency-minimal product
+check, and the P2/product CUDA compile boundaries. The prototype remains Windows-only before
+P16, so P13 does not fabricate a Linux product lane. The P13 synthetic test carries ordered P11
+spans through bounded transfer, P12 training, create-new checkpoint publication, restore, and
+byte-identical continuation.
 
 Actual CUDA execution is isolated in
 [`windows-cuda.yml`](.github/workflows/windows-cuda.yml). Required CI reports the hardware lane
