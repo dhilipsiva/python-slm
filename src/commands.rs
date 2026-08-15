@@ -53,6 +53,8 @@ enum Command {
     Bench {
         #[arg(long)]
         config: PathBuf,
+        #[arg(long)]
+        diagnostics: Option<PathBuf>,
     },
     /// Run canonical training. Implemented by the training phases.
     Train {
@@ -105,7 +107,10 @@ pub fn run(args: impl IntoIterator<Item = OsString>) -> Result<Value> {
         Command::PrepareCorpus { config } => crate::corpus::prepare(&config),
         Command::PlanSpans { config } => crate::corpus::plan_spans(&config),
         Command::Inspect { config } => deferred("future artifact phase", "inspect", config),
-        Command::Bench { config } => deferred("performance phase", "bench", config),
+        Command::Bench {
+            config,
+            diagnostics,
+        } => crate::train::profile::profile(&config, diagnostics.as_deref()),
         Command::Train { config } => deferred("training phase", "train", config),
     }
 }
@@ -138,7 +143,7 @@ mod tests {
 
     #[test]
     fn every_future_command_fails_with_the_same_typed_gate() {
-        for command in ["inspect", "bench", "train"] {
+        for command in ["inspect", "train"] {
             let error = run([
                 "python-slm".into(),
                 command.into(),
@@ -149,6 +154,27 @@ mod tests {
             assert_eq!(error.code, "PHASE_NOT_IMPLEMENTED");
             assert_eq!(error.exit_code(), 5);
         }
+    }
+
+    #[test]
+    fn bench_is_the_non_publishing_p14_profile_boundary() {
+        let arguments = Arguments::try_parse_from([
+            "python-slm",
+            "bench",
+            "--config",
+            "defaults.json",
+            "--diagnostics",
+            "diagnostics.json",
+        ])
+        .unwrap();
+        assert!(matches!(
+            arguments.command,
+            Command::Bench {
+                config,
+                diagnostics: Some(diagnostics)
+            } if config.as_path() == std::path::Path::new("defaults.json")
+                && diagnostics.as_path() == std::path::Path::new("diagnostics.json")
+        ));
     }
 
     #[cfg(windows)]

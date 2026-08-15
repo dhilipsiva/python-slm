@@ -492,7 +492,7 @@ Dependencies: P12.
 
 ## Phase 14 — Prototype Profiling and Default Configuration
 
-- [ ] P14 implementation
+- [x] P14 implementation
 - Manual calibration, qualification, and publication gate: **SKIPPED**.
 
 Dependencies: P10–P13.

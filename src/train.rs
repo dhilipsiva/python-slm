@@ -11,12 +11,20 @@ use std::sync::{
 pub const IMPLEMENTATION_PHASE: &str = "P12";
 
 pub mod checkpoint;
+pub mod profile;
 pub mod trainer;
 
 pub use checkpoint::{
     CheckpointArtifactRef, CheckpointManifestV1, PublishedCheckpoint, load_checkpoint,
     prune_checkpoints, publish_checkpoint,
 };
+pub use profile::{
+    ACTUAL_ELAPSED_LIMIT_NS, ADMISSION_SECONDS, COMPLETION_SLA_SECONDS, DEFAULT_CONFIG_BYTES,
+    DEFAULT_CONFIG_SCHEMA, DIAGNOSTICS_SCHEMA, ProfileDiagnosticsV1, ProfileObservationV1,
+    ProfileResultV1, PrototypeTrainingDefaultsV1, RESULT_SCHEMA, build_result,
+    parse_default_configuration, parse_diagnostics,
+};
+
 pub use trainer::{
     AdamwParameterState, BackendStateArtifact, BatchGradient, CanonicalAdamw,
     CanonicalTrainingPlan, DeterministicTrainer, EvaluationResult, TrainerBackend, TrainerIdentity,

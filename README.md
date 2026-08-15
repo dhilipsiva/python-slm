@@ -313,6 +313,32 @@ state. `DIAGNOSTIC_OK` still means only that automated diagnostics ran; absent h
 `UNVERIFIED`, and neither state is host qualification, performance admission, full-run evidence,
 or a publication receipt.
 
+## Prototype defaults and optional profiling diagnostics
+
+Phase 14 freezes one explicit `prototype-windows-5090-v1` training configuration in
+[`src/train/prototype-windows-5090-v1.defaults.json`](src/train/prototype-windows-5090-v1.defaults.json).
+It uses 16 sequences of 2,048 targets per micro-batch and two accumulation steps for the immutable
+65,536-target optimizer update. The host loader buffers 32 spans, the CUDA page-locked transfer
+ring permits eight in-flight spans, and `burn-cubecl-cuda` is selected explicitly. Evaluation and
+completed-boundary checkpoint events remain every 100,000,000 targets; retention keeps the latest
+two generations plus the frozen 500M, 1B, 1.5B, and 2B anchors.
+
+Inspect the closed defaults through the non-publishing benchmark boundary:
+
+```powershell
+$config = (Resolve-Path src/train/prototype-windows-5090-v1.defaults.json).Path
+cargo run --locked --offline --bin python-slm -- bench --config $config
+```
+
+The command emits one `python-slm-prototype-profile-result-v1` object and writes no artifact.
+An optional `--diagnostics <absolute-path>` accepts sorted, configuration-hash-bound synchronized
+observations. Their integer throughput and memory summaries remain `OBSERVED_UNVERIFIED`; they do
+not retune the configuration, correctness constants, 25,920-second admission target, or
+28,800-second completion SLA. With no observation file, diagnostics are `UNAVAILABLE`. In both
+cases qualification is `SKIPPED`, performance is `UNVERIFIED`, and no hardware, admission,
+full-run, or SLA claim is made. Non-Windows execution returns `DEFERRED_POST_P16` before reading
+configuration bytes.
+
 Phase 7A adds hash-bound governed-source metadata to every curation outcome. The checked-in
 default policy labels manifest-declared provenance, license, and removal facts ASSUMED;
 freshness and aggregate source status remain UNVERIFIED while external review is unavailable.

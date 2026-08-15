@@ -1,0 +1,46 @@
+{
+  "schema": "python-slm-prototype-training-defaults-v1",
+  "profile": "prototype-windows-5090-v1",
+  "support_level": "implemented",
+  "qualification_status": "SKIPPED",
+  "model_identity": "gqa-135m-v1",
+  "batch": {
+    "sequence_targets": 2048,
+    "micro_batch_sequences": 16,
+    "micro_batch_targets": 32768,
+    "gradient_accumulation_steps": 2,
+    "optimizer_update_targets": 65536
+  },
+  "loader": {
+    "host_buffer_spans": 32,
+    "maximum_in_flight_transfers": 8,
+    "transfer_memory": "cuda-page-locked",
+    "preserve_span_order": true
+  },
+  "checkpoint": {
+    "interval_targets": 100000000,
+    "completed_update_boundary_only": true,
+    "retain_latest": 2,
+    "retention_anchors": [500000000, 1000000000, 1500000000, 2000000000]
+  },
+  "evaluation": {
+    "before_first_update": true,
+    "interval_targets": 100000000,
+    "evaluated_targets": 1000000,
+    "mutate_training_state": false
+  },
+  "backend": {
+    "provider": "cuda",
+    "backend": "burn-cubecl-cuda",
+    "selection": "explicit",
+    "parameter_and_activation_storage": "bf16",
+    "sensitive_accumulation": "fp32",
+    "compatibility_allocation_bytes": 2952790016
+  },
+  "sla": {
+    "admission_seconds": 25920,
+    "completion_seconds": 28800,
+    "actual_elapsed_limit_ns": 28800000000000,
+    "claim_status": "DESIGN_TARGET_UNVERIFIED"
+  }
+}
