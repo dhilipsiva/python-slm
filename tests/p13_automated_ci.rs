@@ -293,6 +293,7 @@ fn cuda_lane_defaults_to_unverified_and_cannot_run_untrusted_pr_code() {
         "github.ref == 'refs/heads/main'",
         "runs-on: [self-hosted, Windows, X64, cuda, rtx-5090]",
         "persist-credentials: false",
+        "RUNNER_TEMP",
         "probe-cuda",
         "select-backend",
         "qualification_status\":\"SKIPPED",
@@ -308,4 +309,5 @@ fn cuda_lane_defaults_to_unverified_and_cannot_run_untrusted_pr_code() {
     assert!(!CUDA_WORKFLOW.contains("continue-on-error"));
     assert!(!CUDA_WORKFLOW.contains("docs/receipts"));
     assert!(!CUDA_WORKFLOW.contains("secrets."));
+    assert!(!CUDA_WORKFLOW.contains("${{ runner.temp }}"));
 }

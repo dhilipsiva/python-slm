@@ -47,10 +47,17 @@ jobs:
     runs-on: [self-hosted, Windows, X64, cuda, rtx-5090]
     timeout-minutes: 120
     env:
-      CARGO_HOME: ${{ runner.temp }}\python-slm-p13-cargo-${{ github.run_id }}-${{ github.run_attempt }}
-      CARGO_TARGET_DIR: ${{ runner.temp }}\python-slm-p13-target-${{ github.run_id }}-${{ github.run_attempt }}
       P13_DEVICE_UUID: ${{ inputs.device_uuid }}
     steps:
+      - name: Define owned ephemeral Cargo paths
+        shell: pwsh
+        run: |
+          $suffix = "$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          $cargoHome = Join-Path $env:RUNNER_TEMP "python-slm-p13-cargo-$suffix"
+          $target = Join-Path $env:RUNNER_TEMP "python-slm-p13-target-$suffix"
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "CARGO_HOME=$cargoHome"
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "CARGO_TARGET_DIR=$target"
+          Write-Output 'Owned ephemeral paths are bound under RUNNER_TEMP.'
       - name: Check out main without persisted credentials
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
