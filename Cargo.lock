@@ -6610,6 +6610,7 @@ dependencies = [
  "clap",
  "hex",
  "regex",
+ "rust-llm-pretrain",
  "serde",
  "serde_json",
  "sha2",

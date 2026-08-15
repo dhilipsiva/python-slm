@@ -1,5 +1,5 @@
 use crate::error::{Category, Result, XtaskError};
-use crate::{p0, p0a, p1a, p1b};
+use crate::{p0, p0a, p1a, p1b, p2};
 use clap::{Parser, Subcommand};
 use serde_json::{Value, json};
 use std::ffi::OsString;
@@ -39,6 +39,24 @@ enum Command {
         vs_instance_id: Option<String>,
         #[arg(long)]
         device_uuid: Option<String>,
+    },
+    /// Select and exercise the implemented provider-neutral backend candidate.
+    SelectBackend {
+        #[arg(long, default_value = "cuda")]
+        provider: String,
+        #[arg(long, default_value = "auto")]
+        backend: String,
+        #[arg(long)]
+        cuda_root: Option<PathBuf>,
+        #[arg(long)]
+        vs_instance_id: Option<String>,
+        #[arg(long)]
+        device_uuid: Option<String>,
+    },
+    #[command(hide = true)]
+    P2CudaCandidate {
+        #[arg(long)]
+        device_uuid: String,
     },
     /// Qualify an implemented host or accelerator environment profile.
     VerifyEnv {
@@ -122,6 +140,20 @@ pub fn run(args: impl IntoIterator<Item = OsString>) -> Result<Value> {
             vs_instance_id,
             device_uuid,
         }),
+        Command::SelectBackend {
+            provider,
+            backend,
+            cuda_root,
+            vs_instance_id,
+            device_uuid,
+        } => p2::select_backend(p2::SelectionOptions {
+            provider,
+            backend,
+            cuda_root,
+            vs_instance_id,
+            device_uuid,
+        }),
+        Command::P2CudaCandidate { device_uuid } => p2::candidate_child(&device_uuid),
         Command::VerifyEnv {
             mode,
             profile,
@@ -196,6 +228,27 @@ mod tests {
                 );
             }
             _ => panic!("probe-cuda parsed as the wrong command"),
+        }
+    }
+
+    #[test]
+    fn select_backend_cli_defaults_are_closed() {
+        let parsed = Arguments::try_parse_from(["xtask", "select-backend"]).unwrap();
+        match parsed.command {
+            Command::SelectBackend {
+                provider,
+                backend,
+                cuda_root,
+                vs_instance_id,
+                device_uuid,
+            } => {
+                assert_eq!(provider, "cuda");
+                assert_eq!(backend, "auto");
+                assert!(cuda_root.is_none());
+                assert!(vs_instance_id.is_none());
+                assert!(device_uuid.is_none());
+            }
+            _ => panic!("select-backend parsed as the wrong command"),
         }
     }
 

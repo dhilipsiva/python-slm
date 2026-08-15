@@ -898,6 +898,7 @@ mod windows {
                 ));
             }
         }
+        validate_policy_environment(command.policy, &command.environment)?;
         validate_qualified_persistent_file_count(command)?;
         for file in &command.qualified_persistent_files {
             if !file.path.is_absolute()
@@ -914,6 +915,25 @@ mod windows {
         Ok(())
     }
 
+    fn validate_policy_environment(
+        policy: ProcessPolicy,
+        environment: &BTreeMap<String, Option<OsString>>,
+    ) -> Result<()> {
+        let cuda_only = [
+            "CUDA_VISIBLE_DEVICES",
+            "CUDA_CACHE_PATH",
+            "CUDA_CACHE_DISABLE",
+        ];
+        if policy != ProcessPolicy::CudaProbe
+            && cuda_only.iter().any(|key| environment.contains_key(*key))
+        {
+            return Err(XtaskError::integrity(
+                "P1A_COMMAND_ENVIRONMENT_OVERRIDE_FORBIDDEN",
+                "CUDA selection and cache overrides are permitted only by the CUDA process policy",
+            ));
+        }
+        Ok(())
+    }
     fn validate_qualified_persistent_file_count(command: &DirectCommand) -> Result<()> {
         let expected = match command.policy {
             ProcessPolicy::HostOnly => usize::from(is_vswhere_command(command)),
@@ -970,6 +990,7 @@ mod windows {
     }
 
     fn bind_qualified_persistent_files(command: &DirectCommand) -> Result<Vec<BoundFile>> {
+        validate_policy_environment(command.policy, &command.environment)?;
         validate_qualified_persistent_file_count(command)?;
         let program_parent = command.program.parent().ok_or_else(|| {
             XtaskError::integrity("P1A_COMMAND_PROGRAM_INVALID", "program has no parent")
@@ -3280,6 +3301,9 @@ mod windows {
                     | "CARGO_BUILD_RUSTC_WRAPPER"
                     | "CUDA_PATH"
                     | "CUDA_HOME"
+                    | "CUDA_VISIBLE_DEVICES"
+                    | "CUDA_CACHE_PATH"
+                    | "CUDA_CACHE_DISABLE"
                     | "CUDNN_PATH"
                     | "HIP_PATH"
                     | "ROCM_PATH"
@@ -3458,6 +3482,17 @@ mod windows {
             assert!(override_environment_key_allowed("RUSTDOC"));
             assert!(override_environment_key_allowed("RUSTUP_TOOLCHAIN"));
             assert!(!override_environment_key_allowed("UNREVIEWED_BUILD_FLAG"));
+            let cuda_environment = BTreeMap::from([(
+                "CUDA_VISIBLE_DEVICES".to_owned(),
+                Some(OsString::from("GPU-00000000-0000-0000-0000-000000000001")),
+            )]);
+            assert_eq!(
+                validate_policy_environment(ProcessPolicy::HostOnly, &cuda_environment)
+                    .unwrap_err()
+                    .code,
+                "P1A_COMMAND_ENVIRONMENT_OVERRIDE_FORBIDDEN"
+            );
+            validate_policy_environment(ProcessPolicy::CudaProbe, &cuda_environment).unwrap();
 
             let removals = [
                 "GIT_NO_REPLACE_OBJECTS",

@@ -74,6 +74,35 @@ removes it on success and failure, and never creates a qualification receipt, ap
 acceptance, pointer, output root, or repository artifact. A live invocation is optional
 diagnostic execution; automated tests complete P1B without a manual hardware step.
 
+## Non-publishing backend selection
+
+Phase 2 installs a provider-neutral selection boundary with one implemented production
+candidate, `burn-cubecl-cuda`. The developer command compiles the CUDA candidate only when
+the `p2-cuda` feature is requested:
+
+~~~powershell
+cargo run --locked -p xtask --features p2-cuda --bin xtask -- select-backend
+~~~
+
+The defaults are `--provider cuda --backend auto` for
+`prototype-windows-5090-v1`. The same fail-closed P1B overrides are supported:
+
+~~~powershell
+cargo run --locked -p xtask --features p2-cuda --bin xtask -- select-backend --backend burn-cubecl-cuda --cuda-root 'C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v13.1' --vs-instance-id '<vswhere-instance-id>' --device-uuid 'GPU-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+~~~
+
+Selection first runs the typed P1B diagnostic, then executes the Burn/CubeCL fixture in a
+fresh timeout-bound contained child pinned to the exact selected GPU UUID. It checks exact
+BF16/FP32 forward values, exact serialized FP32 gradient bytes, the fixed
+2,952,790,016-byte touched allocation, synchronization, sentinels, and owned-resource
+cleanup. `auto` selects only the sole compiled, implemented, passing candidate; explicit
+selection never falls back. ROCm and Metal remain `DEFERRED_POST_P16`.
+
+Success writes one closed `python-slm-p2-backend-selection-result-v1` JSON object to
+stdout with `qualification_status: "SKIPPED"`. It writes no receipt, approval, acceptance,
+pointer, selection file, or repository artifact. This is primitive backend correctness,
+not hardware qualification, performance, model/checkpoint parity, or a full-run claim.
+A live invocation is optional and is not an implementation gate.
 ## Windows build
 
 Use an **x64 Developer PowerShell for Visual Studio 2022**, Rust's MSVC target,

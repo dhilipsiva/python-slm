@@ -20,11 +20,60 @@ pub(crate) struct ProbeOptions {
 #[derive(Clone, Debug)]
 pub(crate) struct ProbeReport {
     value: Value,
+    #[cfg(feature = "p2-cuda")]
+    cuda_root: PathBuf,
 }
 
 impl ProbeReport {
     pub(crate) fn into_json(self) -> Value {
         self.value
+    }
+
+    #[cfg(feature = "p2-cuda")]
+    pub(crate) fn canonical_sha256(&self) -> Result<String> {
+        let bytes = serde_json::to_vec(&self.value).map_err(|error| {
+            XtaskError::integrity(
+                "P2_P1B_RESULT_INVALID",
+                format!("could not canonicalize the typed P1B result: {error}"),
+            )
+        })?;
+        Ok(crate::hash::bytes(&bytes))
+    }
+
+    #[cfg(feature = "p2-cuda")]
+    pub(crate) fn cuda_root(&self) -> &Path {
+        &self.cuda_root
+    }
+
+    #[cfg(feature = "p2-cuda")]
+    pub(crate) fn field_str(&self, pointer: &'static str) -> Result<&str> {
+        self.value
+            .pointer(pointer)
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                XtaskError::integrity(
+                    "P2_P1B_RESULT_INVALID",
+                    format!("P1B result is missing string field {pointer}"),
+                )
+            })
+    }
+
+    #[cfg(feature = "p2-cuda")]
+    pub(crate) fn field_u64(&self, pointer: &'static str) -> Result<u64> {
+        self.value
+            .pointer(pointer)
+            .and_then(Value::as_u64)
+            .ok_or_else(|| {
+                XtaskError::integrity(
+                    "P2_P1B_RESULT_INVALID",
+                    format!("P1B result is missing integer field {pointer}"),
+                )
+            })
+    }
+
+    #[cfg(feature = "p2-cuda")]
+    pub(crate) fn value(&self) -> &Value {
+        &self.value
     }
 }
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -65,7 +114,7 @@ pub(crate) fn probe(options: ProbeOptions) -> Result<Value> {
 pub(crate) fn probe_report(options: ProbeOptions) -> Result<ProbeReport> {
     #[cfg(all(windows, target_arch = "x86_64"))]
     {
-        windows::probe(options).map(|value| ProbeReport { value })
+        windows::probe(options)
     }
     #[cfg(not(all(windows, target_arch = "x86_64")))]
     {
@@ -313,7 +362,7 @@ mod windows {
         }
     }
 
-    pub(super) fn probe(o: ProbeOptions) -> Result<Value> {
+    pub(super) fn probe(o: ProbeOptions) -> Result<ProbeReport> {
         if o.cuda_root.as_deref().is_some_and(|p| !p.is_absolute()) {
             return Err(XtaskError::new(
                 "P1B_CUDA_ROOT_NOT_ABSOLUTE",
@@ -388,8 +437,14 @@ mod windows {
             ptx_images,
             &ptx_run,
         )?;
+        #[cfg(feature = "p2-cuda")]
+        let cuda_root = toolkit.root.clone();
         temp.close()?;
-        Ok(result)
+        Ok(ProbeReport {
+            value: result,
+            #[cfg(feature = "p2-cuda")]
+            cuda_root,
+        })
     }
     fn visual_studio(o: &ProbeOptions, ctx: &mut Ctx<'_>) -> Result<VisualStudioToolchain> {
         let program = crate::p1a_windows::discover_vswhere_path()?;

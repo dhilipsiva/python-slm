@@ -314,7 +314,7 @@ Dependencies: P1A defaults.
 
 ## Phase 2 — Backend Selection Implementation
 
-- [ ] P2 implementation
+- [x] P2 implementation
 - Manual qualification and publication gate: **SKIPPED**.
 
 Dependencies: P1B implementation.
