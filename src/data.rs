@@ -3,7 +3,7 @@
 mod policy;
 mod publication;
 mod sensitive;
-mod source;
+pub(crate) mod source;
 
 use crate::backend::PROTOTYPE_PROFILE;
 use crate::error::{ProductError, Result};

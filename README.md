@@ -23,11 +23,10 @@ It emits one compact `python-slm-plan-result-v1` JSON object. The canonical mode
 37,888 final-update targets, 2,952,790,016-byte compatibility allocation,
 25,920-second admission projection, and 28,800-second completion SLA.
 
-The remaining future command names `train-tokenizer`, `tokenize`, `inspect`,
-`bench`, and `train` fail before reading configuration or mutating state with the
-typed `PHASE_NOT_IMPLEMENTED` gate until their owning phases land. Configurations are
-versioned, explicit, and reject unknown fields; there are no legacy fallbacks or hidden
-production defaults.
+The remaining future command names `tokenize`, `inspect`, `bench`, and `train` fail
+before reading configuration or mutating state with the typed `PHASE_NOT_IMPLEMENTED`
+gate until their owning phases land. Configurations are versioned, explicit, and reject
+unknown fields; there are no legacy fallbacks or hidden production defaults.
 
 ## Document source and policy engine
 
@@ -69,6 +68,35 @@ deterministic conservative regression boundary, not proof that every possible se
 value has been recognized. Exact/near deduplication, decontamination, and downstream
 corpus acceptance remain later phases. Live Stack-v2 or Software Heritage acquisition
 also remains outside this command.
+
+## Tokenizer engine
+
+Phase 7 activates deterministic byte-level BPE training:
+
+```powershell
+cargo run --locked --bin python-slm -- train-tokenizer --config <absolute-config-path>
+```
+
+The closed `python-slm-tokenizer-train-config-v1` configuration names an absolute,
+hash-bound `python-slm-tokenizer-sample-manifest-v1`, its immutable content root, and a
+create-new tokenizer artifact path. Sample documents bind repository group, source,
+curated raw, canonical byte, length, and portable relative-path identities. Whole
+documents are ranked by `TOKSAMPLE-001`; the engine enforces the 10,000,000-byte
+repository cap and 2,000,000,000-byte global cap, skips non-fitting documents, and never
+creates cross-document merge pairs.
+
+The `python-slm-byte-bpe-tokenizer-v1` artifact contains exactly 32,000 contiguous IDs:
+`<pad>=0`, `<s>=1`, `</s>=2`, `<unk>=3`, all 256 byte symbols at IDs 4 through 259, and
+31,740 deterministic merge rules. Training uses minimum frequency two and resolves equal
+frequencies by the lowest `(left_id,right_id)` pair. Source encoding performs no Unicode
+normalization, case folding, whitespace stripping, or literal special-token matching;
+source encode/decode is byte-exact and never emits IDs 0 through 3. Serialization is
+compact and stable, reload validates every constant and merge reference, and publication
+is create-new with adjacent temporary cleanup.
+
+Training reports whether the sample falls within the contract's qualified byte range,
+but `qualification_status` remains `SKIPPED`; P7 adds no receipt or manual workflow.
+Corpus token-shard materialization and EOS insertion remain Phase 8 responsibilities.
 
 ## Automated quality gate
 

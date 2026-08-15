@@ -387,7 +387,7 @@ Dependencies: P6.
 
 ## Phase 7 — Tokenizer Engine
 
-- [ ] P7 implementation
+- [x] P7 implementation
 - Manual qualification and publication gate: **SKIPPED**.
 
 Dependencies: P6.

@@ -22,12 +22,12 @@ enum Command {
         #[arg(long)]
         config: PathBuf,
     },
-    /// Train the canonical tokenizer. Implemented by Phase 6.
+    /// Train the canonical deterministic byte-level tokenizer.
     TrainTokenizer {
         #[arg(long)]
         config: PathBuf,
     },
-    /// Tokenize the curated corpus. Implemented by Phase 7.
+    /// Materialize the governed token corpus. Implemented by Phase 8.
     Tokenize {
         #[arg(long)]
         config: PathBuf,
@@ -87,8 +87,8 @@ pub fn run(args: impl IntoIterator<Item = OsString>) -> Result<Value> {
             )
         }),
         Command::Curate { config } => crate::data::curate(&config),
-        Command::TrainTokenizer { config } => deferred("P6", "train-tokenizer", config),
-        Command::Tokenize { config } => deferred("P7", "tokenize", config),
+        Command::TrainTokenizer { config } => crate::tokenizer::train_tokenizer(&config),
+        Command::Tokenize { config } => deferred("P8", "tokenize", config),
         Command::Inspect { config } => deferred("future artifact phase", "inspect", config),
         Command::Bench { config } => deferred("performance phase", "bench", config),
         Command::Train { config } => deferred("training phase", "train", config),
@@ -117,7 +117,7 @@ mod tests {
 
     #[test]
     fn every_future_command_fails_with_the_same_typed_gate() {
-        for command in ["train-tokenizer", "tokenize", "inspect", "bench", "train"] {
+        for command in ["tokenize", "inspect", "bench", "train"] {
             let error = run([
                 "python-slm".into(),
                 command.into(),
