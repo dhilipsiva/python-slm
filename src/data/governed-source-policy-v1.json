@@ -1,0 +1,1 @@
+{"schema":"python-slm-governed-source-policy-v1","policy_id":"governed-source-defaults-v1","external_review_status":"UNAVAILABLE","defaults":{"provenance_status":"ASSUMED","license_status":"ASSUMED","removal_status":"ASSUMED","freshness_status":"UNVERIFIED","source_status":"UNVERIFIED","freshness_basis":"provider-ordered-snapshots-without-external-review-v1"}}

@@ -39,7 +39,7 @@ fn materializes_deterministic_parser_and_rejected_outcomes() {
     );
     assert!(first.stderr.is_empty());
     let first_result: Value = serde_json::from_slice(&first.stdout).unwrap();
-    assert_eq!(first_result["schema"], "python-slm-curate-result-v3");
+    assert_eq!(first_result["schema"], "python-slm-curate-result-v4");
     assert_eq!(first_result["status"], "SOURCE_MATERIALIZED");
     assert_eq!(first_result["qualification_status"], "SKIPPED");
     assert_eq!(first_result["document_count"], 5);
@@ -69,7 +69,7 @@ fn materializes_deterministic_parser_and_rejected_outcomes() {
     assert!(!public.contains(&fixture._root.path().display().to_string()));
     assert!(!public.contains("C:\\"));
     let manifest: Value = serde_json::from_slice(&first_manifest).unwrap();
-    assert_eq!(manifest["schema"], "python-slm-source-generation-v3");
+    assert_eq!(manifest["schema"], "python-slm-source-generation-v4");
     assert_eq!(manifest["parser_status"], "COMPLETE");
     assert_eq!(manifest["policy_status"], "COMPLETE");
 

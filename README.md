@@ -42,8 +42,8 @@ explicit document/byte budgets. Generated corpus data belongs under the ignored 
 root or another ignored location; it is not a qualification receipt.
 An eligible document passes the P4 license, provenance, removal, encoding, and
 generated-content policies before reaching the P5 parser and P6 sensitive-data policy.
-A successful command emits one compact `python-slm-curate-result-v3` object and installs
-an immutable `python-slm-source-generation-v3` generation. The in-process Rust boundary
+A successful command emits one compact `python-slm-curate-result-v4` object and installs
+an immutable `python-slm-source-generation-v4` generation. The in-process Rust boundary
 uses exactly `tree-sitter 0.25.8` and `tree-sitter-python 0.25.0`; its checked-in identity
 manifest binds the locked packages, generated parser/scanner sources, runtime sources,
 language ABI, frozen compatibility corpus, and canonical bundle hash. Complete Python 3
@@ -97,6 +97,13 @@ is create-new with adjacent temporary cleanup.
 Training reports whether the sample falls within the contract's qualified byte range,
 but `qualification_status` remains `SKIPPED`; P7 adds no receipt or manual workflow.
 Corpus token-shard materialization and EOS insertion remain Phase 8 responsibilities.
+
+
+Phase 7A adds hash-bound governed-source metadata to every curation outcome. The checked-in
+default policy labels manifest-declared provenance, license, and removal facts ASSUMED;
+freshness and aggregate source status remain UNVERIFIED while external review is unavailable.
+The generation records only deterministic identity and policy bindings, not review claims or
+sensitive values.
 
 ## Automated quality gate
 

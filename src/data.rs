@@ -1,5 +1,6 @@
 //! Deterministic, zero-Python document source and policy boundary.
 
+mod governance;
 mod policy;
 mod publication;
 mod sensitive;
@@ -17,6 +18,13 @@ use source::{PreparedDocument, SelectedRemovalSnapshot};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+pub use governance::{
+    FRESHNESS_BASIS, GOVERNED_SOURCE_METADATA_SCHEMA, GOVERNED_SOURCE_POLICY_ID,
+    GOVERNED_SOURCE_POLICY_SCHEMA, GovernedFreshnessFact, GovernedLicenseFact, GovernedPolicyFact,
+    GovernedRemovalFact, GovernedRemovalSnapshot, GovernedSourceDefaults, GovernedSourceIdentity,
+    GovernedSourceInput, GovernedSourceMetadata, GovernedSourcePolicy, GovernedSourcePolicyBinding,
+    evaluate_governed_source_metadata, governed_source_policy,
+};
 pub use policy::{ByteRange, ParserFacts, ParserPolicyDecision, evaluate_parser_policy};
 pub use sensitive::{
     SENSITIVE_POLICY_ID, SENSITIVE_REGISTRY_ID, SENSITIVE_RESULT_SCHEMA, SensitivePolicyBinding,
@@ -25,12 +33,12 @@ pub use sensitive::{
 };
 pub use source::{repository_group_id, source_id};
 
-pub const IMPLEMENTATION_PHASE: &str = "P6";
+pub const IMPLEMENTATION_PHASE: &str = "P7A";
 pub const CURATE_CONFIG_SCHEMA: &str = "python-slm-curate-config-v1";
 pub const SOURCE_MANIFEST_SCHEMA: &str = "python-slm-materialized-source-manifest-v1";
 pub const REMOVAL_MANIFEST_SCHEMA: &str = "python-slm-removal-manifest-v1";
-pub const GENERATION_SCHEMA: &str = "python-slm-source-generation-v3";
-pub const CURATE_RESULT_SCHEMA: &str = "python-slm-curate-result-v3";
+pub const GENERATION_SCHEMA: &str = "python-slm-source-generation-v4";
+pub const CURATE_RESULT_SCHEMA: &str = "python-slm-curate-result-v4";
 pub const ADAPTER_NAMESPACE: &str = "stack-v2-swh-materialized-v1";
 pub const AUTHORIZATION_SCHEME: &str = "materialized-source-authorization-v1";
 pub const LICENSE_POLICY: &str = "permissive-v1";
@@ -134,6 +142,8 @@ struct GenerationManifest {
     parser_bundle: ParserBundleBinding,
     policy_status: &'static str,
     sensitive_policy: SensitivePolicyBinding,
+    governed_source_policy: GovernedSourcePolicyBinding,
+    governance_status: &'static str,
     removal_snapshots: Vec<RemovalSnapshotBinding>,
     outcomes: Vec<DocumentOutcome>,
 }
@@ -169,6 +179,7 @@ struct DocumentOutcome {
     policy_result_path: Option<String>,
     policy_result_sha256: Option<String>,
     content_path: Option<String>,
+    governed_source_metadata: GovernedSourceMetadata,
 }
 
 #[derive(Debug, Serialize)]
@@ -186,6 +197,8 @@ struct CurateResult {
     rejected_count: u64,
     parser_status: &'static str,
     policy_status: &'static str,
+    governance_status: &'static str,
+    unverified_source_count: u64,
     output_created: bool,
     receipts_written: bool,
 }
@@ -224,6 +237,7 @@ fn curate_windows(config_path: &Path) -> Result<Value> {
     source::require_output_boundary(&config.output_root, &content_root)?;
     let parser_bundle = parser_bundle_binding()?;
     let sensitive_policy = sensitive_policy_binding()?;
+    let (governed_source_policy, governed_source_policy_binding) = governed_source_policy()?;
     let cancellation = CancellationToken::default();
 
     let mut generation = PartialGeneration::create(&config.output_root)?;
@@ -236,6 +250,8 @@ fn curate_windows(config_path: &Path) -> Result<Value> {
             &document,
             &content_root,
             &removals,
+            &source_manifest.source_snapshot_id,
+            &governed_source_policy,
             &cancellation,
             &mut generation,
         )?);
@@ -265,6 +281,8 @@ fn curate_windows(config_path: &Path) -> Result<Value> {
         parser_bundle,
         policy_status: "COMPLETE",
         sensitive_policy,
+        governed_source_policy: governed_source_policy_binding,
+        governance_status: "COMPLETE",
         removal_snapshots,
         outcomes,
     };
@@ -302,6 +320,8 @@ fn curate_windows(config_path: &Path) -> Result<Value> {
         rejected_count,
         parser_status: "COMPLETE",
         policy_status: "COMPLETE",
+        governance_status: "COMPLETE",
+        unverified_source_count: manifest.outcomes.len() as u64,
         output_created: true,
         receipts_written: false,
     })
@@ -317,6 +337,8 @@ fn process_document(
     prepared: &PreparedDocument,
     content_root: &Path,
     removals: &BTreeMap<String, SelectedRemovalSnapshot>,
+    source_snapshot_id: &str,
+    governed_source_policy: &GovernedSourcePolicy,
     cancellation: &CancellationToken,
     generation: &mut PartialGeneration,
 ) -> Result<DocumentOutcome> {
@@ -339,6 +361,30 @@ fn process_document(
                 .as_ref()
                 .is_some_and(|id| snapshot.removed_repositories.contains(id))
     });
+    let governed_source_metadata = evaluate_governed_source_metadata(
+        governed_source_policy,
+        GovernedSourceInput {
+            source_id: prepared.source_id.clone(),
+            repository_group_id: prepared.repository_group_id.clone(),
+            source_snapshot_id: source_snapshot_id.to_owned(),
+            expected_raw_sha256: document.expected_raw_sha256.clone(),
+            expected_raw_bytes: document.expected_raw_bytes,
+            provenance: document.provenance.clone(),
+            license_expression: document.license_expression.clone(),
+            removal_snapshots: removals
+                .values()
+                .map(|snapshot| GovernedRemovalSnapshot {
+                    authority_url: snapshot.manifest.authority_url.clone(),
+                    provider_snapshot_id: snapshot.manifest.provider_snapshot_id.clone(),
+                    provider_order: snapshot.manifest.provider_order,
+                    manifest_sha256: snapshot.sha256.clone(),
+                    publication_time_utc: snapshot.manifest.publication_time_utc.clone(),
+                    retrieval_time_utc: snapshot.manifest.retrieval_time_utc.clone(),
+                })
+                .collect(),
+            record_removed: removed,
+        },
+    )?;
     let mut reasons = Vec::new();
     if document.dialect != "python3" {
         reasons.push("DIALECT_UNSUPPORTED");
@@ -479,5 +525,6 @@ fn process_document(
         policy_result_path,
         policy_result_sha256,
         content_path,
+        governed_source_metadata,
     })
 }

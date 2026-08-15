@@ -123,7 +123,7 @@ fn adversarial_documents_have_deterministic_fail_closed_outcomes() {
     assert!(first.stderr.is_empty());
 
     let result: Value = serde_json::from_slice(&first.stdout).unwrap();
-    assert_eq!(result["schema"], "python-slm-curate-result-v3");
+    assert_eq!(result["schema"], "python-slm-curate-result-v4");
     assert_eq!(result["qualification_status"], "SKIPPED");
     assert_eq!(result["document_count"], corpus.document_cases.len());
     assert_eq!(

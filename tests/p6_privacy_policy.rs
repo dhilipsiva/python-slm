@@ -222,7 +222,7 @@ fn curate_excludes_rejected_and_quarantined_bytes_and_detects_mutation() {
     );
     assert!(result.stderr.is_empty());
     let result_json: Value = serde_json::from_slice(&result.stdout).unwrap();
-    assert_eq!(result_json["schema"], "python-slm-curate-result-v3");
+    assert_eq!(result_json["schema"], "python-slm-curate-result-v4");
     assert_eq!(result_json["parser_accepted_count"], 3);
     assert_eq!(result_json["policy_accepted_count"], 1);
     assert_eq!(result_json["quarantined_count"], 1);

@@ -399,7 +399,7 @@ Dependencies: P6.
 
 ## Phase 7A — Governed Source Metadata
 
-- [ ] P7A implementation
+- [x] P7A implementation
 - Manual approval and publication gate: **SKIPPED**.
 
 Dependencies: P6A and P7.
