@@ -2,6 +2,7 @@
 /.cache/
 /data/
 *.bin
+/checkpoints/
 *.parquet
 *.safetensors
 *.mpk

@@ -8,7 +8,21 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 
-pub const IMPLEMENTATION_PHASE: &str = "P11";
+pub const IMPLEMENTATION_PHASE: &str = "P12";
+
+pub mod checkpoint;
+pub mod trainer;
+
+pub use checkpoint::{
+    CheckpointArtifactRef, CheckpointManifestV1, PublishedCheckpoint, load_checkpoint,
+    prune_checkpoints, publish_checkpoint,
+};
+pub use trainer::{
+    AdamwParameterState, BackendStateArtifact, BatchGradient, CanonicalAdamw,
+    CanonicalTrainingPlan, DeterministicTrainer, EvaluationResult, TrainerBackend, TrainerIdentity,
+    TrainerSnapshot, TrainingBatch, UpdateEvent, canonical_learning_rate,
+    canonical_update_target_count,
+};
 
 #[derive(Clone, Debug, Default)]
 pub struct LoaderCancellation(Arc<AtomicBool>);

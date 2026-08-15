@@ -469,7 +469,7 @@ Dependencies: P8 and P10.
 
 ## Phase 12 — Trainer, Checkpoints, and Exact Resume
 
-- [ ] P12 implementation
+- [x] P12 implementation
 - Manual qualification and publication gate: **SKIPPED**.
 
 Dependencies: P9B, P10, and P11.

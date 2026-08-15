@@ -253,6 +253,36 @@ writes no receipt, pointer, acceptance, checkpoint, or persistent loader
 artifact and makes no throughput, hardware-qualification, full-training, or
 resume claim. P12 owns optimizer state, checkpointing, and exact resume.
 
+## Trainer, checkpoints, and exact resume
+
+Phase 12 adds a provider-neutral deterministic trainer over P11 batches. It owns the
+canonical target cursor, valid-target loss/gradient accumulation, one FP32 global-L2 clip
+per optimizer update, canonical AdamW FP32 master weights and moments with BF16
+round-to-nearest-even storage, and the frozen one-based learning-rate schedule. Full updates
+consume exactly 65,536 targets; update 30,518 consumes the remaining 37,888 targets and
+terminates at exactly 2,000,000,000 targets with overshoot rejected.
+
+Evaluation runs once before training and after the first completed update that crosses each
+100,000,000-target boundary, including completion. The trainer snapshots backend bytes before
+and after evaluation and rejects any model, optimizer, runtime, or RNG mutation. Backend
+implementations return explicit evolving host/device RNG state for each batch; checkpoint state
+also binds the model/backend/device/environment, corpus/tokenizer/span manifests, scheduler,
+cursor, counters, evaluation history, and implementation identity.
+
+Checkpoint generations are create-new 20-digit target-count directories under an explicit
+absolute checkpoint root. Every model BF16 artifact, FP32 master-weight artifact, both AdamW
+moment artifacts, and backend runtime artifact is length/hash bound in a closed manifest and a
+complete `SHA256SUMS` seal. Publication is atomic and write-through on Windows, restore
+revalidates the complete inventory and exact reconstructed trainer-state digest, and identity
+drift fails closed. Mid-update and pre-update checkpoints are rejected. Retention keeps the
+latest two generations plus the first generation at or after 500M, 1B, 1.5B, and final 2B
+targets. Generated `/checkpoints/` state is ignored by Git.
+
+P12 is an implementation boundary with `qualification_status: "SKIPPED"`. The synthetic
+automated suite proves interruption, corruption, identity-mismatch, final-tail, retention, and
+byte-identical continuation behavior; it does not claim a completed full-model run, hardware
+qualification, throughput, SLA admission, final model quality, or P16/P16A acceptance.
+
 Phase 7A adds hash-bound governed-source metadata to every curation outcome. The checked-in
 default policy labels manifest-declared provenance, license, and removal facts ASSUMED;
 freshness and aggregate source status remain UNVERIFIED while external review is unavailable.
