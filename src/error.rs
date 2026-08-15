@@ -55,6 +55,24 @@ impl ProductError {
         )
     }
 
+    pub fn integrity(code: impl Into<String>, message: impl Into<String>) -> Self {
+        Self::new(
+            code,
+            ErrorCategory::Integrity,
+            message,
+            "Restore the declared immutable input and retry with a new output generation.",
+        )
+    }
+
+    pub fn environment(code: impl Into<String>, message: impl Into<String>) -> Self {
+        Self::new(
+            code,
+            ErrorCategory::Environment,
+            message,
+            "Correct the local filesystem condition and retry without reusing partial output.",
+        )
+    }
+
     pub fn internal(code: impl Into<String>, message: impl Into<String>) -> Self {
         Self::new(
             code,

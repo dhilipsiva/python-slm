@@ -10,8 +10,8 @@ not an active compatibility surface.
 
 ## Active product scaffold
 
-The repository installs one product executable named `python-slm`. Phase 3 implements
-only the deterministic, read-only canonical plan:
+The repository installs one product executable named `python-slm`. Its deterministic,
+read-only canonical plan is:
 
 ```powershell
 cargo run --locked --bin python-slm -- plan
@@ -23,11 +23,34 @@ It emits one compact `python-slm-plan-result-v1` JSON object. The canonical mode
 37,888 final-update targets, 2,952,790,016-byte compatibility allocation,
 25,920-second admission projection, and 28,800-second completion SLA.
 
-The public command names `curate`, `train-tokenizer`, `tokenize`, `inspect`,
-`bench`, and `train` are installed, but fail before reading configuration or mutating
-state with the typed `PHASE_NOT_IMPLEMENTED` gate until their owning phases land.
-Configurations are versioned, explicit, and reject unknown fields; there are no legacy
-fallbacks or hidden production defaults.
+The remaining future command names `train-tokenizer`, `tokenize`, `inspect`,
+`bench`, and `train` fail before reading configuration or mutating state with the
+typed `PHASE_NOT_IMPLEMENTED` gate until their owning phases land. Configurations are
+versioned, explicit, and reject unknown fields; there are no legacy fallbacks or hidden
+production defaults.
+
+## Document source and policy engine
+
+Phase 4 activates bounded materialization of already-authorized local source bytes:
+
+```powershell
+cargo run --locked --bin python-slm -- curate --config <absolute-config-path>
+```
+
+The closed `python-slm-curate-config-v1` configuration names an absolute materialized
+source manifest, content root, hash-bound removal manifests, create-new output root, and
+explicit document/byte budgets. Generated corpus data belongs under the ignored `data/`
+root or another ignored location; it is not a qualification receipt.
+P4 output has not passed the P6 sensitive-data boundary: keep it access-restricted and
+never publish it as a safe corpus.
+
+A successful command emits one compact `python-slm-curate-result-v1` object and installs
+an immutable `python-slm-source-generation-v1` generation. Byte-valid, licensed,
+provenance-complete, non-removed documents are deliberately labeled `PARSER_PENDING`.
+Phase 5 supplies pinned Tree-sitter facts and activates the exact syntax, comment-ratio,
+and generated-marker decision. Phase 4 never reports parser or full-policy acceptance.
+Live Stack-v2/Software Heritage acquisition, sensitive-data filtering, and deduplication
+remain outside this command.
 
 ## Automated quality gate
 

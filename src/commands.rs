@@ -86,7 +86,7 @@ pub fn run(args: impl IntoIterator<Item = OsString>) -> Result<Value> {
                 format!("canonical plan serialization failed: {error}"),
             )
         }),
-        Command::Curate { config } => deferred("P4", "curate", config),
+        Command::Curate { config } => crate::data::curate(&config),
         Command::TrainTokenizer { config } => deferred("P6", "train-tokenizer", config),
         Command::Tokenize { config } => deferred("P7", "tokenize", config),
         Command::Inspect { config } => deferred("future artifact phase", "inspect", config),
@@ -107,7 +107,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn plan_is_the_only_implemented_product_command() {
+    fn plan_remains_implemented() {
         let value = run(["python-slm".into(), "plan".into()]).unwrap();
         assert_eq!(value["schema"], "python-slm-plan-result-v1");
         assert_eq!(value["status"], "PLANNED");
@@ -117,14 +117,7 @@ mod tests {
 
     #[test]
     fn every_future_command_fails_with_the_same_typed_gate() {
-        for command in [
-            "curate",
-            "train-tokenizer",
-            "tokenize",
-            "inspect",
-            "bench",
-            "train",
-        ] {
+        for command in ["train-tokenizer", "tokenize", "inspect", "bench", "train"] {
             let error = run([
                 "python-slm".into(),
                 command.into(),

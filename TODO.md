@@ -339,14 +339,15 @@ Dependencies: P1A defaults. P2 may proceed in parallel.
 
 ## Phase 4 — Document Source and Policy Engine
 
-- [ ] P4 implementation
+- [x] P4 implementation
 - Manual qualification and publication gate: **SKIPPED**.
 
 Dependencies: P3.
 
 - Implement bounded document ingestion with stable identities and deterministic ordering.
-- Enforce encoding, Python dialect, size, generated-marker, license, provenance, removal,
-  path-containment, and mutation rules.
+- Enforce encoding, declared Python dialect, size, license, provenance, removal,
+  path-containment, and mutation rules. Define the exact comment/generated-marker policy
+  over parser facts; P5 supplies those facts and activates the final decision.
 - Return typed per-document outcomes and test malformed, oversized, mutated, and duplicate
   inputs automatically.
 
