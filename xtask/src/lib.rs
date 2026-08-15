@@ -16,6 +16,7 @@ mod p1b;
 mod p2;
 mod process;
 mod publication;
+mod quality_gate;
 mod time;
 
 use std::ffi::OsString;

@@ -1,5 +1,5 @@
 use crate::error::{Category, Result, XtaskError};
-use crate::{p0, p0a, p1a, p1b, p2};
+use crate::{p0, p0a, p1a, p1b, p2, quality_gate};
 use clap::{Parser, Subcommand};
 use serde_json::{Value, json};
 use std::ffi::OsString;
@@ -53,6 +53,8 @@ enum Command {
         #[arg(long)]
         device_uuid: Option<String>,
     },
+    /// Run the fixed non-publishing Phase 3 automated quality gate.
+    QualityGate,
     #[command(hide = true)]
     P2CudaCandidate {
         #[arg(long)]
@@ -153,6 +155,7 @@ pub fn run(args: impl IntoIterator<Item = OsString>) -> Result<Value> {
             vs_instance_id,
             device_uuid,
         }),
+        Command::QualityGate => quality_gate::run(),
         Command::P2CudaCandidate { device_uuid } => p2::candidate_child(&device_uuid),
         Command::VerifyEnv {
             mode,

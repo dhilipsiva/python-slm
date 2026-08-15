@@ -1687,7 +1687,8 @@ fn require_fixed_process_boundary(repository: &Path) -> Result<()> {
         let file_name = path.file_name().and_then(|value| value.to_str());
         let is_process_module = file_name == Some("process.rs");
         let is_native_process_module = file_name == Some("p1a_process.rs");
-        let audited_text = if is_native_process_module {
+        let is_quality_process_module = file_name == Some("quality_gate.rs");
+        let audited_text = if is_native_process_module || is_quality_process_module {
             text.split_once("#[cfg(test)]")
                 .map(|(production, _)| production)
                 .ok_or_else(|| {
@@ -1711,6 +1712,7 @@ fn require_fixed_process_boundary(repository: &Path) -> Result<()> {
         let native_create = ["Create", "ProcessW("].concat();
         if !is_process_module
             && !is_native_process_module
+            && !is_quality_process_module
             && (compact.contains(&fully_qualified)
                 || compact.contains(&relative_qualified)
                 || compact.contains(&direct_import)
@@ -1722,6 +1724,19 @@ fn require_fixed_process_boundary(repository: &Path) -> Result<()> {
                 "XTASK_PROCESS_BOUNDARY_VIOLATION",
                 "xtask contains an unapproved process-construction surface",
             ));
+        }
+        if is_quality_process_module {
+            if compact.matches("Command::new(").count() != 1
+                || compact.matches(&spawn).count() != 1
+                || (!compact.contains(&direct_import) && !compact.contains(&grouped_import))
+                || compact.contains(&native_create)
+            {
+                return Err(XtaskError::integrity(
+                    "XTASK_PROCESS_BOUNDARY_VIOLATION",
+                    "the quality-gate process module is outside its single fixed Command boundary",
+                ));
+            }
+            continue;
         }
         if is_native_process_module {
             if !compact.contains(&native_create)

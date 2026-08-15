@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 
 pub const PROTOTYPE_PROFILE: &str = "prototype-windows-5090-v1";
-pub const COMPATIBILITY_ALLOCATION_BYTES: u64 = 2_952_790_016;
+pub use crate::model::COMPATIBILITY_ALLOCATION_BYTES;
 pub const BURN_CUBECL_CUDA: &str = "burn-cubecl-cuda";
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]

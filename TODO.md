@@ -327,7 +327,7 @@ Dependencies: P1B implementation.
 
 ## Phase 3 — Clean Rust Scaffold and Quality Gate
 
-- [ ] P3 implementation
+- [x] P3 implementation
 - Manual qualification and publication gate: **SKIPPED**.
 
 Dependencies: P1A defaults. P2 may proceed in parallel.
