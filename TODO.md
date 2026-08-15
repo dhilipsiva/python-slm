@@ -434,7 +434,7 @@ Dependencies: P8.
 
 ## Phase 9B — Model Initialization and CPU Oracle
 
-- [ ] P9B implementation
+- [x] P9B implementation
 - Manual qualification and publication gate: **SKIPPED**.
 
 Dependencies: P3 and P9A.

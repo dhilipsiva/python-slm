@@ -163,6 +163,36 @@ Every complete 2,048-target span appears exactly once, token order inside spans
 is unchanged, and the partial span remains last. Both commands keep
 `qualification_status: "SKIPPED"`, publish no receipts, and refuse overwrite.
 
+## Model initialization and CPU oracle
+
+Phase 9B adds one deterministic, non-publishing diagnostic:
+
+```powershell
+cargo run --locked --bin python-slm -- model-oracle
+```
+
+The command emits a closed `python-slm-model-oracle-result-v1` object. It
+enumerates all 111 stable `PARAM-001` tensors, proves the canonical
+135,285,504-parameter count, assigns AdamW decay only to embedding, LM-head,
+attention, and FFN matrices, and streams every canonical BF16 artifact through
+SHA-256 without retaining the complete model in memory. Initialization uses the
+exact `rand_chacha 0.10.0` seed, `rand_distr 0.6.0`
+`StandardNormal<f32>` sequence, row-major order, and BF16
+round-to-nearest-even conversion frozen by `INIT-001`.
+
+The embedded scalar oracle exercises pre-norm RMSNorm, head-local adjacent-pair
+RoPE, 2Q/1KV GQA, inclusive causal attention, residuals, SwiGLU, an untied LM
+head, and valid-target-normalized cross-entropy. It emits literal BF16 logits,
+an IEEE-754 FP32 loss, and complete FP32 little-endian gradient bytes with
+stable name/shape/offset/hash records for every fixture parameter. These bytes
+are the provider-independent P10 parity boundary, not a tolerance comparison.
+
+The result keeps `qualification_status: "SKIPPED"`, writes no receipt or model
+artifact, and makes no accelerator-parity, training-stability, performance,
+SLA, checkpoint, or qualification claim. The full initialization stream is a
+developer diagnostic and may take appreciably longer than the small automated
+oracle regressions.
+
 Phase 7A adds hash-bound governed-source metadata to every curation outcome. The checked-in
 default policy labels manifest-declared provenance, license, and removal facts ASSUMED;
 freshness and aggregate source status remain UNVERIFIED while external review is unavailable.

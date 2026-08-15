@@ -1,5 +1,8 @@
 use serde::Serialize;
 
+pub mod oracle;
+pub use oracle::*;
+
 pub const CANONICAL_MODEL_ID: &str = "gqa-135m-v1";
 pub const REFERENCE_MODEL_ID: &str = "gqa-124m-ref-v1";
 pub const CANONICAL_PARAMETER_COUNT: u64 = 135_285_504;

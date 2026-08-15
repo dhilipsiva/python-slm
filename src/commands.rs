@@ -17,6 +17,8 @@ struct Arguments {
 enum Command {
     /// Print the immutable canonical arithmetic for the prototype.
     Plan,
+    /// Emit deterministic canonical initialization and CPU-oracle diagnostics.
+    ModelOracle,
     /// Curate the governed source corpus. Implemented by Phase 4.
     Curate {
         #[arg(long)]
@@ -96,6 +98,7 @@ pub fn run(args: impl IntoIterator<Item = OsString>) -> Result<Value> {
                 format!("canonical plan serialization failed: {error}"),
             )
         }),
+        Command::ModelOracle => crate::model::oracle_result_value(),
         Command::Curate { config } => crate::data::curate(&config),
         Command::TrainTokenizer { config } => crate::tokenizer::train_tokenizer(&config),
         Command::Tokenize { config } => crate::storage::tokenize(&config),
@@ -125,6 +128,12 @@ mod tests {
         assert_eq!(value["status"], "PLANNED");
         assert_eq!(value["model"]["identity"], "gqa-135m-v1");
         assert_eq!(value["model"]["parameters"], 135_285_504);
+    }
+
+    #[test]
+    fn model_oracle_command_is_installed_without_running_the_full_stream() {
+        let arguments = Arguments::try_parse_from(["python-slm", "model-oracle"]).unwrap();
+        assert!(matches!(arguments.command, Command::ModelOracle));
     }
 
     #[test]
