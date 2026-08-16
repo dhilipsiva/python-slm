@@ -62,3 +62,48 @@ jobs:
             echo '### Windows/CUDA lane: UNVERIFIED'
             echo 'Required CI does not claim compatible hardware. Dispatch windows-cuda.yml when the fixed runner is available.'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  portable-host-data:
+    name: Portable host/data (${{ matrix.host }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            host: windows-x86_64
+          - runner: ubuntu-latest
+            host: linux-x86_64
+          - runner: macos-14
+            host: macos-arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    steps:
+      - name: Check out the immutable revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: Install the minimum supported Rust toolchain
+        run: rustup toolchain install 1.96.0 --profile minimal
+      - name: Select Rust 1.96.0
+        run: rustup default 1.96.0
+      - name: Fetch the locked dependency graph
+        run: cargo fetch --locked
+      - name: Run portable host and data artifact contracts
+        run: >-
+          cargo test --locked --offline
+          --test p17_portable_host_data
+          --test p4_source_policy
+          --test p5_python_parser
+          --test p6_privacy_policy
+          --test p6a_adversarial_filters
+          --test p7a_governed_source_metadata
+          --test p8_corpus_materialization
+          --test p9a_corpus_policy
+      - name: Compile the dependency-minimal portable product
+        run: cargo check --locked --no-default-features --offline
+      - name: Require repository stability
+        shell: pwsh
+        run: |
+          $changes = @(git status --porcelain=v1 --untracked-files=all)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($changes.Count -ne 0) { throw "portable host/data tests changed the repository" }

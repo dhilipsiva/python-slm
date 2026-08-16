@@ -542,7 +542,7 @@ Dependencies: P16 implementation.
 
 ## Phase 17 — Portable Host/Data Adapters
 
-- [ ] P17 implementation
+- [x] P17 implementation
 - Manual host-matrix qualification and publication gate: **SKIPPED**.
 
 Dependencies: P16A implementation.

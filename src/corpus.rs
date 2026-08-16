@@ -367,36 +367,16 @@ struct SpanResult {
 }
 
 pub fn prepare(config_path: &Path) -> Result<Value> {
-    #[cfg(not(windows))]
-    {
-        let _ = config_path;
-        Err(ProductError::gate(
-            "DEFERRED_POST_P16",
-            "prepare-corpus is implemented only for the prototype Windows host",
-        ))
-    }
-    #[cfg(windows)]
-    {
-        prepare_windows(config_path)
-    }
+    crate::platform::require_portable_data_host()?;
+    prepare_portable(config_path)
 }
 
 pub fn plan_spans(config_path: &Path) -> Result<Value> {
-    #[cfg(not(windows))]
-    {
-        let _ = config_path;
-        Err(ProductError::gate(
-            "DEFERRED_POST_P16",
-            "plan-spans is implemented only for the prototype Windows host",
-        ))
-    }
-    #[cfg(windows)]
-    {
-        plan_spans_windows(config_path)
-    }
+    crate::platform::require_portable_data_host()?;
+    plan_spans_portable(config_path)
 }
-#[cfg(windows)]
-fn prepare_windows(config_path: &Path) -> Result<Value> {
+
+fn prepare_portable(config_path: &Path) -> Result<Value> {
     let config_bytes = read_control_file(config_path, None, "CORPUS_CONFIG_READ_FAILED")?;
     let config: CorpusPolicyConfigV1 = parse_closed(&config_bytes, "CORPUS_CONFIG_INVALID")?;
     validate_prepare_config(&config)?;
@@ -1590,8 +1570,7 @@ impl UnionFind {
         }
     }
 }
-#[cfg(windows)]
-fn plan_spans_windows(config_path: &Path) -> Result<Value> {
+fn plan_spans_portable(config_path: &Path) -> Result<Value> {
     let config_bytes = read_control_file(config_path, None, "SPAN_CONFIG_READ_FAILED")?;
     let config: SpanOrderConfigV1 = parse_closed(&config_bytes, "SPAN_CONFIG_INVALID")?;
     validate_span_config(&config)?;
@@ -1948,41 +1927,9 @@ impl Drop for PartialCorpusGeneration {
         }
     }
 }
-
-#[cfg(windows)]
 fn publish_create_new_directory(from: &Path, to: &Path) -> Result<()> {
-    use std::os::windows::ffi::OsStrExt;
-    use windows_sys::Win32::Storage::FileSystem::{MOVEFILE_WRITE_THROUGH, MoveFileExW};
-    let from = from
-        .as_os_str()
-        .encode_wide()
-        .chain(std::iter::once(0))
-        .collect::<Vec<_>>();
-    let to = to
-        .as_os_str()
-        .encode_wide()
-        .chain(std::iter::once(0))
-        .collect::<Vec<_>>();
-    // SAFETY: both UTF-16 buffers are NUL-terminated and live for this call.
-    if unsafe { MoveFileExW(from.as_ptr(), to.as_ptr(), MOVEFILE_WRITE_THROUGH) } == 0 {
-        return Err(ProductError::environment(
-            "OUTPUT_PUBLISH_FAILED",
-            "could not atomically publish the create-new corpus policy generation",
-        ));
-    }
-    Ok(())
+    crate::platform::publish_create_new(from, to)
 }
-
-#[cfg(not(windows))]
-fn publish_create_new_directory(from: &Path, to: &Path) -> Result<()> {
-    fs::rename(from, to).map_err(|_| {
-        ProductError::environment(
-            "OUTPUT_PUBLISH_FAILED",
-            "could not publish the create-new corpus policy generation",
-        )
-    })
-}
-
 fn write_new_atomic(output: &Path, bytes: &[u8]) -> Result<()> {
     if output.exists() {
         return Err(ProductError::integrity(
@@ -2037,44 +1984,8 @@ fn write_new_atomic(output: &Path, bytes: &[u8]) -> Result<()> {
     }
     result
 }
-#[cfg(windows)]
 fn publish_create_new_file(from: &Path, to: &Path) -> Result<()> {
-    use std::os::windows::ffi::OsStrExt;
-    use windows_sys::Win32::Storage::FileSystem::{MOVEFILE_WRITE_THROUGH, MoveFileExW};
-    let from = from
-        .as_os_str()
-        .encode_wide()
-        .chain(std::iter::once(0))
-        .collect::<Vec<_>>();
-    let to = to
-        .as_os_str()
-        .encode_wide()
-        .chain(std::iter::once(0))
-        .collect::<Vec<_>>();
-    // SAFETY: both UTF-16 buffers are NUL-terminated and live for this call.
-    if unsafe { MoveFileExW(from.as_ptr(), to.as_ptr(), MOVEFILE_WRITE_THROUGH) } == 0 {
-        return Err(ProductError::environment(
-            "OUTPUT_PUBLISH_FAILED",
-            "could not publish the create-new span-order file",
-        ));
-    }
-    Ok(())
-}
-
-#[cfg(not(windows))]
-fn publish_create_new_file(from: &Path, to: &Path) -> Result<()> {
-    fs::hard_link(from, to).map_err(|_| {
-        ProductError::environment(
-            "OUTPUT_PUBLISH_FAILED",
-            "could not publish the create-new span-order file",
-        )
-    })?;
-    fs::remove_file(from).map_err(|_| {
-        ProductError::environment(
-            "OUTPUT_TEMP_CLEANUP_FAILED",
-            "could not remove the private span-order file after publication",
-        )
-    })
+    crate::platform::publish_create_new(from, to)
 }
 #[cfg(test)]
 mod tests {

@@ -1,5 +1,3 @@
-#![cfg(windows)]
-
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use rust_llm_pretrain::backend::PROTOTYPE_PROFILE;
 use rust_llm_pretrain::data::{

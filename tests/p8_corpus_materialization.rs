@@ -1,5 +1,3 @@
-#![cfg(windows)]
-
 use rust_llm_pretrain::backend::PROTOTYPE_PROFILE;
 use rust_llm_pretrain::storage::{
     CONFIG_SCHEMA, CORPUS_MANIFEST_SCHEMA, CorpusSplit, GovernedCorpusDocumentV1,

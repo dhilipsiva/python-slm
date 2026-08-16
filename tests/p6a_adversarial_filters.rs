@@ -1,5 +1,3 @@
-#![cfg(windows)]
-
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use rust_llm_pretrain::backend::PROTOTYPE_PROFILE;
 use rust_llm_pretrain::data::{
@@ -11,10 +9,16 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
-use std::fs::{self, OpenOptions};
+use std::fs;
+#[cfg(windows)]
+use std::fs::OpenOptions;
+#[cfg(windows)]
 use std::os::windows::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output, Stdio};
+#[cfg(windows)]
+use std::process::Stdio;
+use std::process::{Command, Output};
+#[cfg(windows)]
 use windows_sys::Win32::Storage::FileSystem::FILE_SHARE_READ;
 
 const CORPUS_PATH: &str = "tests/fixtures/p6a/adversarial-filter-cases-v1.json";
@@ -260,6 +264,7 @@ fn adversarial_paths_fail_before_output_creation_without_echoing_values() {
     }
 }
 
+#[cfg(windows)]
 #[test]
 fn bound_document_denies_every_adversarial_mutation_operation() {
     let (corpus, _) = load_corpus();

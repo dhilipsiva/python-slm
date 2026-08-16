@@ -1,5 +1,3 @@
-#![cfg(windows)]
-
 use rust_llm_pretrain::backend::PROTOTYPE_PROFILE;
 use rust_llm_pretrain::data::{
     ADAPTER_NAMESPACE, AUTHORIZATION_SCHEME, CURATE_CONFIG_SCHEMA, CurateConfigV1, FRESHNESS_BASIS,

@@ -120,12 +120,7 @@ impl PartialGeneration {
                 "the create-new output root appeared before publication",
             ));
         }
-        #[cfg(windows)]
-        publish_directory_windows(&self.partial_path, &self.final_path)?;
-        #[cfg(not(windows))]
-        fs::rename(&self.partial_path, &self.final_path).map_err(|_| {
-            ProductError::environment("OUTPUT_PUBLISH_FAILED", "could not publish the generation")
-        })?;
+        crate::platform::publish_create_new(&self.partial_path, &self.final_path)?;
         self.published = true;
         Ok(())
     }
@@ -137,31 +132,6 @@ impl Drop for PartialGeneration {
             let _ = fs::remove_dir_all(&self.partial_path);
         }
     }
-}
-
-#[cfg(windows)]
-fn publish_directory_windows(from: &Path, to: &Path) -> Result<()> {
-    use std::os::windows::ffi::OsStrExt;
-    use windows_sys::Win32::Storage::FileSystem::{MOVEFILE_WRITE_THROUGH, MoveFileExW};
-
-    let from = from
-        .as_os_str()
-        .encode_wide()
-        .chain(std::iter::once(0))
-        .collect::<Vec<_>>();
-    let to = to
-        .as_os_str()
-        .encode_wide()
-        .chain(std::iter::once(0))
-        .collect::<Vec<_>>();
-    // SAFETY: both UTF-16 buffers are NUL-terminated and live for this call.
-    if unsafe { MoveFileExW(from.as_ptr(), to.as_ptr(), MOVEFILE_WRITE_THROUGH) } == 0 {
-        return Err(ProductError::environment(
-            "OUTPUT_PUBLISH_FAILED",
-            "could not atomically publish the create-new generation",
-        ));
-    }
-    Ok(())
 }
 
 #[cfg(test)]

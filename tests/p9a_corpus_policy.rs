@@ -1,5 +1,3 @@
-#![cfg(windows)]
-
 use rust_llm_pretrain::backend::PROTOTYPE_PROFILE;
 use rust_llm_pretrain::corpus::{
     BENCHMARK_MANIFEST_SCHEMA, BenchmarkAssetV1, BenchmarkContentKind,

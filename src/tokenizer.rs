@@ -300,22 +300,11 @@ impl ByteBpeTokenizer {
 }
 
 pub fn train_tokenizer(config_path: &Path) -> Result<Value> {
-    #[cfg(not(windows))]
-    {
-        let _ = config_path;
-        Err(ProductError::gate(
-            "DEFERRED_POST_P16",
-            "train-tokenizer is implemented only for the prototype Windows host",
-        ))
-    }
-    #[cfg(windows)]
-    {
-        train_tokenizer_windows(config_path)
-    }
+    crate::platform::require_portable_data_host()?;
+    train_tokenizer_portable(config_path)
 }
 
-#[cfg(windows)]
-fn train_tokenizer_windows(config_path: &Path) -> Result<Value> {
+fn train_tokenizer_portable(config_path: &Path) -> Result<Value> {
     let config_bytes = read_control_file(config_path, None, "TOKENIZER_CONFIG_READ_FAILED")?;
     let config: TokenizerTrainConfigV1 = parse_closed(&config_bytes, "TOKENIZER_CONFIG_INVALID")?;
     validate_config(&config)?;
@@ -836,7 +825,6 @@ fn push_encode_candidate(
     }
 }
 
-#[cfg(windows)]
 fn publish_new_file(path: &Path, bytes: &[u8]) -> Result<()> {
     let parent = path.parent().ok_or_else(|| {
         ProductError::usage("TOKENIZER_OUTPUT_INVALID", "the output path has no parent")
@@ -898,36 +886,12 @@ fn publish_new_file(path: &Path, bytes: &[u8]) -> Result<()> {
                 "the create-new tokenizer artifact already exists",
             ));
         }
-        move_file_write_through(&temporary_path, path)
+        crate::platform::publish_create_new(&temporary_path, path)
     })();
     if result.is_err() {
         let _ = fs::remove_file(&temporary_path);
     }
     result
-}
-
-#[cfg(windows)]
-fn move_file_write_through(from: &Path, to: &Path) -> Result<()> {
-    use std::os::windows::ffi::OsStrExt;
-    use windows_sys::Win32::Storage::FileSystem::{MOVEFILE_WRITE_THROUGH, MoveFileExW};
-    let from = from
-        .as_os_str()
-        .encode_wide()
-        .chain(std::iter::once(0))
-        .collect::<Vec<_>>();
-    let to = to
-        .as_os_str()
-        .encode_wide()
-        .chain(std::iter::once(0))
-        .collect::<Vec<_>>();
-    // SAFETY: both UTF-16 buffers are NUL-terminated and remain live for the call.
-    if unsafe { MoveFileExW(from.as_ptr(), to.as_ptr(), MOVEFILE_WRITE_THROUGH) } == 0 {
-        return Err(ProductError::environment(
-            "TOKENIZER_OUTPUT_PUBLISH_FAILED",
-            "could not publish the create-new tokenizer artifact",
-        ));
-    }
-    Ok(())
 }
 
 #[cfg(test)]

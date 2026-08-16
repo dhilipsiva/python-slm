@@ -204,22 +204,11 @@ struct CurateResult {
 }
 
 pub fn curate(config_path: &Path) -> Result<Value> {
-    #[cfg(not(windows))]
-    {
-        let _ = config_path;
-        Err(ProductError::gate(
-            "DEFERRED_POST_P16",
-            "curate is implemented only for the prototype Windows host",
-        ))
-    }
-    #[cfg(windows)]
-    {
-        curate_windows(config_path)
-    }
+    crate::platform::require_portable_data_host()?;
+    curate_portable(config_path)
 }
 
-#[cfg(windows)]
-fn curate_windows(config_path: &Path) -> Result<Value> {
+fn curate_portable(config_path: &Path) -> Result<Value> {
     let config_bytes = source::read_control_file(config_path, None, "CONFIG_READ_FAILED")?;
     let config: CurateConfigV1 = source::parse_closed(&config_bytes, "CONFIG_INVALID")?;
     source::validate_config(&config)?;

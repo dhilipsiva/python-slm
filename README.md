@@ -413,6 +413,20 @@ freshness and aggregate source status remain UNVERIFIED while external review is
 The generation records only deterministic identity and policy bindings, not review claims or
 sensitive values.
 
+## Portable host and data adapters
+
+Phase 17 runs the CPU/data pipeline through one native host adapter on Windows x86_64 MSVC,
+Linux x86_64 GNU, and macOS arm64. Curation, parser, privacy, tokenizer, token-corpus,
+deduplication, split, and span-order artifacts retain the same portable path grammar, compact
+JSON, byte hashing, ordering, create-new publication, mutation detection, and cleanup semantics.
+The adapter uses each host's exclusive same-parent rename primitive and synchronizes publication
+metadata; it never broadens accelerator support.
+
+The ordinary CI workflow runs the P4-P9 artifact contracts plus the P17 adapter contract on all
+three hosted lanes. These checks are automated implementation evidence only. Manual host-matrix
+qualification and publication remain `SKIPPED`, and a lane that cannot run remains `UNVERIFIED`.
+Linux CUDA, Linux ROCm/HIP, and macOS Metal are still deferred to P18.
+
 ## Automated quality gate
 
 Run the non-publishing Phase 3 gate from native Windows:

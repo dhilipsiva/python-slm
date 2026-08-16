@@ -228,22 +228,11 @@ struct TokenizeResult {
 }
 
 pub fn tokenize(config_path: &Path) -> Result<Value> {
-    #[cfg(not(windows))]
-    {
-        let _ = config_path;
-        Err(ProductError::gate(
-            "DEFERRED_POST_P16",
-            "tokenize is implemented only for the prototype Windows host",
-        ))
-    }
-    #[cfg(windows)]
-    {
-        tokenize_windows(config_path)
-    }
+    crate::platform::require_portable_data_host()?;
+    tokenize_portable(config_path)
 }
 
-#[cfg(windows)]
-fn tokenize_windows(config_path: &Path) -> Result<Value> {
+fn tokenize_portable(config_path: &Path) -> Result<Value> {
     let config_bytes = read_control_file(config_path, None, "TOKEN_CONFIG_READ_FAILED")?;
     let config: TokenMaterializeConfigV1 = parse_closed(&config_bytes, "TOKEN_CONFIG_INVALID")?;
     validate_config(&config)?;
@@ -961,15 +950,7 @@ impl PartialTokenGeneration {
                 "the create-new token generation appeared before publication",
             ));
         }
-        #[cfg(windows)]
-        publish_directory_windows(&self.partial_path, &self.final_path)?;
-        #[cfg(not(windows))]
-        fs::rename(&self.partial_path, &self.final_path).map_err(|_| {
-            ProductError::environment(
-                "OUTPUT_PUBLISH_FAILED",
-                "could not publish the token generation",
-            )
-        })?;
+        crate::platform::publish_create_new(&self.partial_path, &self.final_path)?;
         self.published = true;
         Ok(())
     }
@@ -981,31 +962,6 @@ impl Drop for PartialTokenGeneration {
             let _ = fs::remove_dir_all(&self.partial_path);
         }
     }
-}
-
-#[cfg(windows)]
-fn publish_directory_windows(from: &Path, to: &Path) -> Result<()> {
-    use std::os::windows::ffi::OsStrExt;
-    use windows_sys::Win32::Storage::FileSystem::{MOVEFILE_WRITE_THROUGH, MoveFileExW};
-
-    let from = from
-        .as_os_str()
-        .encode_wide()
-        .chain(std::iter::once(0))
-        .collect::<Vec<_>>();
-    let to = to
-        .as_os_str()
-        .encode_wide()
-        .chain(std::iter::once(0))
-        .collect::<Vec<_>>();
-    // SAFETY: both UTF-16 buffers are NUL-terminated and live for this call.
-    if unsafe { MoveFileExW(from.as_ptr(), to.as_ptr(), MOVEFILE_WRITE_THROUGH) } == 0 {
-        return Err(ProductError::environment(
-            "OUTPUT_PUBLISH_FAILED",
-            "could not atomically publish the create-new token generation",
-        ));
-    }
-    Ok(())
 }
 
 /// A fully hash-verified token generation. Sequence reads revalidate backing shards.
