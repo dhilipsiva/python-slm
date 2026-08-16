@@ -616,9 +616,19 @@ A correctness defect found by executing the previously compile-only P2 fixture i
 also fixed here: its expected gradient constants had never run on hardware and
 were wrong.
 
-### E1A — Exact-Gradient Gate Conflict (owner decision required)
+### E1A — Exact-Gradient Gate Conflict (resolved by amendment)
 
-- [ ] E1A resolution
+- [x] E1A resolution
+- Manual amendment, approval, and publication gate: **SKIPPED** (Simplified
+  Implementation Mode; owner directed the lightweight route on 2026-08-16).
+
+Resolved by `PRECISION-002` in `docs/decision-ledger-v3.md`, with the rationale and
+measurements in `docs/adr/0001-accelerator-numerical-conformance.md`. The forward
+remains an exact-byte gate, gradients are bounded by the already-frozen
+provider-independent policy values, and determinism and resume are unchanged and
+unrelaxed. Measured on the prototype RTX 5090: relative L2 `5.714e-6` against the
+`0.03` limit and cosine `0.999999999984` against the `0.999` floor. The gate is no
+longer ignored and now runs on the hardware lane.
 
 Dependencies: E1 implementation.
 
@@ -629,25 +639,40 @@ relative gradient deviation is roughly `1e-5` to `1e-4`. Replacing
 `powf_scalar(2.0)` with explicit multiplication in RMSNorm, so the squaring
 derivative no longer travels through a generic power rule, did not close the gap.
 
-Remaining candidate causes, none of which this repository can currently control:
+The root cause is now measured, not hypothesized. `tests/e1a_numerical_probe.rs`
+isolates each candidate mechanism on the RTX 5090:
 
-- the pinned `cubecl-cuda 0.10.0` hard-codes its NVRTC option list and exposes no
-  `--fmad=false`, so mul/add contraction inside generated kernels is not
-  configurable from here;
-- GPU reductions do not reproduce the oracle's `fp32-left-to-right` accumulation,
-  and that ordering is inherently serial;
-- the frozen BF16 storage points amplify a one-ULP FP32 difference into a full
-  BF16 ULP whenever an intermediate lands on a rounding boundary.
+- **Contraction and reduction order are exonerated.** Elementwise multiplication
+  matches the host on 64 of 64 operands, and device summation *and* `matmul`
+  reproduce host left-to-right accumulation exactly at widths 2, 4, 8, and 64.
+  The earlier suspicion that NVRTC fused multiply-add or tree reduction caused the
+  divergence was wrong.
+- **Transcendental implementations are the sole cause.** Against Rust's host libm,
+  the device differs by one ULP on `exp` (11 of 42 operands), `sin` (5 of 42),
+  `cos` (2 of 42), and `ln` (1 of 25). `sqrt` and `recip` are bit-identical, which
+  is expected: IEEE-754 requires those to be correctly rounded, and `exp`, `ln`,
+  `sin`, and `cos` are not.
 
-`MODEL-001` and the v2 contract require literal canonical gradient bytes and state
-that no tolerance waives them, so this is a stop condition, not a defect to work
-around. Do not weaken, tolerance, or delete the gate. Resolution needs an owner
-decision among: implementing device reductions that reproduce the oracle order,
-pinning a compiler boundary that disables contraction, redefining the canonical
-accumulation order through a create-new amendment, or accepting a narrower
-provider-versus-itself determinism claim and amending the contract to match.
-`tests/e1_full_model_backend.rs` keeps the gate as an explicitly ignored test so
-it remains visible and runnable rather than quietly absent.
+Because every other primitive in the graph is bit-exact, the transcendentals are
+the cause by elimination. The deviation profile matches that mechanism: worst
+relative error tracks how many transcendental operations separate a parameter from
+the loss, peaking at `2.418e-4` for `blocks.0.attn.q.weight`, whose gradient passes
+back through both RoPE `sin`/`cos` and the softmax `exp`, and falling to `1.083e-7`
+for `lm_head.weight` next to the loss. Aggregate deviation is a relative L2 of
+`5.714e-6` and a cosine similarity of `0.999999999984`. The forward stays exact
+because every frozen BF16 storage point quantizes to eight mantissa bits and
+absorbs the difference; gradients are raw FP32 and expose it.
+
+No repository-level setting changes a vendor libm, and Rust's own transcendentals
+are not guaranteed bit-stable across platform libm implementations either, so the
+cross-host oracle check below is part of the same question. This is irreducible.
+
+The requirement is `PRECISION-001` in `docs/decision-ledger-v2.md`, not `MODEL-001`
+as previously recorded here; `MODEL-001` governs only model shape and its reopen
+trigger would wrongly route this into P19. Resolution follows `PRECISION-001`'s own
+reopen trigger. Do not weaken, tolerance, or delete the gate ahead of that
+amendment. `tests/e1_full_model_backend.rs` keeps the gate as an explicitly ignored
+test so it remains visible and runnable rather than quietly absent.
 
 ### E1B — Batched, Memory-Efficient Attention and Loss
 

@@ -71,7 +71,8 @@ pub enum RuntimeBackend {
 #[serde(deny_unknown_fields)]
 pub struct SelectionDiagnostics {
     pub correctness_passed: bool,
-    pub exact_gradient_bytes_passed: bool,
+    /// `PRECISION-002` bounded gradient conformance against the oracle.
+    pub bounded_gradient_conformance_passed: bool,
     pub compatibility_memory_passed: bool,
     pub launch_and_synchronization_passed: bool,
     pub cleanup_passed: bool,
@@ -98,7 +99,10 @@ pub struct BackendCapability {
     pub framework: String,
     pub autodiff: bool,
     pub bf16: bool,
-    pub exact_gradient_bytes: bool,
+    /// `PRECISION-002`: the forward is compared byte for byte and gradients against
+    /// the frozen provider-independent bound. Bit-exact gradient equality with the
+    /// scalar oracle is not claimed by any provider; see ADR 0001.
+    pub bounded_gradient_conformance: bool,
     pub compatibility_allocation_bytes: u64,
 }
 
@@ -159,7 +163,7 @@ fn implemented_capability(backend: &str, provider: ProviderIdentity) -> BackendC
         },
         autodiff: true,
         bf16: true,
-        exact_gradient_bytes: true,
+        bounded_gradient_conformance: true,
         compatibility_allocation_bytes: COMPATIBILITY_ALLOCATION_BYTES,
     }
 }

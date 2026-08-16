@@ -35,7 +35,7 @@ jobs:
         run: cargo clippy --locked --workspace --all-targets --offline -- -D warnings
       - name: Prove the active xtask closure remains zero-Python
         run: cargo test --locked -p xtask --offline live_xtask_runtime_and_build_closure_is_zero_python_and_native_link_free
-      - name: Run exact-gradient, loader-cleanup, resume, and synthetic end-to-end tests
+      - name: Run CPU-reference oracle, loader-cleanup, resume, and synthetic end-to-end tests
         run: cargo test --locked --features cpu-reference --offline
       - name: Compile the dependency-minimal product
         run: cargo check --locked --no-default-features --offline
@@ -94,6 +94,7 @@ jobs:
           --test p17_portable_host_data
           --test p18_provider_adapters
           --test p19_scale_up
+          --test p9b_model_oracle
           --test p4_source_policy
           --test p5_python_parser
           --test p6_privacy_policy

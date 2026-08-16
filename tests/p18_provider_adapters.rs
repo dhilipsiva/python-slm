@@ -339,7 +339,7 @@ fn provider_capabilities_are_closed_and_exact() {
         assert_eq!(capability.framework, framework);
         assert!(capability.autodiff);
         assert!(capability.bf16);
-        assert!(capability.exact_gradient_bytes);
+        assert!(capability.bounded_gradient_conformance);
         assert_eq!(capability.compatibility_allocation_bytes, 2_952_790_016);
     }
 }
@@ -385,7 +385,7 @@ fn every_provider_validates_against_the_same_literal_oracle_bytes() {
         assert_eq!(result.model_identity, CANONICAL_MODEL_ID);
         assert_eq!(result.backend, provider_backend_name(provider));
         assert_eq!(result.provider, provider);
-        assert!(result.checks.gradient_bytes_exact);
+        assert!(result.checks.gradient_within_bound);
         assert!(result.checks.repeated_execution_exact);
         assert!(!result.receipts_written);
         assert!(
@@ -443,13 +443,21 @@ fn provider_parity_fails_closed_on_identity_drift_and_cleanup() {
         "P18_OBSERVATION_IDENTITY_MISMATCH"
     );
 
-    // One flipped gradient bit fails the exact-byte gate.
+    // PRECISION-002: a gradient outside the frozen bound fails closed for every
+    // provider. A one-ULP difference is inside the bound by design; determinism is
+    // enforced separately and remains unrelaxed. See ADR 0001.
     let passing = passing_observation(ProviderIdentity::Rocm);
     let mut drifted = passing.clone();
-    let mut gradient = hex::decode(&drifted.gradient_f32_le_hex).unwrap();
-    gradient[0] ^= 1;
-    drifted.gradient_f32_le_hex = hex::encode(&gradient);
-    drifted.gradient_sha256 = sha256_hex(&gradient);
+    let gradient = hex::decode(&drifted.gradient_f32_le_hex).unwrap();
+    let corrupted = gradient
+        .chunks_exact(4)
+        .flat_map(|chunk| {
+            let value = f32::from_le_bytes(chunk.try_into().unwrap());
+            (value * 4.0 + 1.0).to_le_bytes()
+        })
+        .collect::<Vec<_>>();
+    drifted.gradient_f32_le_hex = hex::encode(&corrupted);
+    drifted.gradient_sha256 = sha256_hex(&corrupted);
     assert_eq!(
         validate_repeated_provider_execution(ProviderIdentity::Rocm, &drifted, &drifted)
             .unwrap_err()

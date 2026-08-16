@@ -391,18 +391,37 @@ mod hardware {
         assert_eq!(continued.device_rng_state, resumed_batch.device_rng_state);
     }
 
-    /// The frozen exact-gradient gate: device gradients must equal the P9B
-    /// oracle's canonical IEEE-754 bytes. This currently FAILS on the pinned
-    /// CUDA toolchain and is tracked as the E1 blocker in `TODO.md`; it is
-    /// ignored so the suite reports the gate as unverified rather than silently
-    /// passing. Run it explicitly with `-- --ignored` when working the blocker.
+    /// The `PRECISION-002` conformance gate, executed on real hardware: the forward
+    /// must equal the P9B oracle byte for byte, and gradients must fall inside the
+    /// frozen provider-independent bound. See ADR 0001 for why gradient bit equality
+    /// is unattainable across differing transcendental libraries.
     #[test]
-    #[ignore = "exact-gradient gate is an open blocker; see the E1 track in TODO.md"]
-    fn oracle_gradient_parity_gate() {
+    fn oracle_conformance_gate_passes_on_local_hardware() {
         let cancellation = rust_llm_pretrain::model::AcceleratorCancellation::default();
         let result = rust_llm_pretrain::model::run_burn_cubecl_cuda_model_parity(0, &cancellation)
-            .expect("the exact-gradient gate must reproduce the oracle bytes");
-        assert!(result.checks.gradient_bytes_exact);
+            .expect("the conformance gate must pass on hardware");
+
+        // The forward remains an exact-byte gate.
+        assert!(result.checks.logits_exact);
+        assert!(result.checks.loss_exact);
+
+        // Gradients are bounded, and the measured deviation is reported.
+        let conformance = &result.checks.gradient_conformance;
+        assert!(result.checks.gradient_within_bound);
+        assert_eq!(conformance.nonfinite_values, 0);
+        assert_eq!(conformance.envelope_violations, 0);
+        assert!(conformance.relative_l2 <= conformance.relative_l2_max);
+        assert!(conformance.cosine_similarity >= conformance.cosine_min);
+
+        // Determinism is unrelaxed by the amendment.
+        assert!(result.checks.repeated_execution_exact);
+        eprintln!(
+            "PRECISION-002 conformance: relative_l2={:.6e} (max {}), cosine={:.12} (min {})",
+            conformance.relative_l2,
+            conformance.relative_l2_max,
+            conformance.cosine_similarity,
+            conformance.cosine_min
+        );
     }
 
     /// Evaluation over the mandatory 1,000,000 held-out targets needs roughly

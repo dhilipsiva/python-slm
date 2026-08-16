@@ -295,7 +295,7 @@ unchanged, including:
 - cryptographic hash chains, immutable artifact publication, path containment, and role
   ledgers;
 - model arithmetic, initialization, parameter names, optimizer, schedule, packed spans,
-  evaluation cadence, checkpoint contents, retention, exact gradient bytes, and
-  byte-identical resume.
+  evaluation cadence, checkpoint contents, retention, gradient conformance as amended by
+  `PRECISION-002` in `docs/decision-ledger-v3.md`, and byte-identical resume.
 
 Portability is not permission to relax any preserved semantic or integrity gate.

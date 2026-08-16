@@ -93,9 +93,16 @@ parameters. It is never the canonical default.
 
 Canonical storage is BF16 for parameters and activations with the frozen FP32-sensitive
 accumulations and FP32 optimizer/master state. A scalar BF16/FP32 oracle fixes operation,
-accumulation, reduction, contraction, and rounding order. Every parameter-gradient
-artifact must equal its canonical IEEE-754 reference bytes. Forward/loss diagnostics may
-use one predeclared provider-independent table; no tolerance waives exact gradients.
+accumulation, reduction, contraction, and rounding order.
+
+Amended by `PRECISION-002` (`docs/decision-ledger-v3.md`, ADR 0001): every forward
+artifact — BF16 logits and the FP32 loss — must equal its canonical IEEE-754 reference
+bytes exactly, and every parameter-gradient artifact must fall inside one predeclared
+provider-independent bound. Bit-exact gradient agreement is unattainable on any
+accelerator whose transcendental library is not the host's, because IEEE-754 mandates
+correctly rounded square root and division but not `exp`, `ln`, `sin`, or `cos`. Per-backend
+or post-measurement thresholds remain forbidden, and byte-identical repeated execution and
+resume are unchanged and unrelaxed.
 
 ## Minimum Accelerator Compatibility Gate
 

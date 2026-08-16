@@ -52,7 +52,7 @@ fn canonical_plan_and_result_are_closed_and_nonpublishing() {
     assert_eq!(result.plan.accumulation, "fp32");
     assert!(result.checks.logits_exact);
     assert!(result.checks.loss_exact);
-    assert!(result.checks.gradient_bytes_exact);
+    assert!(result.checks.gradient_within_bound);
     assert!(result.checks.cleanup_complete);
     assert!(result.checks.repeated_execution_exact);
     assert!(!result.receipts_written);
@@ -112,11 +112,20 @@ fn every_exact_parity_and_cleanup_boundary_fails_closed() {
         "P10_ACCELERATOR_PARITY_FAILED"
     );
 
+    // PRECISION-002: a gradient outside the frozen bound still fails closed. A
+    // one-ULP difference is inside the bound by design and is caught instead by the
+    // unrelaxed repeated-execution determinism gate; see ADR 0001.
     let mut changed = passing.clone();
-    let mut gradient = hex::decode(&changed.gradient_f32_le_hex).unwrap();
-    gradient[0] ^= 1;
-    changed.gradient_f32_le_hex = hex::encode(&gradient);
-    changed.gradient_sha256 = sha256_hex(&gradient);
+    let gradient = hex::decode(&changed.gradient_f32_le_hex).unwrap();
+    let corrupted = gradient
+        .chunks_exact(4)
+        .flat_map(|chunk| {
+            let value = f32::from_le_bytes(chunk.try_into().unwrap());
+            (value * 4.0 + 1.0).to_le_bytes()
+        })
+        .collect::<Vec<_>>();
+    changed.gradient_f32_le_hex = hex::encode(&corrupted);
+    changed.gradient_sha256 = sha256_hex(&corrupted);
     assert_eq!(
         validate_repeated_accelerator_execution(&changed, &changed)
             .unwrap_err()

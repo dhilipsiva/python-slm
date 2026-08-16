@@ -438,9 +438,10 @@ before discovery or mutation with `DEFERRED_POST_P16`, and the prototype trainin
 profile remains CUDA-only.
 
 Each provider executes the same generic one-layer parity graph over the P9B fixture
-parameters and must reproduce the CPU oracle's literal BF16 logits, FP32 loss, and
-complete FP32 gradient bytes; the create-new `python-slm-provider-parity-result-v1`
-accepts only byte-identical repeated executions with complete stage order, explicit
+parameters. Under `PRECISION-002` it must reproduce the CPU oracle's literal BF16 logits
+and FP32 loss exactly, and its FP32 gradients must fall inside the frozen
+provider-independent bound; the create-new `python-slm-provider-parity-result-v2` accepts
+only byte-identical repeated executions with complete stage order, explicit
 synchronization, and cleanup. The deterministic trainer, checkpoints, and
 byte-identical resume run unchanged behind the provider interface for every lane
 identity. Discrete CUDA and ROCm lanes use true page-locked staging with
@@ -488,14 +489,20 @@ exactly, and continues byte-identically after a restore. Canonical initializatio
 reproduces every INIT-001 per-tensor digest for all 111 tensors of the
 135,285,504-parameter model.
 
-Two gates remain open and are tracked as E1A and E1B. Running the P10 parity
-fixture on hardware for the first time shows device gradients that do not equal the
-P9B oracle's canonical bytes even though the forward logits and loss match exactly;
-that is a contract stop condition awaiting an owner decision, and the gate is kept
-as an explicitly ignored test rather than weakened. The graph is also still
-single-sequence and materializes full logits and attention scores, so the canonical
-model does not yet fit the device at the frozen micro-batch. No training-run,
-performance, SLA, or quality claim is made.
+Running the P10 parity fixture on hardware for the first time showed device gradients
+that do not equal the P9B oracle's canonical bytes even though the forward matched
+exactly. `tests/e1a_numerical_probe.rs` isolated the cause: contraction and reduction
+order reproduce the oracle exactly, while the device `exp`, `ln`, `sin`, and `cos`
+differ from Rust's host libm by one ULP — IEEE-754 requires correctly rounded square
+root and division but not those. `PRECISION-002` (`docs/decision-ledger-v3.md`, ADR
+0001) resolves this: the forward stays an exact-byte gate, gradients are bounded by
+the frozen provider-independent policy, and determinism is untouched. Measured on the
+RTX 5090: relative L2 `5.714e-6` against a `0.03` limit and cosine `0.999999999984`
+against a `0.999` floor.
+
+E1B remains open: the graph is still single-sequence and materializes full logits and
+attention scores, so the canonical model does not yet fit the device at the frozen
+micro-batch. No training-run, performance, SLA, or quality claim is made.
 
 ## Optional scale-up planning
 

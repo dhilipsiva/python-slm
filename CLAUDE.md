@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Despite the name, this is a **zero-Python** pure-Rust rebuild of a deterministic small-language-model training pipeline. Python-language source files are *input data only* (curated as a training corpus). No Python interpreter, package, code generator, or Python-launched subprocess may appear anywhere in build, data prep, training, verification, or receipts. The only permitted native code is the pinned `tree-sitter-python 0.25.0` generated C parser (behind the Rust data-policy boundary) and feature-gated accelerator backends.
 
-`AGENTS.md` is the governing repository guide — read it before making non-trivial changes. Document authority order: `AGENTS.md` → immutable historical `docs/rebuild-contract.md` + P0 receipt → active `docs/rebuild-contract-v2.md`, `docs/decision-ledger-v2.md`, `docs/adr/0000-prototype-first-portable-interface.md` → `docs/ARCHITECTURE.md` (target design) → `TODO.md` (phase order and literal gates). Conflicts between these are a stop condition, not something to resolve ad hoc.
+`AGENTS.md` is the governing repository guide — read it before making non-trivial changes. Document authority order: `AGENTS.md` → immutable historical `docs/rebuild-contract.md` + P0 receipt → active `docs/rebuild-contract-v2.md`, `docs/decision-ledger-v2.md`, `docs/adr/0000-prototype-first-portable-interface.md`, as amended by `docs/decision-ledger-v3.md` + `docs/adr/0001-accelerator-numerical-conformance.md` → `docs/ARCHITECTURE.md` (target design) → `TODO.md` (phase order and literal gates). Conflicts between these are a stop condition, not something to resolve ad hoc.
 
 ## Commands
 
@@ -49,7 +49,7 @@ Config paths passed to the CLI must be absolute. Configs are versioned, closed s
 
 **Feature flags**: `cpu-reference` (default, intentionally dependency-light) plus isolated accelerator boundaries `cuda` (Windows/Linux), `rocm` (Linux), and `metal` (macOS), all burn 0.21 + cubecl. CPU/data builds must never discover, link, or load any accelerator SDK. Keep this separation strict when adding dependencies.
 
-**Determinism is the product**: every artifact (source generations, tokenizer, token shards, checkpoints, results) is hash-bound (SHA-256 + length), published create-new (never overwrite), and verified on read including backing-file-mutation detection. RNG is pinned (`rand_chacha 0.10.0` ChaCha12, `rand_distr 0.6.0`); gradient/checkpoint comparisons are literal byte equality, never tolerance-based. Commands emit exactly one compact versioned JSON result object.
+**Determinism is the product**: every artifact (source generations, tokenizer, token shards, checkpoints, results) is hash-bound (SHA-256 + length), published create-new (never overwrite), and verified on read including backing-file-mutation detection. RNG is pinned (`rand_chacha 0.10.0` ChaCha12, `rand_distr 0.6.0`); forward and checkpoint comparisons are literal byte equality; gradient conformance against the oracle uses the frozen `PRECISION-002` bound (ADR 0001), while determinism stays byte-exact. Commands emit exactly one compact versioned JSON result object.
 
 ## Hard constraints
 

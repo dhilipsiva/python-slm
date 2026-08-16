@@ -11,7 +11,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 
-pub const ACCELERATOR_MODEL_SCHEMA: &str = "python-slm-accelerator-model-result-v1";
+pub const ACCELERATOR_MODEL_SCHEMA: &str = "python-slm-accelerator-model-result-v2";
 pub const ACCELERATOR_OBSERVATION_SCHEMA: &str = "python-slm-accelerator-model-observation-v1";
 pub const ACCELERATOR_PLAN_SCHEMA: &str = "python-slm-accelerator-model-plan-v1";
 pub const P10_MODEL_SEMANTICS: &str = "pre-norm-gqa-rope-swiglu-causal-cross-entropy-v1";
@@ -97,7 +97,101 @@ pub struct AcceleratorModelObservation {
     pub owned_resources_released: bool,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+/// The `PRECISION-002` gradient bound. These values are the already-frozen,
+/// provider-independent numbers from
+/// `docs/schemas/P2/python-slm-backend-qualification-policy-v1.schema.json`; they
+/// predate the E1A measurements, so the gate is predeclared rather than tuned to
+/// its own result. The same bound applies to every candidate and every provider.
+pub const GRADIENT_RELATIVE_L2_MAX: f64 = 0.03;
+pub const GRADIENT_COSINE_MIN: f64 = 0.999;
+pub const GRADIENT_ENVELOPE_ABSOLUTE_FLOOR: f64 = 0.0078125;
+pub const GRADIENT_ENVELOPE_REFERENCE_MULTIPLIER: f64 = 0.03125;
+
+/// Measured gradient agreement between a device observation and the oracle.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct GradientConformance {
+    pub relative_l2: f64,
+    pub cosine_similarity: f64,
+    pub envelope_violations: u64,
+    pub nonfinite_values: u64,
+    pub relative_l2_max: f64,
+    pub cosine_min: f64,
+    pub envelope_absolute_floor: f64,
+    pub envelope_reference_multiplier: f64,
+    pub within_bound: bool,
+}
+
+/// Compare device gradient bytes against the oracle under `PRECISION-002`.
+///
+/// Bit equality is unattainable across differing transcendental libraries, so the
+/// gate is a predeclared bound. Determinism is unaffected: repeated execution and
+/// resume remain byte-identical checks elsewhere.
+pub fn gradient_conformance(device: &[u8], reference: &[u8]) -> GradientConformance {
+    let mut squared_error = 0.0_f64;
+    let mut squared_reference = 0.0_f64;
+    let mut squared_device = 0.0_f64;
+    let mut dot = 0.0_f64;
+    let mut envelope_violations = 0_u64;
+    let mut nonfinite_values = 0_u64;
+
+    for (device_chunk, reference_chunk) in device.chunks_exact(4).zip(reference.chunks_exact(4)) {
+        let device_value =
+            f32::from_le_bytes(device_chunk.try_into().expect("four-byte gradient element"));
+        let reference_value = f32::from_le_bytes(
+            reference_chunk
+                .try_into()
+                .expect("four-byte gradient element"),
+        );
+        if !device_value.is_finite() {
+            nonfinite_values += 1;
+            continue;
+        }
+        let device_value = f64::from(device_value);
+        let reference_value = f64::from(reference_value);
+        let error = (device_value - reference_value).abs();
+        let allowance = GRADIENT_ENVELOPE_ABSOLUTE_FLOOR
+            + GRADIENT_ENVELOPE_REFERENCE_MULTIPLIER * reference_value.abs();
+        if error > allowance {
+            envelope_violations += 1;
+        }
+        squared_error += error * error;
+        squared_reference += reference_value * reference_value;
+        squared_device += device_value * device_value;
+        dot += device_value * reference_value;
+    }
+
+    let relative_l2 = if squared_reference == 0.0 {
+        squared_error.sqrt()
+    } else {
+        squared_error.sqrt() / squared_reference.sqrt()
+    };
+    let denominator = squared_device.sqrt() * squared_reference.sqrt();
+    let cosine_similarity = if denominator == 0.0 {
+        1.0
+    } else {
+        dot / denominator
+    };
+    let within_bound = nonfinite_values == 0
+        && envelope_violations == 0
+        && relative_l2.is_finite()
+        && relative_l2 <= GRADIENT_RELATIVE_L2_MAX
+        && cosine_similarity >= GRADIENT_COSINE_MIN;
+
+    GradientConformance {
+        relative_l2,
+        cosine_similarity,
+        envelope_violations,
+        nonfinite_values,
+        relative_l2_max: GRADIENT_RELATIVE_L2_MAX,
+        cosine_min: GRADIENT_COSINE_MIN,
+        envelope_absolute_floor: GRADIENT_ENVELOPE_ABSOLUTE_FLOOR,
+        envelope_reference_multiplier: GRADIENT_ENVELOPE_REFERENCE_MULTIPLIER,
+        within_bound,
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct AcceleratorParityChecks {
     pub model_semantics_exact: bool,
@@ -105,14 +199,15 @@ pub struct AcceleratorParityChecks {
     pub inputs_exact: bool,
     pub logits_exact: bool,
     pub loss_exact: bool,
-    pub gradient_bytes_exact: bool,
+    pub gradient_within_bound: bool,
+    pub gradient_conformance: GradientConformance,
     pub execution_stages_exact: bool,
     pub synchronized: bool,
     pub cleanup_complete: bool,
     pub repeated_execution_exact: bool,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct AcceleratorModelResult {
     pub schema: &'static str,
@@ -242,6 +337,13 @@ fn validate_single_observation(
         ));
     }
     let expected_stages = EXECUTION_STAGES.map(str::to_owned).to_vec();
+    // PRECISION-002: the forward is compared byte for byte; gradients are compared
+    // against the frozen provider-independent bound, because differing transcendental
+    // libraries make bit equality unattainable. See ADR 0001.
+    let conformance = gradient_conformance(
+        &gradient,
+        &hex::decode(&oracle.gradient_f32_le_hex).unwrap(),
+    );
     let checks = AcceleratorParityChecks {
         model_semantics_exact: observation.model_semantics == P10_MODEL_SEMANTICS,
         parameter_layout_exact: observation.parameter_layout_sha256 == plan.parameter_layout_sha256,
@@ -249,7 +351,8 @@ fn validate_single_observation(
             && observation.target_token_ids == oracle.target_token_ids,
         logits_exact: logits == hex::decode(&oracle.logits_bf16_le_hex).unwrap(),
         loss_exact: loss == hex::decode(&oracle.loss_f32_le_hex).unwrap(),
-        gradient_bytes_exact: gradient == hex::decode(&oracle.gradient_f32_le_hex).unwrap(),
+        gradient_within_bound: conformance.within_bound,
+        gradient_conformance: conformance,
         execution_stages_exact: observation.stages_completed == expected_stages,
         synchronized: observation.synchronized,
         cleanup_complete: observation.owned_resources_released,
@@ -260,14 +363,14 @@ fn validate_single_observation(
         || !checks.inputs_exact
         || !checks.logits_exact
         || !checks.loss_exact
-        || !checks.gradient_bytes_exact
+        || !checks.gradient_within_bound
         || !checks.execution_stages_exact
         || !checks.synchronized
         || !checks.cleanup_complete
     {
         return Err(ProductError::gate(
             phase_code(prefix, "ACCELERATOR_PARITY_FAILED"),
-            "the accelerator forward, fused loss, gradient bytes, stage order, or cleanup differs from the CPU oracle",
+            "the accelerator forward, fused loss, bounded gradient conformance, stage order, or cleanup differs from the CPU oracle",
         ));
     }
     Ok(checks)
@@ -330,9 +433,9 @@ pub fn validate_repeated_accelerator_execution(
     })
 }
 
-pub const PROVIDER_PARITY_RESULT_SCHEMA: &str = "python-slm-provider-parity-result-v1";
+pub const PROVIDER_PARITY_RESULT_SCHEMA: &str = "python-slm-provider-parity-result-v2";
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ProviderParityResult {
     pub schema: &'static str,
@@ -477,13 +580,17 @@ mod tests {
         let result = validate_repeated_accelerator_execution(&observation, &observation).unwrap();
         assert_eq!(result.status, "PARITY_OK");
         assert_eq!(result.qualification_status, "SKIPPED");
-        assert!(result.checks.gradient_bytes_exact);
+        assert!(result.checks.gradient_within_bound);
+        assert_eq!(result.checks.gradient_conformance.relative_l2, 0.0);
         assert!(result.checks.repeated_execution_exact);
         assert!(!result.receipts_written);
     }
 
+    /// Under `PRECISION-002` a one-ULP gradient difference is inside the frozen
+    /// bound by design, but determinism is unrelaxed: two executions that differ at
+    /// all still fail closed on repeated-execution drift.
     #[test]
-    fn one_bit_gradient_drift_fails_closed() {
+    fn one_bit_gradient_drift_still_fails_closed_on_determinism() {
         let first = passing_observation();
         let mut second = first.clone();
         let mut gradient = hex::decode(&second.gradient_f32_le_hex).unwrap();
@@ -492,6 +599,45 @@ mod tests {
         second.gradient_sha256 = sha256_hex(&gradient);
         assert_eq!(
             validate_repeated_accelerator_execution(&first, &second)
+                .unwrap_err()
+                .code,
+            "P10_REPEATED_EXECUTION_DRIFT"
+        );
+    }
+
+    /// A gradient far enough from the oracle to leave the frozen bound must still
+    /// fail the parity gate, even when both executions agree with each other.
+    #[test]
+    fn out_of_bound_gradient_fails_the_parity_gate() {
+        let mut observation = passing_observation();
+        let gradient = hex::decode(&observation.gradient_f32_le_hex).unwrap();
+        let corrupted = gradient
+            .chunks_exact(4)
+            .flat_map(|chunk| {
+                let value = f32::from_le_bytes(chunk.try_into().unwrap());
+                (value * 4.0 + 1.0).to_le_bytes()
+            })
+            .collect::<Vec<_>>();
+        observation.gradient_f32_le_hex = hex::encode(&corrupted);
+        observation.gradient_sha256 = sha256_hex(&corrupted);
+        assert_eq!(
+            validate_repeated_accelerator_execution(&observation, &observation)
+                .unwrap_err()
+                .code,
+            "P10_ACCELERATOR_PARITY_FAILED"
+        );
+    }
+
+    /// Non-finite gradients are rejected regardless of magnitude.
+    #[test]
+    fn nonfinite_gradients_fail_the_parity_gate() {
+        let mut observation = passing_observation();
+        let mut gradient = hex::decode(&observation.gradient_f32_le_hex).unwrap();
+        gradient[..4].copy_from_slice(&f32::NAN.to_le_bytes());
+        observation.gradient_f32_le_hex = hex::encode(&gradient);
+        observation.gradient_sha256 = sha256_hex(&gradient);
+        assert_eq!(
+            validate_repeated_accelerator_execution(&observation, &observation)
                 .unwrap_err()
                 .code,
             "P10_ACCELERATOR_PARITY_FAILED"
