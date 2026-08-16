@@ -356,6 +356,35 @@ explicitly `provider-neutral-synthetic`: `LADDER_OK` proves deterministic automa
 checkpoint behavior only. Hardware stability, long-duration execution, performance admission,
 the completion SLA, and a full training run remain `UNVERIFIED`.
 
+## Final training implementation
+
+Phase 16 installs the provider-neutral completion coordinator over the P11 loader and P12
+trainer/checkpoint contracts. It requests each micro-batch at the exact trainer cursor, truncates
+only the canonical final update, publishes create-new checkpoints at every required event,
+applies retention, and requires the durable final checkpoint to reload byte-exactly.
+
+Inspect the fixed implementation contract without starting training or writing state:
+
+```powershell
+$config = (Resolve-Path src/train/prototype-windows-5090-v1.defaults.json).Path
+cargo run --locked --offline --bin python-slm -- train --config $config
+```
+
+With no final checkpoint argument, the command emits
+`python-slm-final-training-implementation-result-v1` with `IMPLEMENTATION_READY` and every
+execution, elapsed-time, SLA, final-loss, and final-checkpoint claim `UNVERIFIED`.
+
+To verify a completed checkpoint from a separate process, run:
+
+```powershell
+cargo run --locked --offline --bin python-slm -- train --config $config `
+  --verify-final-checkpoint C:\absolute\checkpoints\generations\00000000002000000000
+```
+
+That mode revalidates the complete P12 manifest, seal, artifact inventory, backend bytes, exact
+2,000,000,000-target cursor, and 30,518-update count. It still does not prove execution
+provenance, hardware qualification, elapsed time, the completion SLA, or final model quality.
+A real full CUDA run remains optional and was not run by the automated P16 implementation gate.
 Phase 7A adds hash-bound governed-source metadata to every curation outcome. The checked-in
 default policy labels manifest-declared provenance, license, and removal facts ASSUMED;
 freshness and aggregate source status remain UNVERIFIED while external review is unavailable.

@@ -517,7 +517,7 @@ Dependencies: P14.
 
 ## Phase 16 — Final Training Run
 
-- [ ] P16 implementation
+- [x] P16 implementation
 - Manual qualification and publication gate: **SKIPPED**.
 
 Dependencies: P15 implementation.

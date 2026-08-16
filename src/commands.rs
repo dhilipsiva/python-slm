@@ -62,6 +62,8 @@ enum Command {
     Train {
         #[arg(long)]
         config: PathBuf,
+        #[arg(long)]
+        verify_final_checkpoint: Option<PathBuf>,
     },
 }
 
@@ -120,7 +122,10 @@ pub fn run(args: impl IntoIterator<Item = OsString>) -> Result<Value> {
                 crate::train::profile::profile(&config, diagnostics.as_deref())
             }
         }
-        Command::Train { config } => deferred("training phase", "train", config),
+        Command::Train {
+            config,
+            verify_final_checkpoint,
+        } => crate::train::final_run::final_training(&config, verify_final_checkpoint.as_deref()),
     }
 }
 
@@ -152,17 +157,37 @@ mod tests {
 
     #[test]
     fn every_future_command_fails_with_the_same_typed_gate() {
-        for command in ["inspect", "train"] {
-            let error = run([
-                "python-slm".into(),
-                command.into(),
-                "--config".into(),
-                "must-not-be-read.json".into(),
-            ])
-            .unwrap_err();
-            assert_eq!(error.code, "PHASE_NOT_IMPLEMENTED");
-            assert_eq!(error.exit_code(), 5);
-        }
+        let error = run([
+            "python-slm".into(),
+            "inspect".into(),
+            "--config".into(),
+            "must-not-be-read.json".into(),
+        ])
+        .unwrap_err();
+        assert_eq!(error.code, "PHASE_NOT_IMPLEMENTED");
+        assert_eq!(error.exit_code(), 5);
+    }
+    #[test]
+    fn train_is_the_p16_final_run_boundary() {
+        let arguments = Arguments::try_parse_from([
+            "python-slm",
+            "train",
+            "--config",
+            "defaults.json",
+            "--verify-final-checkpoint",
+            "checkpoints/generations/00000000002000000000",
+        ])
+        .unwrap();
+        assert!(matches!(
+            arguments.command,
+            Command::Train {
+                config,
+                verify_final_checkpoint: Some(generation),
+            } if config.as_path() == std::path::Path::new("defaults.json")
+                && generation.as_path() == std::path::Path::new(
+                    "checkpoints/generations/00000000002000000000"
+                )
+        ));
     }
 
     #[test]

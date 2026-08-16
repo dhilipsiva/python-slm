@@ -11,6 +11,7 @@ use std::sync::{
 pub const IMPLEMENTATION_PHASE: &str = "P12";
 
 pub mod checkpoint;
+pub mod final_run;
 pub mod profile;
 pub mod stability;
 pub mod trainer;
@@ -18,6 +19,12 @@ pub mod trainer;
 pub use checkpoint::{
     CheckpointArtifactRef, CheckpointManifestV1, PublishedCheckpoint, load_checkpoint,
     prune_checkpoints, publish_checkpoint,
+};
+pub use final_run::{
+    EXECUTION_SURFACE as FINAL_RUN_EXECUTION_SURFACE, FinalBatchSource,
+    FinalCheckpointReloadResultV1, FinalRunCheckpointPolicyV1, FinalRunClaimStatusV1,
+    FinalRunExecution, FinalTrainingImplementationResultV1, build_implementation_result,
+    execute_to_completion, verify_final_checkpoint,
 };
 pub use profile::{
     ACTUAL_ELAPSED_LIMIT_NS, ADMISSION_SECONDS, COMPLETION_SLA_SECONDS, DEFAULT_CONFIG_BYTES,
