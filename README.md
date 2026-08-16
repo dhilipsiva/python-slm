@@ -339,6 +339,23 @@ cases qualification is `SKIPPED`, performance is `UNVERIFIED`, and no hardware, 
 full-run, or SLA claim is made. Non-Windows execution returns `DEFERRED_POST_P16` before reading
 configuration bytes.
 
+Phase 15 adds a bounded automated ladder over the same immutable defaults and the P12
+checkpoint/reload boundary:
+
+```powershell
+$config = (Resolve-Path src/train/prototype-windows-5090-v1.defaults.json).Path
+$ladder = (Resolve-Path src/train/prototype-windows-5090-v1.stability.json).Path
+cargo run --locked --offline --bin python-slm -- bench --config $config --stability-plan $ladder
+```
+
+The ladder runs one smoke trial, one short trial, an uninterrupted-versus-reloaded restart
+comparison, and three repeated bounded stability trials. It freezes the configuration and
+implementation identities within every trial, uses an owned temporary checkpoint root, removes
+that root on success and failure, and emits one closed local JSON result. The execution surface is
+explicitly `provider-neutral-synthetic`: `LADDER_OK` proves deterministic automated trainer and
+checkpoint behavior only. Hardware stability, long-duration execution, performance admission,
+the completion SLA, and a full training run remain `UNVERIFIED`.
+
 Phase 7A adds hash-bound governed-source metadata to every curation outcome. The checked-in
 default policy labels manifest-declared provenance, license, and removal facts ASSUMED;
 freshness and aggregate source status remain UNVERIFIED while external review is unavailable.

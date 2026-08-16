@@ -53,8 +53,10 @@ enum Command {
     Bench {
         #[arg(long)]
         config: PathBuf,
-        #[arg(long)]
+        #[arg(long, conflicts_with = "stability_plan")]
         diagnostics: Option<PathBuf>,
+        #[arg(long, conflicts_with = "diagnostics")]
+        stability_plan: Option<PathBuf>,
     },
     /// Run canonical training. Implemented by the training phases.
     Train {
@@ -110,7 +112,14 @@ pub fn run(args: impl IntoIterator<Item = OsString>) -> Result<Value> {
         Command::Bench {
             config,
             diagnostics,
-        } => crate::train::profile::profile(&config, diagnostics.as_deref()),
+            stability_plan,
+        } => {
+            if let Some(plan) = stability_plan {
+                crate::train::stability::stability(&config, &plan)
+            } else {
+                crate::train::profile::profile(&config, diagnostics.as_deref())
+            }
+        }
         Command::Train { config } => deferred("training phase", "train", config),
     }
 }
@@ -171,7 +180,8 @@ mod tests {
             arguments.command,
             Command::Bench {
                 config,
-                diagnostics: Some(diagnostics)
+                diagnostics: Some(diagnostics),
+                stability_plan: None,
             } if config.as_path() == std::path::Path::new("defaults.json")
                 && diagnostics.as_path() == std::path::Path::new("diagnostics.json")
         ));

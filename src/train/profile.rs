@@ -411,7 +411,7 @@ fn portable_sample_id(value: &str) -> bool {
 }
 
 #[cfg(windows)]
-fn read_control_file(path: &Path, code: &'static str) -> Result<Vec<u8>> {
+pub(super) fn read_control_file(path: &Path, code: &'static str) -> Result<Vec<u8>> {
     if !path.is_absolute() {
         return Err(ProductError::usage(
             code,

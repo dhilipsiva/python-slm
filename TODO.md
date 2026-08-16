@@ -505,7 +505,7 @@ Dependencies: P10–P13.
 
 ## Phase 15 — Automated Stability Ladder
 
-- [ ] P15 implementation
+- [x] P15 implementation
 - Manual qualification, approval, and publication gate: **SKIPPED**.
 
 Dependencies: P14.

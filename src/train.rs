@@ -12,6 +12,7 @@ pub const IMPLEMENTATION_PHASE: &str = "P12";
 
 pub mod checkpoint;
 pub mod profile;
+pub mod stability;
 pub mod trainer;
 
 pub use checkpoint::{
@@ -25,6 +26,11 @@ pub use profile::{
     parse_default_configuration, parse_diagnostics,
 };
 
+pub use stability::{
+    EXECUTION_SURFACE as STABILITY_EXECUTION_SURFACE, PLAN_SCHEMA as STABILITY_PLAN_SCHEMA,
+    RESULT_SCHEMA as STABILITY_RESULT_SCHEMA, STABILITY_PLAN_BYTES, StabilityLadderResultV1,
+    StabilityPlanV1, StabilityTrialV1, build_stability_result, parse_stability_plan,
+};
 pub use trainer::{
     AdamwParameterState, BackendStateArtifact, BatchGradient, CanonicalAdamw,
     CanonicalTrainingPlan, DeterministicTrainer, EvaluationResult, TrainerBackend, TrainerIdentity,
