@@ -1,14 +1,14 @@
-//! Windows CUDA Driver API transfer adapter with page-locked staging.
+//! CUDA Driver API transfer adapter with page-locked staging on Windows and Linux hosts.
+//!
+//! Windows loads `nvcuda.dll` from System32 only; Linux loads `libcuda.so.1` with
+//! `RTLD_NOW | RTLD_LOCAL`. Every driver call, ticket ownership rule, and cleanup
+//! order is identical across both hosts.
 
 use super::{AsyncBatchTransfer, LoadedSpan};
 use crate::error::{ProductError, Result};
 use std::ffi::{CStr, c_void};
 use std::ptr;
 use std::sync::Arc;
-use windows_sys::Win32::Foundation::{FreeLibrary, HMODULE};
-use windows_sys::Win32::System::LibraryLoader::{
-    GetProcAddress, LOAD_LIBRARY_SEARCH_SYSTEM32, LoadLibraryExW,
-};
 
 type CuResult = i32;
 type CuDevice = i32;
@@ -32,8 +32,82 @@ type CuStreamCreate = unsafe extern "C" fn(*mut CuStream, u32) -> CuResult;
 type CuStreamSynchronize = unsafe extern "C" fn(CuStream) -> CuResult;
 type CuStreamDestroy = unsafe extern "C" fn(CuStream) -> CuResult;
 
+#[cfg(windows)]
+struct DriverLibrary(windows_sys::Win32::Foundation::HMODULE);
+
+#[cfg(target_os = "linux")]
+struct DriverLibrary(*mut c_void);
+
+fn driver_load_failed() -> ProductError {
+    ProductError::environment(
+        "P11_CUDA_DRIVER_LOAD_FAILED",
+        "the NVIDIA CUDA driver library could not be loaded from its native system location",
+    )
+}
+
+impl DriverLibrary {
+    #[cfg(windows)]
+    fn open() -> Result<Self> {
+        use windows_sys::Win32::System::LibraryLoader::{
+            LOAD_LIBRARY_SEARCH_SYSTEM32, LoadLibraryExW,
+        };
+        let name = "nvcuda.dll".encode_utf16().chain([0]).collect::<Vec<_>>();
+        // SAFETY: the UTF-16 name is NUL-terminated and SYSTEM32-only search prevents DLL planting.
+        let module =
+            unsafe { LoadLibraryExW(name.as_ptr(), ptr::null_mut(), LOAD_LIBRARY_SEARCH_SYSTEM32) };
+        if module.is_null() {
+            return Err(driver_load_failed());
+        }
+        Ok(Self(module))
+    }
+
+    #[cfg(target_os = "linux")]
+    fn open() -> Result<Self> {
+        // SAFETY: the soname literal is NUL-terminated and the returned handle is uniquely owned.
+        let handle =
+            unsafe { libc::dlopen(c"libcuda.so.1".as_ptr(), libc::RTLD_NOW | libc::RTLD_LOCAL) };
+        if handle.is_null() {
+            return Err(driver_load_failed());
+        }
+        Ok(Self(handle))
+    }
+
+    #[cfg(windows)]
+    fn raw_symbol(&self, name: &CStr) -> Option<*mut c_void> {
+        use windows_sys::Win32::System::LibraryLoader::GetProcAddress;
+        // SAFETY: the module is live for the wrapper lifetime and the name is NUL-terminated.
+        unsafe { GetProcAddress(self.0, name.as_ptr().cast()) }.map(|symbol| symbol as *mut c_void)
+    }
+
+    #[cfg(target_os = "linux")]
+    fn raw_symbol(&self, name: &CStr) -> Option<*mut c_void> {
+        // SAFETY: the handle is live for the wrapper lifetime and the name is NUL-terminated.
+        let symbol = unsafe { libc::dlsym(self.0, name.as_ptr()) };
+        (!symbol.is_null()).then_some(symbol)
+    }
+}
+
+impl Drop for DriverLibrary {
+    fn drop(&mut self) {
+        #[cfg(windows)]
+        // SAFETY: the module handle is uniquely owned by this wrapper.
+        unsafe {
+            windows_sys::Win32::Foundation::FreeLibrary(self.0)
+        };
+        #[cfg(target_os = "linux")]
+        // SAFETY: the dlopen handle is uniquely owned by this wrapper.
+        unsafe {
+            libc::dlclose(self.0)
+        };
+    }
+}
+
 struct CudaDriver {
-    module: HMODULE,
+    #[allow(
+        dead_code,
+        reason = "owns the loaded driver library for the function lifetimes"
+    )]
+    library: DriverLibrary,
     init: CuInit,
     device_get: CuDeviceGet,
     primary_retain: CuDevicePrimaryCtxRetain,
@@ -58,77 +132,50 @@ unsafe impl Sync for CudaDriver {}
 
 impl CudaDriver {
     fn load() -> Result<Arc<Self>> {
-        let name = "nvcuda.dll".encode_utf16().chain([0]).collect::<Vec<_>>();
-        // SAFETY: the UTF-16 name is NUL-terminated and SYSTEM32-only search prevents DLL planting.
-        let module =
-            unsafe { LoadLibraryExW(name.as_ptr(), ptr::null_mut(), LOAD_LIBRARY_SEARCH_SYSTEM32) };
-        if module.is_null() {
-            return Err(ProductError::environment(
-                "P11_CUDA_DRIVER_LOAD_FAILED",
-                "the NVIDIA CUDA driver library could not be loaded from System32",
-            ));
-        }
-
-        let loaded = (|| {
-            Ok(Self {
-                module,
-                init: load_symbol(module, c"cuInit")?,
-                device_get: load_symbol(module, c"cuDeviceGet")?,
-                primary_retain: load_symbol(module, c"cuDevicePrimaryCtxRetain")?,
-                primary_release: load_symbol_any(
-                    module,
-                    &[
-                        c"cuDevicePrimaryCtxRelease_v2",
-                        c"cuDevicePrimaryCtxRelease",
-                    ],
-                )?,
-                context_push: load_symbol_any(
-                    module,
-                    &[c"cuCtxPushCurrent_v2", c"cuCtxPushCurrent"],
-                )?,
-                context_pop: load_symbol_any(module, &[c"cuCtxPopCurrent_v2", c"cuCtxPopCurrent"])?,
-                host_alloc: load_symbol_any(module, &[c"cuMemAllocHost_v2", c"cuMemAllocHost"])?,
-                host_free: load_symbol(module, c"cuMemFreeHost")?,
-                device_alloc: load_symbol_any(module, &[c"cuMemAlloc_v2", c"cuMemAlloc"])?,
-                device_free: load_symbol_any(module, &[c"cuMemFree_v2", c"cuMemFree"])?,
-                copy_htod_async: load_symbol_any(
-                    module,
-                    &[c"cuMemcpyHtoDAsync_v2", c"cuMemcpyHtoDAsync"],
-                )?,
-                stream_create: load_symbol(module, c"cuStreamCreate")?,
-                stream_synchronize: load_symbol(module, c"cuStreamSynchronize")?,
-                stream_destroy: load_symbol_any(
-                    module,
-                    &[c"cuStreamDestroy_v2", c"cuStreamDestroy"],
-                )?,
-            })
-        })();
-        match loaded {
-            Ok(driver) => Ok(Arc::new(driver)),
-            Err(error) => {
-                // SAFETY: module is a successful LoadLibraryExW result and is not retained.
-                unsafe { FreeLibrary(module) };
-                Err(error)
-            }
-        }
+        let library = DriverLibrary::open()?;
+        let driver = Self {
+            init: load_symbol(&library, c"cuInit")?,
+            device_get: load_symbol(&library, c"cuDeviceGet")?,
+            primary_retain: load_symbol(&library, c"cuDevicePrimaryCtxRetain")?,
+            primary_release: load_symbol_any(
+                &library,
+                &[
+                    c"cuDevicePrimaryCtxRelease_v2",
+                    c"cuDevicePrimaryCtxRelease",
+                ],
+            )?,
+            context_push: load_symbol_any(
+                &library,
+                &[c"cuCtxPushCurrent_v2", c"cuCtxPushCurrent"],
+            )?,
+            context_pop: load_symbol_any(&library, &[c"cuCtxPopCurrent_v2", c"cuCtxPopCurrent"])?,
+            host_alloc: load_symbol_any(&library, &[c"cuMemAllocHost_v2", c"cuMemAllocHost"])?,
+            host_free: load_symbol(&library, c"cuMemFreeHost")?,
+            device_alloc: load_symbol_any(&library, &[c"cuMemAlloc_v2", c"cuMemAlloc"])?,
+            device_free: load_symbol_any(&library, &[c"cuMemFree_v2", c"cuMemFree"])?,
+            copy_htod_async: load_symbol_any(
+                &library,
+                &[c"cuMemcpyHtoDAsync_v2", c"cuMemcpyHtoDAsync"],
+            )?,
+            stream_create: load_symbol(&library, c"cuStreamCreate")?,
+            stream_synchronize: load_symbol(&library, c"cuStreamSynchronize")?,
+            stream_destroy: load_symbol_any(
+                &library,
+                &[c"cuStreamDestroy_v2", c"cuStreamDestroy"],
+            )?,
+            library,
+        };
+        Ok(Arc::new(driver))
     }
 }
 
-impl Drop for CudaDriver {
-    fn drop(&mut self) {
-        // SAFETY: the module is owned by this driver and all function users retain an Arc.
-        unsafe { FreeLibrary(self.module) };
-    }
+fn load_symbol<T: Copy>(library: &DriverLibrary, name: &CStr) -> Result<T> {
+    load_symbol_any(library, &[name])
 }
 
-fn load_symbol<T: Copy>(module: HMODULE, name: &CStr) -> Result<T> {
-    load_symbol_any(module, &[name])
-}
-
-fn load_symbol_any<T: Copy>(module: HMODULE, names: &[&CStr]) -> Result<T> {
+fn load_symbol_any<T: Copy>(library: &DriverLibrary, names: &[&CStr]) -> Result<T> {
     for name in names {
-        // SAFETY: module is live and CStr is NUL-terminated.
-        if let Some(symbol) = unsafe { GetProcAddress(module, name.as_ptr().cast()) } {
+        if let Some(symbol) = library.raw_symbol(name) {
             if size_of::<T>() != size_of_val(&symbol) {
                 break;
             }

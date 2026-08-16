@@ -1,7 +1,6 @@
 //! Canonical target accounting, optimizer scheduling, evaluation, and resumable trainer state.
 
 use super::LoadedSpan;
-use crate::backend::PROTOTYPE_PROFILE;
 use crate::error::{ProductError, Result};
 use crate::model::CANONICAL_MODEL_ID;
 use crate::model::oracle::{adamw_scalar_step, f32_to_bf16_bits, gradient_clip_scale};
@@ -288,10 +287,12 @@ pub struct TrainerIdentity {
 
 impl TrainerIdentity {
     pub fn validate(&self) -> Result<()> {
-        if self.profile != PROTOTYPE_PROFILE || self.model_identity != CANONICAL_MODEL_ID {
+        if !crate::backend::tuples::is_implemented_training_profile(&self.profile)
+            || self.model_identity != CANONICAL_MODEL_ID
+        {
             return Err(ProductError::integrity(
                 "P12_IDENTITY_MISMATCH",
-                "the trainer profile or model identity is not canonical",
+                "the trainer profile is not an implemented tuple or the model is not canonical",
             ));
         }
         for digest in [

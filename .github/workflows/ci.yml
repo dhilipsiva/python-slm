@@ -92,6 +92,7 @@ jobs:
         run: >-
           cargo test --locked --offline
           --test p17_portable_host_data
+          --test p18_provider_adapters
           --test p4_source_policy
           --test p5_python_parser
           --test p6_privacy_policy
@@ -101,6 +102,15 @@ jobs:
           --test p9a_corpus_policy
       - name: Compile the dependency-minimal portable product
         run: cargo check --locked --no-default-features --offline
+      - name: Compile the Linux CUDA provider surface without launching hardware
+        if: matrix.host == 'linux-x86_64'
+        run: cargo check --locked --no-default-features --features cuda --offline
+      - name: Compile the Linux ROCm/HIP provider surface without launching hardware
+        if: matrix.host == 'linux-x86_64'
+        run: cargo check --locked --no-default-features --features rocm --offline
+      - name: Compile the macOS Metal provider surface without launching hardware
+        if: matrix.host == 'macos-arm64'
+        run: cargo check --locked --no-default-features --features metal --offline
       - name: Require repository stability
         shell: pwsh
         run: |

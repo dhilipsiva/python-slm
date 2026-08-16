@@ -82,7 +82,7 @@ jobs:
           Remove-Item Env:RUSTUP_TOOLCHAIN -ErrorAction SilentlyContinue
           & $cargo test --locked -p xtask --features p2-cuda --offline
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & $cargo test --locked --features cuda --offline --test p10_accelerator_backend --test p11_data_loader --test p12_trainer --test p13_automated_ci
+          & $cargo test --locked --features cuda --offline --test p10_accelerator_backend --test p11_data_loader --test p12_trainer --test p13_automated_ci --test p18_provider_adapters
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Run the non-publishing CUDA probe
         shell: pwsh

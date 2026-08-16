@@ -162,9 +162,21 @@ fn sha256_hex(bytes: &[u8]) -> String {
     hex::encode(Sha256::digest(bytes))
 }
 
-fn decode_exact_hex(value: &str, expected_bytes: usize, code: &'static str) -> Result<Vec<u8>> {
+fn phase_code(prefix: &'static str, suffix: &str) -> String {
+    format!("{prefix}_{suffix}")
+}
+
+fn decode_exact_hex(
+    value: &str,
+    expected_bytes: usize,
+    code: impl Into<String>,
+) -> Result<Vec<u8>> {
+    let code = code.into();
     let bytes = hex::decode(value).map_err(|_| {
-        ProductError::integrity(code, "an accelerator result is not lowercase hexadecimal")
+        ProductError::integrity(
+            code.clone(),
+            "an accelerator result is not lowercase hexadecimal",
+        )
     })?;
     if value != hex::encode(&bytes) || bytes.len() != expected_bytes {
         return Err(ProductError::integrity(
@@ -175,10 +187,13 @@ fn decode_exact_hex(value: &str, expected_bytes: usize, code: &'static str) -> R
     Ok(bytes)
 }
 
-fn observation_sha256(observation: &AcceleratorModelObservation) -> Result<String> {
+fn observation_sha256(
+    observation: &AcceleratorModelObservation,
+    prefix: &'static str,
+) -> Result<String> {
     let bytes = serde_json::to_vec(observation).map_err(|error| {
         ProductError::internal(
-            "P10_OBSERVATION_SERIALIZATION_FAILED",
+            phase_code(prefix, "OBSERVATION_SERIALIZATION_FAILED"),
             format!("could not serialize the closed accelerator observation: {error}"),
         )
     })?;
@@ -189,35 +204,40 @@ fn validate_single_observation(
     observation: &AcceleratorModelObservation,
     oracle: &CpuOracleResult,
     plan: &AcceleratorExecutionPlan,
+    expected_backend: &str,
+    expected_provider: ProviderIdentity,
+    prefix: &'static str,
 ) -> Result<AcceleratorParityChecks> {
     if observation.schema != ACCELERATOR_OBSERVATION_SCHEMA
-        || observation.backend != BURN_CUBECL_CUDA
-        || observation.provider != ProviderIdentity::Cuda
+        || observation.backend != expected_backend
+        || observation.provider != expected_provider
         || observation.fixture_id != CPU_ORACLE_FIXTURE_ID
     {
         return Err(ProductError::integrity(
-            "P10_OBSERVATION_IDENTITY_MISMATCH",
-            "the accelerator observation is not the closed P10 CUDA fixture",
+            phase_code(prefix, "OBSERVATION_IDENTITY_MISMATCH"),
+            format!(
+                "the accelerator observation is not the closed {expected_backend} parity fixture"
+            ),
         ));
     }
     let logits = decode_exact_hex(
         &observation.logits_bf16_le_hex,
         oracle.logits_bf16_le_hex.len() / 2,
-        "P10_LOGITS_INVALID",
+        phase_code(prefix, "LOGITS_INVALID"),
     )?;
     let loss = decode_exact_hex(
         &observation.loss_f32_le_hex,
         oracle.loss_f32_le_hex.len() / 2,
-        "P10_LOSS_INVALID",
+        phase_code(prefix, "LOSS_INVALID"),
     )?;
     let gradient = decode_exact_hex(
         &observation.gradient_f32_le_hex,
         oracle.gradient_f32_le_hex.len() / 2,
-        "P10_GRADIENT_INVALID",
+        phase_code(prefix, "GRADIENT_INVALID"),
     )?;
     if sha256_hex(&gradient) != observation.gradient_sha256 {
         return Err(ProductError::integrity(
-            "P10_GRADIENT_HASH_MISMATCH",
+            phase_code(prefix, "GRADIENT_HASH_MISMATCH"),
             "the accelerator gradient bytes do not match their declared digest",
         ));
     }
@@ -246,7 +266,7 @@ fn validate_single_observation(
         || !checks.cleanup_complete
     {
         return Err(ProductError::gate(
-            "P10_ACCELERATOR_PARITY_FAILED",
+            phase_code(prefix, "ACCELERATOR_PARITY_FAILED"),
             "the accelerator forward, fused loss, gradient bytes, stage order, or cleanup differs from the CPU oracle",
         ));
     }
@@ -259,8 +279,22 @@ pub fn validate_repeated_accelerator_execution(
 ) -> Result<AcceleratorModelResult> {
     let oracle = cpu_oracle_fixture();
     let plan = accelerator_execution_plan()?;
-    let mut checks = validate_single_observation(first, &oracle, &plan)?;
-    validate_single_observation(second, &oracle, &plan)?;
+    let mut checks = validate_single_observation(
+        first,
+        &oracle,
+        &plan,
+        BURN_CUBECL_CUDA,
+        ProviderIdentity::Cuda,
+        "P10",
+    )?;
+    validate_single_observation(
+        second,
+        &oracle,
+        &plan,
+        BURN_CUBECL_CUDA,
+        ProviderIdentity::Cuda,
+        "P10",
+    )?;
     if first != second {
         return Err(ProductError::gate(
             "P10_REPEATED_EXECUTION_DRIFT",
@@ -283,7 +317,7 @@ pub fn validate_repeated_accelerator_execution(
         expected_logits_sha256: sha256_hex(&expected_logits),
         expected_loss_sha256: sha256_hex(&expected_loss),
         expected_gradient_sha256: oracle.gradient_sha256,
-        observation_sha256: observation_sha256(first)?,
+        observation_sha256: observation_sha256(first, "P10")?,
         checks,
         receipts_written: false,
         limitations: vec![
@@ -296,11 +330,100 @@ pub fn validate_repeated_accelerator_execution(
     })
 }
 
+pub const PROVIDER_PARITY_RESULT_SCHEMA: &str = "python-slm-provider-parity-result-v1";
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProviderParityResult {
+    pub schema: &'static str,
+    pub status: &'static str,
+    pub qualification_status: &'static str,
+    pub support_level: &'static str,
+    pub model_identity: &'static str,
+    pub backend: &'static str,
+    pub provider: ProviderIdentity,
+    pub fixture_id: &'static str,
+    pub plan: AcceleratorExecutionPlan,
+    pub expected_logits_sha256: String,
+    pub expected_loss_sha256: String,
+    pub expected_gradient_sha256: String,
+    pub observation_sha256: String,
+    pub checks: AcceleratorParityChecks,
+    pub receipts_written: bool,
+    pub limitations: Vec<&'static str>,
+}
+
+pub fn validate_repeated_provider_execution(
+    provider: ProviderIdentity,
+    first: &AcceleratorModelObservation,
+    second: &AcceleratorModelObservation,
+) -> Result<ProviderParityResult> {
+    let backend = crate::backend::provider_backend_name(provider);
+    let oracle = cpu_oracle_fixture();
+    let plan = accelerator_execution_plan()?;
+    let mut checks = validate_single_observation(first, &oracle, &plan, backend, provider, "P18")?;
+    validate_single_observation(second, &oracle, &plan, backend, provider, "P18")?;
+    if first != second {
+        return Err(ProductError::gate(
+            "P18_REPEATED_EXECUTION_DRIFT",
+            "two provider executions did not produce byte-identical observations",
+        ));
+    }
+    checks.repeated_execution_exact = true;
+    let expected_logits = hex::decode(&oracle.logits_bf16_le_hex).unwrap();
+    let expected_loss = hex::decode(&oracle.loss_f32_le_hex).unwrap();
+    Ok(ProviderParityResult {
+        schema: PROVIDER_PARITY_RESULT_SCHEMA,
+        status: "PARITY_OK",
+        qualification_status: "SKIPPED",
+        support_level: "implemented",
+        model_identity: CANONICAL_MODEL_ID,
+        backend,
+        provider,
+        fixture_id: CPU_ORACLE_FIXTURE_ID,
+        plan,
+        expected_logits_sha256: sha256_hex(&expected_logits),
+        expected_loss_sha256: sha256_hex(&expected_loss),
+        expected_gradient_sha256: oracle.gradient_sha256,
+        observation_sha256: observation_sha256(first, "P18")?,
+        checks,
+        receipts_written: false,
+        limitations: vec![
+            "no_hardware_qualification_claim",
+            "no_full_model_vram_fit_claim",
+            "no_optimizer_or_resume_claim",
+            "no_throughput_or_sla_claim",
+            "no_performance_equivalence_claim",
+            "no_cross_provider_checkpoint_migration_claim",
+            "no_two_billion_target_run_claim",
+        ],
+    })
+}
+
+#[cfg(any(
+    feature = "cuda",
+    all(feature = "rocm", target_os = "linux"),
+    all(feature = "metal", target_os = "macos")
+))]
+mod burn_graph;
+
 #[cfg(feature = "cuda")]
 mod cuda;
 
 #[cfg(feature = "cuda")]
-pub use cuda::run_burn_cubecl_cuda_model_parity;
+pub use cuda::{run_burn_cubecl_cuda_model_parity, run_burn_cubecl_cuda_provider_parity};
+
+#[cfg(all(feature = "rocm", target_os = "linux"))]
+mod rocm;
+
+#[cfg(all(feature = "rocm", target_os = "linux"))]
+pub use rocm::run_burn_cubecl_rocm_model_parity;
+
+#[cfg(all(feature = "metal", target_os = "macos"))]
+mod metal;
+
+#[cfg(all(feature = "metal", target_os = "macos"))]
+pub use metal::run_burn_cubecl_metal_model_parity;
 
 #[cfg(test)]
 mod tests {

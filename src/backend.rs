@@ -1,9 +1,18 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
+pub mod tuples;
+
+#[cfg(all(feature = "metal", target_os = "macos"))]
+pub mod metal;
+#[cfg(all(feature = "rocm", target_os = "linux"))]
+pub mod rocm;
+
 pub const PROTOTYPE_PROFILE: &str = "prototype-windows-5090-v1";
 pub use crate::model::COMPATIBILITY_ALLOCATION_BYTES;
 pub const BURN_CUBECL_CUDA: &str = "burn-cubecl-cuda";
+pub const BURN_CUBECL_ROCM: &str = "burn-cubecl-rocm";
+pub const BURN_CUBECL_METAL: &str = "burn-cubecl-metal";
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -18,6 +27,8 @@ pub enum ProviderIdentity {
 pub enum BackendRequestKind {
     Auto,
     BurnCubeclCuda,
+    BurnCubeclRocm,
+    BurnCubeclMetal,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -52,6 +63,8 @@ pub struct StableDeviceSelection {
 #[serde(tag = "backend", rename_all = "kebab-case")]
 pub enum RuntimeBackend {
     BurnCubeclCuda { device_uuid: String },
+    BurnCubeclRocm { device_uuid: String },
+    BurnCubeclMetal { device_uuid: String },
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -135,12 +148,15 @@ impl fmt::Display for BackendSelectionError {
 
 impl std::error::Error for BackendSelectionError {}
 
-pub fn burn_cubecl_cuda_capability() -> BackendCapability {
+fn implemented_capability(backend: &str, provider: ProviderIdentity) -> BackendCapability {
     BackendCapability {
-        backend: BURN_CUBECL_CUDA.to_owned(),
-        provider: ProviderIdentity::Cuda,
+        backend: backend.to_owned(),
+        provider,
         support_level: "implemented".to_owned(),
-        framework: "burn-cubecl".to_owned(),
+        framework: match provider {
+            ProviderIdentity::Metal => "burn-cubecl-wgpu".to_owned(),
+            ProviderIdentity::Cuda | ProviderIdentity::Rocm => "burn-cubecl".to_owned(),
+        },
         autodiff: true,
         bf16: true,
         exact_gradient_bytes: true,
@@ -148,20 +164,43 @@ pub fn burn_cubecl_cuda_capability() -> BackendCapability {
     }
 }
 
+pub fn burn_cubecl_cuda_capability() -> BackendCapability {
+    implemented_capability(BURN_CUBECL_CUDA, ProviderIdentity::Cuda)
+}
+
+pub fn burn_cubecl_rocm_capability() -> BackendCapability {
+    implemented_capability(BURN_CUBECL_ROCM, ProviderIdentity::Rocm)
+}
+
+pub fn burn_cubecl_metal_capability() -> BackendCapability {
+    implemented_capability(BURN_CUBECL_METAL, ProviderIdentity::Metal)
+}
+
+pub const fn provider_backend_name(provider: ProviderIdentity) -> &'static str {
+    match provider {
+        ProviderIdentity::Cuda => BURN_CUBECL_CUDA,
+        ProviderIdentity::Rocm => BURN_CUBECL_ROCM,
+        ProviderIdentity::Metal => BURN_CUBECL_METAL,
+    }
+}
+
 pub fn select_candidate<'a>(
     request: &BackendRequest,
     candidates: &'a [CandidateResult],
 ) -> Result<&'a CandidateResult, BackendSelectionError> {
-    if request.profile != PROTOTYPE_PROFILE {
+    let Some(required_provider) = tuples::implemented_profile_provider(&request.profile) else {
         return Err(BackendSelectionError {
             code: "DEFERRED_POST_P16",
             message: format!("profile {} is not implemented", request.profile),
         });
-    }
-    if request.provider != ProviderIdentity::Cuda {
+    };
+    if request.provider != required_provider {
         return Err(BackendSelectionError {
             code: "DEFERRED_POST_P16",
-            message: format!("provider {:?} is deferred", request.provider),
+            message: format!(
+                "provider {:?} is deferred for profile {}",
+                request.provider, request.profile
+            ),
         });
     }
 
@@ -175,23 +214,33 @@ pub fn select_candidate<'a>(
         })
         .collect::<Vec<_>>();
 
-    match request.backend {
-        BackendRequestKind::Auto => match eligible.as_slice() {
+    let explicit_backend = match request.backend {
+        BackendRequestKind::Auto => None,
+        BackendRequestKind::BurnCubeclCuda => Some(BURN_CUBECL_CUDA),
+        BackendRequestKind::BurnCubeclRocm => Some(BURN_CUBECL_ROCM),
+        BackendRequestKind::BurnCubeclMetal => Some(BURN_CUBECL_METAL),
+    };
+    match explicit_backend {
+        None => match eligible.as_slice() {
             [candidate] => Ok(*candidate),
             [] => Err(BackendSelectionError {
                 code: "P2_BACKEND_NOT_AVAILABLE",
-                message: "no compiled implemented CUDA candidate passed every required check"
-                    .to_owned(),
+                message: format!(
+                    "no compiled implemented {:?} candidate passed every required check",
+                    request.provider
+                ),
             }),
             _ => Err(BackendSelectionError {
                 code: "P2_BACKEND_AMBIGUOUS",
-                message: "multiple CUDA candidates passed; automatic ranking is forbidden"
-                    .to_owned(),
+                message: format!(
+                    "multiple {:?} candidates passed; automatic ranking is forbidden",
+                    request.provider
+                ),
             }),
         },
-        BackendRequestKind::BurnCubeclCuda => candidates
+        Some(backend) => candidates
             .iter()
-            .find(|candidate| candidate.capability.backend == BURN_CUBECL_CUDA)
+            .find(|candidate| candidate.capability.backend == backend)
             .filter(|candidate| {
                 candidate.capability.provider == request.provider
                     && candidate.compiled
@@ -200,7 +249,7 @@ pub fn select_candidate<'a>(
             })
             .ok_or_else(|| BackendSelectionError {
                 code: "P2_BACKEND_NOT_AVAILABLE",
-                message: "explicit burn-cubecl-cuda selection failed without fallback".to_owned(),
+                message: format!("explicit {backend} selection failed without fallback"),
             }),
     }
 }
@@ -320,7 +369,11 @@ pub fn run_burn_cubecl_cuda_fixture() -> anyhow::Result<BackendFixtureDiagnostic
     Ok(diagnostics)
 }
 
-#[cfg(feature = "cuda")]
+#[cfg(any(
+    feature = "cuda",
+    all(feature = "rocm", target_os = "linux"),
+    all(feature = "metal", target_os = "macos")
+))]
 fn f32_le_hex(values: &[f32]) -> String {
     let bytes = values
         .iter()

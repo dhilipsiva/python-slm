@@ -554,7 +554,7 @@ Dependencies: P16A implementation.
 
 ## Phase 18 — Accelerator Provider Adapters
 
-- [ ] P18 implementation
+- [x] P18 implementation
 - Manual tuple-matrix qualification and publication gate: **SKIPPED**.
 
 Dependencies: P17 and P16A implementation.

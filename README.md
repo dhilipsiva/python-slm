@@ -427,6 +427,43 @@ three hosted lanes. These checks are automated implementation evidence only. Man
 qualification and publication remain `SKIPPED`, and a lane that cannot run remains `UNVERIFIED`.
 Linux CUDA, Linux ROCm/HIP, and macOS Metal are still deferred to P18.
 
+## Accelerator provider adapters
+
+Phase 18 implements the CUDA, ROCm/HIP, and Metal accelerator adapters behind the
+provider-neutral backend interface for the four mandatory tuple lanes: the
+Windows/NVIDIA CUDA regression, Linux/NVIDIA CUDA, Linux/AMD ROCm/HIP, and macOS
+arm64/Apple Silicon Metal. The closed `python-slm-provider-adapter-matrix-v1`
+enumerates exactly those lanes; every unlisted host/provider combination still fails
+before discovery or mutation with `DEFERRED_POST_P16`, and the prototype training
+profile remains CUDA-only.
+
+Each provider executes the same generic one-layer parity graph over the P9B fixture
+parameters and must reproduce the CPU oracle's literal BF16 logits, FP32 loss, and
+complete FP32 gradient bytes; the create-new `python-slm-provider-parity-result-v1`
+accepts only byte-identical repeated executions with complete stage order, explicit
+synchronization, and cleanup. The deterministic trainer, checkpoints, and
+byte-identical resume run unchanged behind the provider interface for every lane
+identity. Discrete CUDA and ROCm lanes use true page-locked staging with
+asynchronous host-to-device rings (`nvcuda.dll` from System32 on Windows;
+`libcuda.so.1` or `libamdhip64.so` via `dlopen` on Linux). The Apple lane uses
+unified shared-memory access with explicit synchronization and source-order
+retirement; it is never reported as an H2D copy.
+
+The isolated feature boundaries compile only on their matching hosts:
+
+```powershell
+cargo check --locked --no-default-features --features cuda --offline   # Windows or Linux
+cargo check --locked --no-default-features --features rocm --offline   # Linux
+cargo check --locked --no-default-features --features metal --offline  # macOS
+```
+
+Ordinary CI runs the provider-neutral P18 contracts on all three hosted lanes and
+compile-checks each provider surface on its matching host without launching
+hardware. Manual tuple-matrix qualification and publication remain `SKIPPED`; every
+lane's execution status is `UNVERIFIED` until its exact device tuple actually runs.
+P18 makes no performance-equivalence, cross-provider checkpoint-migration,
+hardware-qualification, or AMD/Apple two-billion-target-run claim.
+
 ## Automated quality gate
 
 Run the non-publishing Phase 3 gate from native Windows:

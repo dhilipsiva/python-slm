@@ -18,11 +18,31 @@ path = "src/main.rs"
 default = ["cpu-reference"]
 # The CPU feature is intentionally dependency-free until its owning phases land.
 cpu-reference = []
-# The sole implemented accelerator boundary retained from P2.
+# The P2/P10 accelerator boundary; P18 reuses it for the Linux/NVIDIA lane.
 cuda = [
     "dep:anyhow",
     "dep:burn",
     "burn/cuda",
+    "burn/autodiff",
+    "burn/fusion",
+    "burn/autotune",
+    "dep:half",
+]
+# P18 Linux/AMD ROCm/HIP adapter boundary; compiles only where the HIP SDK exists.
+rocm = [
+    "dep:anyhow",
+    "dep:burn",
+    "burn/rocm",
+    "burn/autodiff",
+    "burn/fusion",
+    "burn/autotune",
+    "dep:half",
+]
+# P18 macOS/Apple Silicon Metal adapter boundary; compiles only on macOS hosts.
+metal = [
+    "dep:anyhow",
+    "dep:burn",
+    "burn/metal",
     "burn/autodiff",
     "burn/fusion",
     "burn/autotune",

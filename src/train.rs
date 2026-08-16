@@ -55,6 +55,9 @@ pub use trainer::{
     TrainerSnapshot, TrainingBatch, UpdateEvent, canonical_learning_rate,
     canonical_update_target_count,
 };
+pub use unified_transfer::{
+    UnifiedAllocationProbe, UnifiedDeviceBatch, UnifiedSharedTransfer, UnifiedTicket,
+};
 
 #[derive(Clone, Debug, Default)]
 pub struct LoaderCancellation(Arc<AtomicBool>);
@@ -334,5 +337,10 @@ impl<S: SpanSource + ?Sized, T: AsyncBatchTransfer> Drop for TransferPipeline<'_
     }
 }
 
-#[cfg(all(feature = "cuda", windows))]
+#[cfg(all(feature = "cuda", any(windows, target_os = "linux")))]
 pub mod cuda_transfer;
+
+#[cfg(all(feature = "rocm", target_os = "linux"))]
+pub mod rocm_transfer;
+
+pub mod unified_transfer;
