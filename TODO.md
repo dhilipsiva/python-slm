@@ -680,6 +680,24 @@ test so it remains visible and runnable rather than quietly absent.
 
 Dependencies: E1 implementation.
 
+Measured first, on the prototype RTX 5090 at canonical scale with one sequence per
+dispatch (`tests/e1b_canonical_scale_probe.rs`):
+
+| Quantity | Measurement |
+|---|---|
+| Peak device memory attributable to the process | `16,318` MiB for a single 2,048-target sequence |
+| Steady-state time per sequence | `0.7743` s |
+| Throughput | `2,645` targets/s against the `69,444` targets/s the SLA requires |
+| Projected full-run wall clock | `210` hours against the `8`-hour completion SLA |
+| First dispatch, including kernel compilation | `172` s, one-time but charged to the SLA clock |
+
+Both gaps are far larger than the earlier estimates: one sequence already consumes half
+the device, and throughput is short by a factor of roughly 26. The graph is also nowhere
+near compute-bound — it sustains about `2.1` TFLOP/s, a low single-digit percentage of the
+device's FP32 capability — so the gap is dominated by materialization, launch overhead from
+the 144 per-head loop iterations, and the straight-through storage helper's extra tensors,
+not by arithmetic. That is encouraging for the fix and disqualifying for the current shape.
+
 The current graph is single-sequence and materializes everything:
 
 - it has no batch dimension, so the frozen P14 micro-batch of 16 sequences cannot
@@ -697,6 +715,22 @@ fused cross-entropy the contract requires instead of a retained `[B, L, V]`
 tensor, and causal GQA that neither materializes complete score matrices nor
 repeats K/V. Re-verify determinism, snapshot and restore, and continuation after
 the change; the frozen semantics may not move.
+
+**Landed so far.** `burn-autodiff`'s `BalancedCheckpointing` now backs the training
+backend and all three provider parity adapters, and the CUDA backend returns pages to
+the allocator after each optimizer update. Recomputation reruns the same kernels on the
+same inputs, so it is bit-identical: the `PRECISION-002` conformance numbers are
+unchanged to the last digit (`5.713872e-6` / `0.999999999984`), and the determinism and
+resume gates pass untouched. Re-measured effect: peak memory `16,318` to `13,601` MiB, a
+17 percent reduction, for a 7 percent slowdown to `2,453` targets/s. That is the expected
+recompute trade and confirms the remaining gap is structural, not a tuning matter.
+
+**Still required**, in the order the E1B plan sets out: the batched sequence dimension
+with batched heads and broadcast K/V, two-stage chunked cross-entropy, manual per-layer
+activation checkpointing for attention, and then true BF16 storage as a separately
+verified step. `burn` 0.21 offers no trainable flash attention and no downstream custom
+`Backward`, so the two-stage detach plus `(x * seed.detach()).backward()` vector-Jacobian
+product is the available mechanism.
 
 ### E2 — Final-Run Launch Mode
 

@@ -5,9 +5,12 @@ use super::{AcceleratorCancellation, validate_repeated_provider_execution};
 use crate::backend::{BURN_CUBECL_CUDA, ProviderIdentity};
 use anyhow::Result;
 use burn::backend::{Autodiff, Cuda};
+use burn_autodiff::checkpoint::strategy::BalancedCheckpointing;
 use half::bf16;
 
-type Gpu = Autodiff<Cuda<bf16, i32>>;
+// Must match the training backend strategy, or the conformance gate would verify a
+// path production no longer uses.
+type Gpu = Autodiff<Cuda<bf16, i32>, BalancedCheckpointing>;
 
 const IDENTITY: GraphIdentity = GraphIdentity {
     backend: BURN_CUBECL_CUDA,

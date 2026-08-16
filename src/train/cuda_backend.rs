@@ -19,10 +19,15 @@ use crate::train::trainer::{
     TrainingBatch,
 };
 use burn::backend::{Autodiff, Cuda};
+use burn_autodiff::checkpoint::strategy::BalancedCheckpointing;
 use half::bf16;
 use sha2::{Digest, Sha256};
 
-type Gpu = Autodiff<Cuda<bf16, i32>>;
+/// `BalancedCheckpointing` recomputes the elementwise, transcendental, and view
+/// layer during backward instead of retaining it, which covers the whole softmax
+/// decomposition. Recomputation reruns the same kernels on the same inputs, so it
+/// is bit-identical and neither the `PRECISION-002` gate nor determinism moves.
+type Gpu = Autodiff<Cuda<bf16, i32>, BalancedCheckpointing>;
 type CudaDevice = burn::backend::cuda::CudaDevice;
 
 pub const CUDA_FULL_MODEL_BACKEND: &str = "e1-cuda-full-model-backend-v1";
@@ -141,6 +146,10 @@ impl TrainerBackend for CudaTrainerBackend {
             one_based_update,
         )?;
         self.reload_graph()?;
+        // The previous update's graph tensors are unreachable once the parameters are
+        // re-uploaded; return their pages to the allocator rather than holding the
+        // high-water mark for the whole run.
+        <Gpu as burn::tensor::backend::Backend>::memory_cleanup(&self.device);
         Ok(state_sha256)
     }
 

@@ -22,6 +22,7 @@ cpu-reference = []
 cuda = [
     "dep:anyhow",
     "dep:burn",
+    "dep:burn-autodiff",
     "burn/cuda",
     "burn/autodiff",
     "burn/fusion",
@@ -32,6 +33,7 @@ cuda = [
 rocm = [
     "dep:anyhow",
     "dep:burn",
+    "dep:burn-autodiff",
     "burn/rocm",
     "burn/autodiff",
     "burn/fusion",
@@ -42,6 +44,7 @@ rocm = [
 metal = [
     "dep:anyhow",
     "dep:burn",
+    "dep:burn-autodiff",
     "burn/metal",
     "burn/autodiff",
     "burn/fusion",
@@ -52,6 +55,9 @@ metal = [
 [dependencies]
 anyhow = { version = "1.0", optional = true }
 burn = { version = "=0.21.0", default-features = false, features = ["std"], optional = true }
+# BalancedCheckpointing is not re-exported through the burn facade, so the
+# autodiff crate is a direct dependency of every accelerator boundary.
+burn-autodiff = { version = "=0.21.0", default-features = false, optional = true }
 clap = { version = "4.5", features = ["derive"] }
 half = { version = "2.7", optional = true }
 hex = "0.4"

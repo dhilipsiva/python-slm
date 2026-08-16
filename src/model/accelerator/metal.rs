@@ -9,9 +9,10 @@ use super::{AcceleratorCancellation, validate_repeated_provider_execution};
 use crate::backend::{BURN_CUBECL_METAL, ProviderIdentity};
 use anyhow::{Result, ensure};
 use burn::backend::{Autodiff, Metal};
+use burn_autodiff::checkpoint::strategy::BalancedCheckpointing;
 use half::bf16;
 
-type Gpu = Autodiff<Metal<bf16, i32>>;
+type Gpu = Autodiff<Metal<bf16, i32>, BalancedCheckpointing>;
 
 const IDENTITY: GraphIdentity = GraphIdentity {
     backend: BURN_CUBECL_METAL,
