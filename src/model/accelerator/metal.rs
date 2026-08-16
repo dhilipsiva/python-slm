@@ -4,7 +4,7 @@
 //! shared device-visible allocations synchronized at command boundaries, never a
 //! host-to-device staging copy.
 
-use super::burn_graph::{GraphIdentity, run_repeated_parity};
+use super::full_model::{GraphIdentity, run_repeated_parity};
 use super::{AcceleratorCancellation, validate_repeated_provider_execution};
 use crate::backend::{BURN_CUBECL_METAL, ProviderIdentity};
 use anyhow::{Result, ensure};

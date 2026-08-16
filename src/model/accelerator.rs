@@ -405,13 +405,16 @@ pub fn validate_repeated_provider_execution(
     all(feature = "rocm", target_os = "linux"),
     all(feature = "metal", target_os = "macos")
 ))]
-mod burn_graph;
+pub(crate) mod full_model;
 
 #[cfg(feature = "cuda")]
 mod cuda;
 
 #[cfg(feature = "cuda")]
-pub use cuda::{run_burn_cubecl_cuda_model_parity, run_burn_cubecl_cuda_provider_parity};
+pub use cuda::{
+    run_burn_cubecl_cuda_fixture_observation, run_burn_cubecl_cuda_model_parity,
+    run_burn_cubecl_cuda_provider_parity,
+};
 
 #[cfg(all(feature = "rocm", target_os = "linux"))]
 mod rocm;

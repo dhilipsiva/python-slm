@@ -64,7 +64,9 @@ pub fn run_burn_cubecl_metal_fixture() -> anyhow::Result<BackendFixtureDiagnosti
         .context("P18_METAL_GRADIENT_B_READ_FAILED")?
         .to_vec::<f32>()
         .context("P18_METAL_GRADIENT_B_DTYPE_INVALID")?;
-    let expected_a = [124.5_f32, 145.0, 282.5, 329.0];
+    // dL/dA = G@B^T and dL/dB = A^T@G with BF16 storage rounding; the exact
+    // derivation and hardware verification live beside the CUDA fixture.
+    let expected_a = [113.5_f32, 154.0, 258.0, 350.0];
     let expected_b = [74.0_f32, 86.0, 105.0, 122.0];
     ensure!(
         gradient_a == expected_a && gradient_b == expected_b,

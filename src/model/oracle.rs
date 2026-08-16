@@ -354,6 +354,18 @@ pub struct InitializationManifest {
     pub bundle_sha256: String,
 }
 
+/// The exact INIT-001 pre-rounding FP32 draw shared by the initialization
+/// manifest stream and the E1 full-model master-weight initialization.
+pub fn sample_initial_value(rng: &mut ChaCha12Rng, initialization: ParameterInitialization) -> f32 {
+    match initialization {
+        ParameterInitialization::Ones => 1.0,
+        ParameterInitialization::NormalStddev002 => {
+            let sample: f32 = StandardNormal.sample(rng);
+            sample * INITIALIZATION_STDDEV
+        }
+    }
+}
+
 fn fill_initialized_artifact(
     rng: &mut ChaCha12Rng,
     spec: &ParameterSpec,
@@ -362,13 +374,7 @@ fn fill_initialized_artifact(
     let mut first = Vec::with_capacity(16);
     let mut buffer = Vec::with_capacity(8_192);
     for _ in 0..spec.elements {
-        let bits = match spec.initialization {
-            ParameterInitialization::Ones => f32_to_bf16_bits(1.0),
-            ParameterInitialization::NormalStddev002 => {
-                let sample: f32 = StandardNormal.sample(rng);
-                f32_to_bf16_bits(sample * INITIALIZATION_STDDEV)
-            }
-        };
+        let bits = f32_to_bf16_bits(sample_initial_value(rng, spec.initialization));
         let bytes = bits.to_le_bytes();
         if first.len() < 16 {
             first.extend_from_slice(&bytes);

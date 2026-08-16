@@ -590,26 +590,94 @@ run instead of moving a threshold.
 
 ### E1 — Full-Model Accelerator Training Backend
 
-- [ ] E1 implementation
+- [ ] E1 implementation (core landed and hardware-verified; blocked by E1A and E1B)
 
 Dependencies: P10, P12, and P18 implementation.
 
-- Implement a concrete `TrainerBackend` on `burn-cubecl-cuda` for the canonical
-  `gqa-135m-v1` model: BF16 parameters and activations, the frozen FP32-sensitive
-  accumulations, fused valid-target cross-entropy, micro-batch gradient accumulation,
-  one global-L2 clip and AdamW step per 65,536-target update against FP32 master
-  weights and moments, and BF16 round-to-nearest-even storage writeback.
-- Return explicit evolving host/device RNG state per batch and produce the five
-  P12 checkpoint artifacts with byte-exact snapshot/restore.
-- Prove exact-gradient parity against the P9B oracle fixture and byte-identical
-  repeated execution; design the per-update FP32 gradient/optimizer traffic
-  (about 541 MB per update) to overlap compute without making a performance claim.
+Landed, with automated evidence executed on the prototype RTX 5090:
+
+- `src/train/full_state.rs` owns the provider-neutral full-model state: the
+  generalized GQA dimensional contract, INIT-001 canonical master-weight
+  initialization, AdamW through the frozen P12 `CanonicalAdamw` arithmetic,
+  deterministic host and device RNG witness chains, and the closed five-artifact
+  checkpoint codec with byte-exact restore.
+- `src/model/accelerator/full_model.rs` replaces the fixture-only P10 graph with
+  one configuration-parameterized GQA graph shared by every provider adapter. It
+  uses straight-through BF16 storage quantization at the frozen points and
+  explicit host-FP32 constants for the RoPE tables and the causal mask.
+- `src/train/cuda_backend.rs` implements `TrainerBackend` on `burn-cubecl-cuda`.
+- Verified on hardware: finite and byte-identical repeated gradients across
+  independent backend instances; byte-exact snapshot and restore; byte-identical
+  continuation after restore. Verified on CPU: canonical initialization
+  reproduces every INIT-001 per-tensor digest for all 111 tensors of the
+  135,285,504-parameter model.
+
+A correctness defect found by executing the previously compile-only P2 fixture is
+also fixed here: its expected gradient constants had never run on hardware and
+were wrong.
+
+### E1A — Exact-Gradient Gate Conflict (owner decision required)
+
+- [ ] E1A resolution
+
+Dependencies: E1 implementation.
+
+Executing the frozen P10 parity fixture on real hardware for the first time shows
+that device gradients do **not** equal the P9B oracle's canonical IEEE-754 bytes,
+while the forward BF16 logits and the FP32 loss match it exactly. Observed
+relative gradient deviation is roughly `1e-5` to `1e-4`. Replacing
+`powf_scalar(2.0)` with explicit multiplication in RMSNorm, so the squaring
+derivative no longer travels through a generic power rule, did not close the gap.
+
+Remaining candidate causes, none of which this repository can currently control:
+
+- the pinned `cubecl-cuda 0.10.0` hard-codes its NVRTC option list and exposes no
+  `--fmad=false`, so mul/add contraction inside generated kernels is not
+  configurable from here;
+- GPU reductions do not reproduce the oracle's `fp32-left-to-right` accumulation,
+  and that ordering is inherently serial;
+- the frozen BF16 storage points amplify a one-ULP FP32 difference into a full
+  BF16 ULP whenever an intermediate lands on a rounding boundary.
+
+`MODEL-001` and the v2 contract require literal canonical gradient bytes and state
+that no tolerance waives them, so this is a stop condition, not a defect to work
+around. Do not weaken, tolerance, or delete the gate. Resolution needs an owner
+decision among: implementing device reductions that reproduce the oracle order,
+pinning a compiler boundary that disables contraction, redefining the canonical
+accumulation order through a create-new amendment, or accepting a narrower
+provider-versus-itself determinism claim and amending the contract to match.
+`tests/e1_full_model_backend.rs` keeps the gate as an explicitly ignored test so
+it remains visible and runnable rather than quietly absent.
+
+### E1B — Batched, Memory-Efficient Attention and Loss
+
+- [ ] E1B implementation
+
+Dependencies: E1 implementation.
+
+The current graph is single-sequence and materializes everything:
+
+- it has no batch dimension, so the frozen P14 micro-batch of 16 sequences cannot
+  be expressed and every sequence costs a separate dispatch chain. One 1,000,000
+  target evaluation at fixture scale needs roughly 470,000 kernel launches and
+  does not finish inside a normal test budget;
+- it retains the full `[L, V]` logit matrix, about 262 MB per 2,048-target
+  sequence at canonical scale;
+- it retains full `L x L` attention scores for every head and layer, about 2.4 GB
+  per sequence at canonical scale.
+
+Together these make the canonical model unable to fit the 32 GB device at the
+frozen micro-batch. Implement the batched sequence dimension, the chunked or
+fused cross-entropy the contract requires instead of a retained `[B, L, V]`
+tensor, and causal GQA that neither materializes complete score matrices nor
+repeats K/V. Re-verify determinism, snapshot and restore, and continuation after
+the change; the frozen semantics may not move.
 
 ### E2 — Final-Run Launch Mode
 
 - [ ] E2 implementation
 
-Dependencies: E1.
+Dependencies: E1, E1A, and E1B.
 
 - Extend `train` with an explicit execution mode that wires verified P8/P9A
   artifacts through the P11 loader and transfer ring into `execute_to_completion`

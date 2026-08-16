@@ -309,7 +309,13 @@ pub fn run_burn_cubecl_cuda_fixture() -> anyhow::Result<BackendFixtureDiagnostic
         .context("P2_GRADIENT_B_READ_FAILED")?
         .to_vec::<f32>()
         .context("P2_GRADIENT_B_DTYPE_INVALID")?;
-    let expected_a = [124.5_f32, 145.0, 282.5, 329.0];
+    // For F = A@B with G = dL/dF = F/2 = [[9.5, 11], [21.5, 25]]:
+    // dL/dA = G@B^T = [[113.5, 154.5], [257.5, 350.5]] rounded to BF16 storage
+    // (154.5 -> 154 tie-to-even, 257.5 -> 258, 350.5 -> 350 tie-to-even), and
+    // dL/dB = A^T@G = [[74, 86], [105, 122]] exactly representable. Verified by
+    // execution on the RTX 5090; the original hand-derived expectation had
+    // transposed B and never ran on hardware before E1.
+    let expected_a = [113.5_f32, 154.0, 258.0, 350.0];
     let expected_b = [74.0_f32, 86.0, 105.0, 122.0];
     ensure!(
         gradient_a == expected_a && gradient_b == expected_b,

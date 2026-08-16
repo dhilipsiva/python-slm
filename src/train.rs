@@ -343,4 +343,8 @@ pub mod cuda_transfer;
 #[cfg(all(feature = "rocm", target_os = "linux"))]
 pub mod rocm_transfer;
 
+#[cfg(feature = "cuda")]
+pub mod cuda_backend;
+
+pub mod full_state;
 pub mod unified_transfer;

@@ -1,6 +1,6 @@
 //! Windows/Linux NVIDIA CUDA model adapter over the provider-generic parity graph.
 
-use super::burn_graph::{GraphIdentity, run_repeated_parity};
+use super::full_model::{GraphIdentity, run_repeated_parity};
 use super::{AcceleratorCancellation, validate_repeated_provider_execution};
 use crate::backend::{BURN_CUBECL_CUDA, ProviderIdentity};
 use anyhow::Result;
@@ -23,6 +23,16 @@ pub fn run_burn_cubecl_cuda_model_parity(
     let (first, second) =
         run_repeated_parity::<Gpu>(&IDENTITY, &device, device_ordinal, cancellation)?;
     super::validate_repeated_accelerator_execution(&first, &second).map_err(anyhow::Error::new)
+}
+
+/// One raw fixture observation for diagnostics, without the parity verdict.
+pub fn run_burn_cubecl_cuda_fixture_observation(
+    device_ordinal: usize,
+    cancellation: &AcceleratorCancellation,
+) -> Result<super::AcceleratorModelObservation> {
+    let device = burn::backend::cuda::CudaDevice::new(device_ordinal);
+    let (first, _) = run_repeated_parity::<Gpu>(&IDENTITY, &device, device_ordinal, cancellation)?;
+    Ok(first)
 }
 
 pub fn run_burn_cubecl_cuda_provider_parity(

@@ -464,6 +464,39 @@ lane's execution status is `UNVERIFIED` until its exact device tuple actually ru
 P18 makes no performance-equivalence, cross-provider checkpoint-migration,
 hardware-qualification, or AMD/Apple two-billion-target-run claim.
 
+## Full-model accelerator training backend
+
+The post-phase execution track in [TODO.md](TODO.md) covers what stands between the
+implemented phases and an actual training run. Its first item, E1, adds the concrete
+full-model backend:
+
+- [`src/train/full_state.rs`](src/train/full_state.rs) holds the provider-neutral
+  training state: the generalized GQA dimensional contract, INIT-001 canonical
+  master-weight initialization, AdamW through the frozen P12 arithmetic,
+  deterministic host and device RNG witness chains, and the closed five-artifact
+  checkpoint codec with byte-exact restore.
+- [`src/model/accelerator/full_model.rs`](src/model/accelerator/full_model.rs)
+  replaces the fixture-only P10 graph with one configuration-parameterized GQA
+  graph shared by every provider adapter, using straight-through BF16 storage
+  quantization and explicit host-FP32 RoPE and causal-mask constants.
+- [`src/train/cuda_backend.rs`](src/train/cuda_backend.rs) implements the
+  `TrainerBackend` contract on `burn-cubecl-cuda`.
+
+Executed on the prototype RTX 5090, the backend produces finite, byte-identical
+repeated gradients across independent instances, snapshots and restores byte
+exactly, and continues byte-identically after a restore. Canonical initialization
+reproduces every INIT-001 per-tensor digest for all 111 tensors of the
+135,285,504-parameter model.
+
+Two gates remain open and are tracked as E1A and E1B. Running the P10 parity
+fixture on hardware for the first time shows device gradients that do not equal the
+P9B oracle's canonical bytes even though the forward logits and loss match exactly;
+that is a contract stop condition awaiting an owner decision, and the gate is kept
+as an explicitly ignored test rather than weakened. The graph is also still
+single-sequence and materializes full logits and attention scores, so the canonical
+model does not yet fit the device at the frozen micro-batch. No training-run,
+performance, SLA, or quality claim is made.
+
 ## Optional scale-up planning
 
 Phase 19 installs the deterministic, non-publishing amendment planner behind the

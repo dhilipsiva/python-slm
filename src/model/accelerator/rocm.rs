@@ -1,6 +1,6 @@
 //! Linux/AMD ROCm/HIP model adapter over the provider-generic parity graph.
 
-use super::burn_graph::{GraphIdentity, run_repeated_parity};
+use super::full_model::{GraphIdentity, run_repeated_parity};
 use super::{AcceleratorCancellation, validate_repeated_provider_execution};
 use crate::backend::{BURN_CUBECL_ROCM, ProviderIdentity};
 use anyhow::Result;
