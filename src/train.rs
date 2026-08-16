@@ -13,6 +13,7 @@ pub const IMPLEMENTATION_PHASE: &str = "P12";
 pub mod checkpoint;
 pub mod final_run;
 pub mod profile;
+pub mod quality;
 pub mod stability;
 pub mod trainer;
 
@@ -31,6 +32,16 @@ pub use profile::{
     DEFAULT_CONFIG_SCHEMA, DIAGNOSTICS_SCHEMA, ProfileDiagnosticsV1, ProfileObservationV1,
     ProfileResultV1, PrototypeTrainingDefaultsV1, RESULT_SCHEMA, build_result,
     parse_default_configuration, parse_diagnostics,
+};
+
+pub use quality::{
+    AggregateMetricsV1, EVALUATION_RESULT_SCHEMA as QUALITY_EVALUATION_RESULT_SCHEMA,
+    EXECUTION_SURFACE as QUALITY_EXECUTION_SURFACE, GenerationSettingsV1,
+    IMPLEMENTATION_RESULT_SCHEMA as QUALITY_IMPLEMENTATION_RESULT_SCHEMA, LossChunkV1,
+    PromptCaseV1, PromptReplayV1, QualityClaimStatusV1, QualityEvaluationBackend,
+    QualityEvaluationImplementationResultV1, QualityEvaluationResultV1, QualityPackV1,
+    UnigramBaselineInputV1, aggregate_metrics, build_implementation_result as build_quality_result,
+    evaluate_quality, quality_evaluation, unigram_baseline,
 };
 
 pub use stability::{

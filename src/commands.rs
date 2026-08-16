@@ -65,6 +65,11 @@ enum Command {
         #[arg(long)]
         verify_final_checkpoint: Option<PathBuf>,
     },
+    /// Inspect the automated P16A quality-evaluation implementation boundary.
+    EvaluateQuality {
+        #[arg(long)]
+        config: PathBuf,
+    },
 }
 
 pub fn entry(args: impl IntoIterator<Item = OsString>) -> i32 {
@@ -126,6 +131,7 @@ pub fn run(args: impl IntoIterator<Item = OsString>) -> Result<Value> {
             config,
             verify_final_checkpoint,
         } => crate::train::final_run::final_training(&config, verify_final_checkpoint.as_deref()),
+        Command::EvaluateQuality { config } => crate::train::quality::quality_evaluation(&config),
     }
 }
 
@@ -187,6 +193,22 @@ mod tests {
                 && generation.as_path() == std::path::Path::new(
                     "checkpoints/generations/00000000002000000000"
                 )
+        ));
+    }
+
+    #[test]
+    fn evaluate_quality_is_the_p16a_boundary() {
+        let arguments = Arguments::try_parse_from([
+            "python-slm",
+            "evaluate-quality",
+            "--config",
+            "defaults.json",
+        ])
+        .unwrap();
+        assert!(matches!(
+            arguments.command,
+            Command::EvaluateQuality { config }
+                if config.as_path() == std::path::Path::new("defaults.json")
         ));
     }
 

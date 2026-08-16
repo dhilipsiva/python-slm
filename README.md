@@ -385,6 +385,28 @@ That mode revalidates the complete P12 manifest, seal, artifact inventory, backe
 2,000,000,000-target cursor, and 30,518-update count. It still does not prove execution
 provenance, hardware qualification, elapsed time, the completion SLA, or final model quality.
 A real full CUDA run remains optional and was not run by the automated P16 implementation gate.
+
+## Automated quality evaluation
+
+Phase 16A adds provider-neutral held-out evaluation without claiming that a final model has been
+run. The reusable evaluator aggregates ordered valid-target negative log likelihood, derives
+finite perplexity, computes an exact add-one-smoothed unigram baseline, requires the final loss
+to be strictly below both the initialized and unigram baselines, and replays every frozen prompt
+twice with exact token equality. Evaluation and generation must leave both backend states
+unchanged.
+
+Inspect the implementation boundary without reading a checkpoint or publishing artifacts:
+
+```powershell
+$config = (Resolve-Path src/train/prototype-windows-5090-v1.defaults.json).Path
+cargo run --locked --offline --bin python-slm -- evaluate-quality --config $config
+```
+
+This emits `python-slm-quality-evaluation-implementation-result-v1` with
+`IMPLEMENTATION_READY`, `qualification_status: SKIPPED`, and every pack, checkpoint, baseline,
+metric, output, and quality claim `UNVERIFIED`. A real final checkpoint, immutable held-out
+manifest, and frozen prompt pack were not evaluated. P16A therefore does not claim owner quality
+approval, portability unlock, hardware qualification, performance, or SLA evidence.
 Phase 7A adds hash-bound governed-source metadata to every curation outcome. The checked-in
 default policy labels manifest-declared provenance, license, and removal facts ASSUMED;
 freshness and aggregate source status remain UNVERIFIED while external review is unavailable.
