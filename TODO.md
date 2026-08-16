@@ -567,7 +567,7 @@ Dependencies: P17 and P16A implementation.
 
 ## Phase 19 — Optional Scale-Up
 
-- [ ] P19 implementation (optional)
+- [x] P19 implementation (optional)
 - Manual amendment, approval, qualification, and publication gate: **SKIPPED**.
 
 Dependencies: P16A implementation. P17 and P18 are independent.

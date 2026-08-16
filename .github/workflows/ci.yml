@@ -93,6 +93,7 @@ jobs:
           cargo test --locked --offline
           --test p17_portable_host_data
           --test p18_provider_adapters
+          --test p19_scale_up
           --test p4_source_policy
           --test p5_python_parser
           --test p6_privacy_policy

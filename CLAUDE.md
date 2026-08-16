@@ -34,7 +34,7 @@ cargo run --locked --bin python-slm -- plan
 cargo run --locked --bin python-slm -- curate --config <absolute-path>
 cargo run --locked --bin python-slm -- train-tokenizer --config <absolute-path>
 cargo run --locked --bin python-slm -- tokenize --config <absolute-path>
-cargo run --locked --bin python-slm -- prepare-corpus | plan-spans | model-oracle | bench | train | evaluate-quality
+cargo run --locked --bin python-slm -- prepare-corpus | plan-spans | model-oracle | bench | train | evaluate-quality | plan-scale-up
 ```
 
 Config paths passed to the CLI must be absolute. Configs are versioned, closed schemas that reject unknown fields; there are no hidden defaults or legacy fallbacks.

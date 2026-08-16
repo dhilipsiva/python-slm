@@ -464,6 +464,35 @@ lane's execution status is `UNVERIFIED` until its exact device tuple actually ru
 P18 makes no performance-equivalence, cross-provider checkpoint-migration,
 hardware-qualification, or AMD/Apple two-billion-target-run claim.
 
+## Optional scale-up planning
+
+Phase 19 installs the deterministic, non-publishing amendment planner behind the
+explicitly requested optional scale-up boundary:
+
+```powershell
+cargo run --locked --offline --bin python-slm -- plan-scale-up --config <absolute-config-path>
+```
+
+The closed `python-slm-scale-up-config-v1` names one requested scope: the complete
+untied GQA shape, the total valid-target count, and the completion SLA. The engine
+recomputes every derived identity with exact checked integer arithmetic — the
+component-wise parameter count, the `align_up(20 * P, 256 MiB)` accelerator floor,
+the 65,536-target update schedule with zero overshoot, stored-prefix/span
+accounting, the 100,000,000-target evaluation boundaries, quarter retention
+anchors, and the exact 90 percent admission ceiling — and emits one compact
+`python-slm-scale-up-plan-result-v1` object.
+
+A valid amendment candidate may not shrink the canonical model, target count, or
+time budget, and must strictly increase at least one of them; vocabulary stays
+within the fixed 260-ID floor and the immutable `u16` shard bound. The result
+names the earliest affected phase and the complete downstream rerun chain, binds a
+deterministic `scale-up-candidate-<digest>` identity, and remains
+`UNAPPROVED_CANDIDATE` with `qualification_status: "SKIPPED"`. It changes no
+canonical constant, writes no artifact or receipt, and makes no approval,
+execution, hardware, SLA, or quality claim: P19 owner approval, the create-new
+contract/ledger/ADR amendment, and every affected phase rerun remain outstanding
+before any scaled run exists.
+
 ## Automated quality gate
 
 Run the non-publishing Phase 3 gate from native Windows:

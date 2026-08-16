@@ -70,6 +70,11 @@ enum Command {
         #[arg(long)]
         config: PathBuf,
     },
+    /// Plan an optional P19 scale-up amendment candidate without publishing.
+    PlanScaleUp {
+        #[arg(long)]
+        config: PathBuf,
+    },
 }
 
 pub fn entry(args: impl IntoIterator<Item = OsString>) -> i32 {
@@ -132,6 +137,7 @@ pub fn run(args: impl IntoIterator<Item = OsString>) -> Result<Value> {
             verify_final_checkpoint,
         } => crate::train::final_run::final_training(&config, verify_final_checkpoint.as_deref()),
         Command::EvaluateQuality { config } => crate::train::quality::quality_evaluation(&config),
+        Command::PlanScaleUp { config } => crate::scale_up::plan_scale_up(&config),
     }
 }
 
