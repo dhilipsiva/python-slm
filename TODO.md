@@ -576,3 +576,97 @@ Dependencies: P16A implementation. P17 and P18 are independent.
 - Recompute model, memory, schedule, token accounting, evaluation, and SLA defaults for the
   requested larger scope.
 - Use automated checks and clearly label unexecuted scale-up results unverified.
+
+## Final-Run Execution Track (owner requested 2026-08-16)
+
+The P1–P19 implementation phases are complete, but no real training run has occurred:
+there is no full-model accelerator training backend, no launch path, no governed
+production corpus, and no hardware-execution evidence. This track closes those gaps in
+dependency order. Simplified-mode rules continue to apply: ordinary automated checks
+only, no receipts or approvals, and every unexecuted or unmeasured fact remains
+`UNVERIFIED`. The fixed `25,920`-second admission ceiling and `28,800`-second
+completion SLA are never retuned after measurement; a failed projection blocks the
+run instead of moving a threshold.
+
+### E1 — Full-Model Accelerator Training Backend
+
+- [ ] E1 implementation
+
+Dependencies: P10, P12, and P18 implementation.
+
+- Implement a concrete `TrainerBackend` on `burn-cubecl-cuda` for the canonical
+  `gqa-135m-v1` model: BF16 parameters and activations, the frozen FP32-sensitive
+  accumulations, fused valid-target cross-entropy, micro-batch gradient accumulation,
+  one global-L2 clip and AdamW step per 65,536-target update against FP32 master
+  weights and moments, and BF16 round-to-nearest-even storage writeback.
+- Return explicit evolving host/device RNG state per batch and produce the five
+  P12 checkpoint artifacts with byte-exact snapshot/restore.
+- Prove exact-gradient parity against the P9B oracle fixture and byte-identical
+  repeated execution; design the per-update FP32 gradient/optimizer traffic
+  (about 541 MB per update) to overlap compute without making a performance claim.
+
+### E2 — Final-Run Launch Mode
+
+- [ ] E2 implementation
+
+Dependencies: E1.
+
+- Extend `train` with an explicit execution mode that wires verified P8/P9A
+  artifacts through the P11 loader and transfer ring into `execute_to_completion`
+  on the E1 backend under the suspend-inclusive monotonic SLA clock.
+- Preserve the existing no-argument inspection result and
+  `--verify-final-checkpoint` behavior unchanged; interruption and resume must
+  remain byte-identical through the P12 checkpoint contract.
+
+### E3 — Governed Production Corpus
+
+- [ ] E3 data materialization
+
+Dependencies: P4–P9A implementation. Independent of E1/E2.
+
+- Acquire authorized, license-clean Python source; the product consumes only
+  already-authorized local bytes, so acquisition tooling or a manual governed
+  materialization step is required, plus the hash-bound `evalplus-v0.3.1`
+  protection manifest.
+- Run `curate`, `prepare-corpus`, `train-tokenizer`, `tokenize`, and `plan-spans`
+  on the real inputs until an installed P8 generation reports
+  `training_target_satisfied: true` at exactly `2,000,000,001` stored IDs.
+- Keep every generated corpus, token, and checkpoint artifact under ignored roots.
+
+### E4 — Hardware Diagnostics on the Qualified Tuple
+
+- [ ] E4 diagnostics
+
+Dependencies: P18 implementation and the physical RTX 5090 host. Independent of E3.
+
+- Run `xtask probe-cuda`, `xtask select-backend` (`p2-cuda`), and the CUDA-aware
+  suites (`p10`/`p11`/`p12`/`p13`/`p18` with `--features cuda`) on the RTX 5090,
+  or dispatch `windows-cuda.yml` from `main` with `run_hardware=true`.
+- CUDA failures are real failures; absent or skipped hardware remains `UNVERIFIED`.
+
+### E5 — Performance Calibration and Admission
+
+- [ ] E5 admission projection
+
+Dependencies: E1–E4.
+
+- Run the P14 profile and P15 stability ladder on hardware with the real corpus;
+  collect exactly five fresh-process samples per overhead class and compute the
+  frozen `O_bound`/`R_qual` projection.
+- Admission requires the whole-run-equivalent projection at or below `25,920`
+  seconds. Roughly `69,445` targets per second sustained is needed; if the
+  measured projection misses, the run is blocked and the thresholds stay fixed.
+
+### E6 — The 2,000,000,000-Target Run and Quality Evaluation
+
+- [ ] E6 execution
+
+Dependencies: E5.
+
+- Execute the run to a durable final checkpoint with actual continuous elapsed
+  time at or below `28,800` seconds on the suspend-inclusive clock, then
+  revalidate it with `train --verify-final-checkpoint` from a fresh process.
+- Freeze the held-out validation manifest, unigram baseline artifact, and prompt
+  pack, then run `evaluate-quality` against the final checkpoint.
+- Manual approvals, receipts, and pointers remain `SKIPPED`; any claim not backed
+  by the executed run remains `UNVERIFIED`.
