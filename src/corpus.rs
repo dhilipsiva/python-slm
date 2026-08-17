@@ -1709,19 +1709,30 @@ fn assign_splits(
         }
     }
     let mut components: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+    let mut component_representatives: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
     for (cluster, group) in duplicate_groups.iter().enumerate() {
-        if !rejected_clusters.contains(&cluster) {
-            for index in group {
-                components
-                    .entry(union.find(*index))
-                    .or_default()
-                    .push(*index);
-            }
+        if rejected_clusters.contains(&cluster) {
+            continue;
+        }
+        // A group's members were unioned with each other above, so the group
+        // sits in exactly one component and its representative can be filed
+        // there in this same pass. Asking the question the other way round — for
+        // each component, which groups touch it — cost components times groups,
+        // which grows with the square of the corpus.
+        component_representatives
+            .entry(union.find(group[0]))
+            .or_default()
+            .push(representative(group, documents));
+        for index in group {
+            components
+                .entry(union.find(*index))
+                .or_default()
+                .push(*index);
         }
     }
     let mut split_components = Vec::new();
     let mut assignments = Vec::new();
-    for mut members in components.into_values() {
+    for (root, mut members) in components {
         members.sort_by(|left, right| {
             documents[*left]
                 .source_id
@@ -1736,14 +1747,7 @@ fn assign_splits(
         let component_id = component_id(&member_ids)?;
         let bucket = split_bucket(&component_id)?;
         let split = split_for_bucket(bucket);
-        let member_set = members.iter().copied().collect::<BTreeSet<_>>();
-        let mut representatives = Vec::new();
-        for group in duplicate_groups {
-            if group.iter().any(|index| member_set.contains(index)) {
-                let representative = representative(group, documents);
-                representatives.push(representative);
-            }
-        }
+        let mut representatives = component_representatives.remove(&root).unwrap_or_default();
         representatives.sort_by(|left, right| {
             documents[*left]
                 .source_id
@@ -2784,6 +2788,63 @@ mod tests {
             manifest.rejected_documents[0]
                 .reasons
                 .contains(&"EXACT_SOURCE".to_owned())
+        );
+    }
+
+    /// `assign_splits` has to stay linear in the corpus.
+    ///
+    /// Every document its own repository and its own cluster is the worst case
+    /// for the form this replaces, because components and groups are then both
+    /// the document count and their product is its square. Measured in release
+    /// at this size, that form took `0.88` s and `3.46` s at twice it — a ratio
+    /// of `3.93`, which is the square — against `0.19` s here. The size is the
+    /// point of the test, so it is deliberately far above the proof corpus.
+    #[test]
+    fn assign_splits_is_linear_in_the_corpus() {
+        const DOCUMENTS: usize = 20_000;
+        let documents = (0..DOCUMENTS)
+            .map(|index| PreparedDocument {
+                source_id: hash(&format!("source-{index}")),
+                repository_group_id: hash(&format!("repository-{index}")),
+                curated_sha256_raw: hash(&format!("raw-{index}")),
+                canonical_sha256: hash(&format!("canonical-{index}")),
+                canonical_bytes: 100,
+                provenance: Provenance {
+                    origin_url: format!("https://example.invalid/{index}"),
+                    revision: "r1".to_owned(),
+                    source_path: format!("{index}.py"),
+                },
+                comment_bytes: 0,
+                token_count: 10,
+                generation: 0,
+                relative_path: format!("{index}.py"),
+                signature: [0; MINHASH_COMPONENTS],
+                benchmark_match: None,
+            })
+            .collect::<Vec<_>>();
+        let groups = (0..DOCUMENTS).map(|index| vec![index]).collect::<Vec<_>>();
+        let (manifest, assignments) = assign_splits(&documents, &groups, &BTreeSet::new()).unwrap();
+        // Every document is its own repository and its own cluster, so each is
+        // its own component and its own representative.
+        assert_eq!(manifest.components.len(), DOCUMENTS);
+        assert_eq!(assignments.len(), DOCUMENTS);
+        assert!(
+            manifest
+                .components
+                .iter()
+                .all(|component| component.member_source_ids.len() == 1
+                    && component.representative_source_ids == component.member_source_ids)
+        );
+        // Rejecting a cluster must drop exactly that document, not renumber the
+        // rest, since the representative now travels with its component.
+        let (reduced, reduced_assignments) =
+            assign_splits(&documents, &groups, &BTreeSet::from([7])).unwrap();
+        assert_eq!(reduced.components.len(), DOCUMENTS - 1);
+        assert_eq!(reduced_assignments.len(), DOCUMENTS - 1);
+        assert!(
+            !reduced.components.iter().any(
+                |component| component.member_source_ids == vec![documents[7].source_id.clone()]
+            )
         );
     }
 

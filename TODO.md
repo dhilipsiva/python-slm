@@ -1090,6 +1090,7 @@ independent blockers, in the order they bite:
    of magnitude. That is an extrapolation across a thousandfold range and should
    be treated as a direction, not a number — but it agrees with the code, which is
    `O(components x duplicate_groups)`.
+   *(Since fixed, and the "orders of magnitude" was too strong — see below.)*
 
 Roughly `61` source generations would be needed for a production corpus, which
 Phase 4 now supports. The other two blockers are unaddressed and each is a real
@@ -1234,6 +1235,28 @@ boundary.
 Extrapolated linearly, a `24.5` GB corpus is now about `3.9` hours of
 `prepare-corpus` rather than `14.6`. The stage is single-threaded throughout,
 which is where any further time would come from.
+
+**`assign_splits` is linear, and the earlier characterization of it was too
+strong.** It asked, for each component, which duplicate groups touch it, which
+costs components times groups. It now asks the reverse: a group's members are all
+unioned with each other, so a group sits in exactly one component and its
+representative is filed there in the same pass that builds the components. The
+generation digest is unchanged and all `1,157` files still agree.
+
+The measurement corrects the record. At the worst case for the old form — every
+document its own repository and its own cluster, so components and groups are
+both the document count — it ran in `0.88` s at `20,000` documents and `3.46` s
+at `40,000`. That ratio of `3.93` confirms the term really was quadratic, but
+`0.19` s for the same input now is an `18.2x` improvement, not the orders of
+magnitude the estimate above claimed. Extrapolating the worst case to `1.42`
+million documents gives roughly `1.2` hours, and the proof corpus is nowhere near
+that shape: repository grouping collapsed its `1,757` clusters into `91`
+components, so its actual product was `5.0` percent of the worst case, or a few
+minutes at production scale. **`assign_splits` was never going to hang.** It was
+a real quadratic worth removing — cheaply, and provably without changing output —
+but the estimate that named it a top-three blocker was wrong, and the reason it
+was wrong is that it reasoned from the code without measuring the shape of the
+data the code runs on.
 
 **Landed so far.** `.gitignore` now matches the artifacts the pipeline actually
 writes. Its extension rules previously matched none of them: token shards are
