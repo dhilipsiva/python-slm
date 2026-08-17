@@ -1079,6 +1079,7 @@ independent blockers, in the order they bite:
 1. **`prepare-corpus` residency.** At `42.7x` measured, a production corpus needs
    on the order of a terabyte of RAM against this host's `93.6` GB. Composing
    generations does not help — the union is what is held resident.
+   *(Since fixed structurally — see below.)*
 2. **The two downstream manifest ceilings that Phase 4 did not fix.** A production
    corpus implies roughly `917,000` representatives against `119,550` and
    `144,890`, so both are six to eight times over. They are emitted rather than
@@ -1158,7 +1159,61 @@ artifacts agree on all `31,740` merges. Only the embedded binding digests differ
 which they must, since the index is a different artifact from the file it
 replaced.
 
-That leaves residency as the one remaining structural blocker of the three.
+**`prepare-corpus` no longer holds the corpus, and residency no longer scales
+with corpus size at all.** Peak working set on the proof corpus falls from
+`403.7` MiB to `91.6` MiB — a further `4.4x` on top of the `42.7x` to `13.8x`
+already taken — for `3.2` percent more wall clock (`59.1` s to `61.0` s). Both
+runs were measured back to back on this host with the same inputs, and the
+evidence that the change is lossless is as strong as it gets: **the two runs
+publish the same generation digest**,
+`6efbf0bc077c8ffc31a75c34cf125852142c996760cc41c5cc9cdbcd66aaaf4b`, and all
+`1,157` published files agree by path and SHA-256.
+
+Three changes, none of which touches a frozen decision:
+
+- **The encoded tokens are one buffer plus offsets** rather than a `Vec<u8>` per
+  token. `DEDUP-001`'s encoding is self-delimiting — a `u64` kind length, the
+  kind, a `u64` text length, the text — so two token sequences are equal exactly
+  when their concatenations are, and a shingle is the concatenation of five
+  *consecutive* tokens with no separator, which in this layout is a contiguous
+  slice. The shingle set and the protected-span hash therefore read the bytes in
+  place instead of rebuilding them, and a covering test asserts the flat shingles
+  equal the per-token concatenation they replaced.
+- **Decontamination matching moved into the load pass.** Its per-document half
+  depends only on the protected set, never on other documents, so deciding it
+  while a document's tokens exist removes the only reason to produce every
+  document's tokens twice. What remains of the old pass is the cluster rule,
+  which needs one flag per document rather than any content.
+- **Neither the bytes nor the tokens are retained.** The bytes are re-read from
+  the hash-bound generation and re-verified on every read, so a file that changes
+  between passes fails the run instead of contributing stale bytes — strictly
+  more tamper-evident than pinning them in memory. The tokens are re-derived by
+  the same pinned parser for the only thing that still needs them, the exact
+  Jaccard of an LSH candidate pair, which the configuration already bounds.
+
+The result is that residency scales with the document *count*, not the corpus
+size. Three points confirm it is linear in that count: `581`, `1,262` and `1,780`
+documents at `59.4`, `77.8` and `91.6` MiB, whose successive slopes agree at
+`27.67` and `27.28` KiB per document over a fixed `43.8` MiB. A production corpus
+of roughly `1.45` million documents therefore implies about **`38` GiB against
+this host's `93.6` GB**, where the same corpus previously implied `338` GB. This
+host can hold it. Note that `27.5` KiB per document is peak working set, not live
+data — the structures account for roughly `5` KiB (a `2` KiB MinHash signature,
+about `2.9` KiB of LSH band index, and the identities) and the rest is retained
+heap arena, which is the conservative figure to plan against because it is what
+the host must actually supply.
+
+**The stage is now time-bound instead, and one naive loop is most of it.**
+`prepare-corpus` takes `61.0` s for `29.3` MiB, and `44.8` s of that — `73`
+percent — is the `DECONTAM-001` canonical-JSON check, measured by re-running with
+those records removed (`16.2` s). It searches each document for each of `1,053`
+canonical-JSON patterns with `content.windows(pattern).any(...)`, so it costs
+corpus bytes times pattern count with no prefilter. Extrapolated linearly, a
+`24.5` GB corpus is about `10.7` hours of that scan on top of `3.9` hours of
+everything else. A multi-pattern search — Aho-Corasick, or even a first-byte or
+rolling-hash prefilter — collapses the dominant term without changing what
+matches. That is the next piece of work, and it is a throughput problem rather
+than a feasibility one.
 
 **Landed so far.** `.gitignore` now matches the artifacts the pipeline actually
 writes. Its extension rules previously matched none of them: token shards are

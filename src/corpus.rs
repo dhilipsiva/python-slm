@@ -18,6 +18,7 @@ use rand_core::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
+use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, OpenOptions};
@@ -271,6 +272,17 @@ struct SourceOutcomeV4 {
     governed_source_metadata: Value,
 }
 
+/// What survives a document's pass through `load_documents`.
+///
+/// Deliberately none of the bulk. A document's canonical bytes and its encoded
+/// tokens are each on the order of the corpus itself, and holding either for
+/// every document is what made this stage need multiples of the corpus in
+/// memory. Neither is kept: the bytes are re-read from the hash-bound
+/// generation that supplied them, and the tokens are re-derived from those bytes
+/// by the same pinned parser, for the few documents that still need them. What
+/// is kept is a fixed ~2.4 KB per document regardless of how large the document
+/// is, so residency now scales with the document *count* rather than the corpus
+/// size.
 #[derive(Clone, Debug)]
 struct PreparedDocument {
     source_id: String,
@@ -278,22 +290,23 @@ struct PreparedDocument {
     curated_sha256_raw: String,
     canonical_sha256: String,
     canonical_bytes: u64,
-    content: Vec<u8>,
     provenance: Provenance,
     comment_bytes: u64,
-    /// The encoded form is a one-to-one map of the lexical tokens, so it carries
-    /// the token count too. The lexical tokens themselves are deliberately not
-    /// retained: every later use needed only their number, and holding a `String`
-    /// kind and a `Vec<u8>` text per token — two heap allocations each, across
-    /// millions of tokens — was the single largest resident cost in this stage.
-    encoded_tokens: Vec<Vec<u8>>,
-    /// The MinHash signature is retained; the shingle set it was built from is
-    /// not. A shingle concatenates five encoded tokens, so the set costs roughly
-    /// five times the token bytes and dominated this stage's residency, yet it is
-    /// wholly derived from `encoded_tokens` and is consulted only for the exact
-    /// Jaccard of an LSH candidate pair. Rebuilding it for those few pairs costs
-    /// far less than holding it for every document.
+    /// One per lexical token, which is the count `DEDUP-001`'s representative
+    /// tie-break needs.
+    token_count: usize,
+    /// Which generation supplied the bytes, and where in it, so they can be
+    /// re-read and re-verified.
+    generation: usize,
+    relative_path: String,
+    /// The MinHash signature is the one derived value worth keeping: it is a
+    /// fixed 2 KB, every later stage bands on it, and recomputing it would mean
+    /// re-parsing the whole corpus rather than the bounded candidate set.
     signature: [u64; MINHASH_COMPONENTS],
+    /// Whether this document matched a protected benchmark record, decided while
+    /// its tokens were in hand rather than in a later pass that would need them
+    /// again.
+    benchmark_match: Option<DecontaminationOutcomeV1>,
 }
 
 #[derive(Clone, Debug)]
@@ -302,7 +315,10 @@ struct ProtectedBenchmark {
     kind: BenchmarkContentKind,
     content: Vec<u8>,
     canonical_sha256: String,
-    encoded_tokens: Vec<Vec<u8>>,
+    tokens: TokenSequence,
+    /// Protected records keep their shingles: there are a few thousand of them
+    /// and each is compared against every document, so rebuilding them per
+    /// comparison would cost far more than holding them.
     shingles: BTreeSet<Vec<u8>>,
     signature: Option<[u64; MINHASH_COMPONENTS]>,
 }
@@ -544,15 +560,28 @@ fn prepare_portable(config_path: &Path) -> Result<Value> {
     require_output_boundary(&config.output_root, &benchmark_root)?;
 
     let cancellation = CancellationToken::default();
-    let documents = load_documents(&sources, &config, &cancellation)?;
+    // The protected set comes first now: matching a document against it happens
+    // while that document's tokens exist, so the index has to be ready before
+    // the first one is read.
     let protected = load_benchmark(&benchmark, &benchmark_root, &cancellation)?;
-    let (dedup, duplicate_groups) = deduplicate(&documents, config.limits.maximum_candidate_pairs)?;
+    let protected_index = ProtectedIndex::build(&protected);
+    let roots = sources
+        .iter()
+        .map(|(_, root)| root.clone())
+        .collect::<Vec<_>>();
+    let documents = load_documents(&sources, &config, &cancellation, &protected_index)?;
+    let (dedup, duplicate_groups) = deduplicate(
+        &documents,
+        &roots,
+        config.limits.maximum_candidate_pairs,
+        &cancellation,
+    )?;
     let (decontamination, rejected_clusters) = decontaminate(
         &documents,
         &duplicate_groups,
-        &protected,
+        protected.len(),
         &config.benchmark_manifest.sha256,
-    )?;
+    );
     let (split_manifest, assignments) =
         assign_splits(&documents, &duplicate_groups, &rejected_clusters)?;
 
@@ -563,7 +592,9 @@ fn prepare_portable(config_path: &Path) -> Result<Value> {
     for assignment in &assignments {
         let document = &documents[assignment.document_index];
         let relative = format!("documents/{}.py", document.source_id);
-        generation.write_file(Path::new(&relative), &document.content)?;
+        // Re-read and re-verified rather than carried here from the load pass.
+        let content = read_document_content(document, &roots)?;
+        generation.write_file(Path::new(&relative), &content)?;
         governed_documents.push(GovernedCorpusDocumentV1 {
             component_id: assignment.component_id.clone(),
             repository_group_id: document.repository_group_id.clone(),
@@ -890,20 +921,173 @@ fn combined_source_generation_sha256(generations: &[SourceGenerationInput]) -> S
     hex::encode(hasher.finalize())
 }
 
+/// The protected benchmark set, indexed the five ways `DECONTAM-001` matches
+/// against it.
+///
+/// It is built once from the benchmark manifest and is independent of the
+/// corpus, which is what lets a document be matched the moment its tokens exist
+/// rather than in a later pass that would have to produce them again.
+struct ProtectedIndex<'a> {
+    records: &'a [ProtectedBenchmark],
+    exact: BTreeMap<&'a str, Vec<usize>>,
+    bands: BTreeMap<[u8; 32], Vec<usize>>,
+    spans: BTreeMap<[u8; 32], Vec<usize>>,
+    short_sequences: BTreeMap<&'a TokenSequence, Vec<usize>>,
+    canonical_json: Vec<usize>,
+}
+
+impl<'a> ProtectedIndex<'a> {
+    fn build(records: &'a [ProtectedBenchmark]) -> Self {
+        let mut index = Self {
+            records,
+            exact: BTreeMap::new(),
+            bands: BTreeMap::new(),
+            spans: BTreeMap::new(),
+            short_sequences: BTreeMap::new(),
+            canonical_json: Vec::new(),
+        };
+        for (position, record) in records.iter().enumerate() {
+            if record.kind == BenchmarkContentKind::CanonicalJson {
+                index.canonical_json.push(position);
+                continue;
+            }
+            index
+                .exact
+                .entry(record.canonical_sha256.as_str())
+                .or_default()
+                .push(position);
+            if let Some(signature) = &record.signature {
+                for key in lsh_keys(signature) {
+                    index.bands.entry(key).or_default().push(position);
+                }
+            }
+            if record.tokens.len() < PROTECTED_SPAN_TOKENS {
+                index
+                    .short_sequences
+                    .entry(&record.tokens)
+                    .or_default()
+                    .push(position);
+            } else {
+                for span in record.tokens.runs(PROTECTED_SPAN_TOKENS) {
+                    index
+                        .spans
+                        .entry(sequence_hash(span))
+                        .or_default()
+                        .push(position);
+                }
+            }
+        }
+        index
+    }
+
+    /// Every protected record this document matches, with the reasons, or `None`
+    /// when it matches nothing.
+    fn match_document(
+        &self,
+        source_id: &str,
+        canonical_sha256: &str,
+        content: &[u8],
+        tokens: &TokenSequence,
+        signature: &[u64; MINHASH_COMPONENTS],
+    ) -> Result<Option<DecontaminationOutcomeV1>> {
+        let mut matches: BTreeMap<usize, BTreeSet<&'static str>> = BTreeMap::new();
+        if let Some(positions) = self.exact.get(canonical_sha256) {
+            for position in positions {
+                matches.entry(*position).or_default().insert("EXACT_SOURCE");
+            }
+        }
+        for position in &self.canonical_json {
+            let bytes = &self.records[*position].content;
+            if !bytes.is_empty() && content.windows(bytes.len()).any(|part| part == bytes) {
+                matches
+                    .entry(*position)
+                    .or_default()
+                    .insert("CANONICAL_JSON_EXACT");
+            }
+        }
+        let mut candidates = BTreeSet::new();
+        for key in lsh_keys(signature) {
+            if let Some(positions) = self.bands.get(&key) {
+                candidates.extend(positions.iter().copied());
+            }
+        }
+        // Built once, and only when the bands actually proposed something to
+        // compare against.
+        if !candidates.is_empty() {
+            let shingles = shingle_set(tokens)?;
+            for position in candidates {
+                if jaccard_exceeds(
+                    shingle_slices(&shingles),
+                    self.records[position].shingles.iter().map(Vec::as_slice),
+                ) {
+                    matches
+                        .entry(position)
+                        .or_default()
+                        .insert("LEXICAL_JACCARD");
+                }
+            }
+        }
+        if let Some(positions) = self.short_sequences.get(tokens) {
+            for position in positions {
+                matches
+                    .entry(*position)
+                    .or_default()
+                    .insert("PROTECTED_COMPLETE_SEQUENCE");
+            }
+        }
+        for span in tokens.runs(PROTECTED_SPAN_TOKENS) {
+            if let Some(positions) = self.spans.get(&sequence_hash(span)) {
+                for position in positions {
+                    if !self.records[*position]
+                        .tokens
+                        .runs(PROTECTED_SPAN_TOKENS)
+                        .any(|protected_span| protected_span == span)
+                    {
+                        continue;
+                    }
+                    matches
+                        .entry(*position)
+                        .or_default()
+                        .insert("PROTECTED_50_TOKEN_SPAN");
+                }
+            }
+        }
+        if matches.is_empty() {
+            return Ok(None);
+        }
+        Ok(Some(DecontaminationOutcomeV1 {
+            source_id: source_id.to_owned(),
+            benchmark_identities: matches
+                .keys()
+                .map(|position| self.records[*position].identity.clone())
+                .collect(),
+            reasons: matches
+                .values()
+                .flat_map(|reasons| reasons.iter().copied())
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .map(str::to_owned)
+                .collect(),
+        }))
+    }
+}
+
 fn load_documents(
     sources: &[(SourceGenerationV4, PathBuf)],
     config: &CorpusPolicyConfigV1,
     cancellation: &CancellationToken,
+    protected: &ProtectedIndex<'_>,
 ) -> Result<Vec<PreparedDocument>> {
     // Every capacity applies to the composed corpus, not to one generation.
     let accepted = sources
         .iter()
-        .flat_map(|(source, root)| {
+        .enumerate()
+        .flat_map(|(generation, (source, root))| {
             source
                 .outcomes
                 .iter()
                 .filter(|outcome| outcome.status == "POLICY_ACCEPTED")
-                .map(move |outcome| (outcome, root.as_path()))
+                .map(move |outcome| (outcome, generation, root.as_path()))
         })
         .collect::<Vec<_>>();
     if accepted.is_empty() || accepted.len() as u64 > config.limits.maximum_documents {
@@ -916,7 +1100,7 @@ fn load_documents(
     let mut source_ids = BTreeSet::new();
     let mut total_bytes = 0_u64;
     let mut total_shingles = 0_u64;
-    for (outcome, root) in accepted {
+    for (outcome, generation, root) in accepted {
         validate_source_outcome(outcome)?;
         if !source_ids.insert(outcome.source_id.as_str()) {
             return Err(ProductError::integrity(
@@ -965,12 +1149,8 @@ fn load_documents(
                 "an accepted source document no longer passes the pinned parser",
             ));
         }
-        let encoded_tokens = parsed
-            .lexical_tokens
-            .iter()
-            .map(encode_token)
-            .collect::<Result<Vec<_>>>()?;
-        let shingles = shingle_set(&encoded_tokens)?;
+        let tokens = TokenSequence::encode(&parsed.lexical_tokens)?;
+        let shingles = shingle_set(&tokens)?;
         total_bytes = total_bytes
             .checked_add(canonical_bytes)
             .ok_or_else(accounting_overflow)?;
@@ -985,23 +1165,83 @@ fn load_documents(
                 "accepted source bytes or lexical shingles exceed capacity",
             ));
         }
+        let signature = minhash_signature(shingle_slices(&shingles));
+        drop(shingles);
+        // Decontamination is decided here, while the bytes and tokens are in
+        // hand. Its per-document matching depends only on the protected set, so
+        // deferring it to its own pass would mean producing every document's
+        // tokens a second time for no additional information.
+        let benchmark_match = protected.match_document(
+            &outcome.source_id,
+            &canonical_sha256,
+            &content,
+            &tokens,
+            &signature,
+        )?;
         documents.push(PreparedDocument {
             source_id: outcome.source_id.clone(),
             repository_group_id: outcome.repository_group_id.clone(),
             curated_sha256_raw: outcome.raw_sha256.clone().expect("validated"),
             canonical_sha256,
             canonical_bytes,
-            content,
             provenance: outcome.provenance.clone(),
             comment_bytes: parsed.result.comment_bytes,
-            signature: minhash_signature(&shingles),
-            encoded_tokens,
+            token_count: tokens.len(),
+            generation,
+            relative_path: relative.to_owned(),
+            signature,
+            benchmark_match,
         });
-        // The shingles have served their purpose; the signature carries forward.
-        drop(shingles);
+        // Neither the bytes nor the tokens are carried past this point; both are
+        // recoverable from the hash-bound generation on demand.
+        drop((content, tokens, parsed));
     }
     documents.sort_by(|left, right| left.source_id.as_bytes().cmp(right.source_id.as_bytes()));
     Ok(documents)
+}
+
+/// Re-reads a document's canonical bytes from the generation that supplied them.
+///
+/// The bytes are hash-bound, so this is verified exactly as the first read was:
+/// a file that changed between passes fails the run rather than contributing
+/// stale bytes. That is what makes not holding them safe.
+fn read_document_content(document: &PreparedDocument, roots: &[PathBuf]) -> Result<Vec<u8>> {
+    let root = roots[document.generation].as_path();
+    let path = join_relative(root, &document.relative_path)?;
+    let metadata = require_contained_regular_file(root, &path)?;
+    if metadata.len() != document.canonical_bytes {
+        return Err(ProductError::integrity(
+            "SOURCE_CONTENT_LENGTH_MISMATCH",
+            "an accepted source document length differs from its identity",
+        ));
+    }
+    let content = read_stable_document(&path, &metadata)?;
+    if sha256(&content) != document.canonical_sha256 {
+        return Err(ProductError::integrity(
+            "SOURCE_CONTENT_HASH_MISMATCH",
+            "an accepted source document hash differs from its identity",
+        ));
+    }
+    Ok(content)
+}
+
+/// Re-derives a document's encoded tokens from its verified bytes with the same
+/// pinned parser, for the bounded set of documents that still need them after
+/// the load pass.
+fn read_document_tokens(
+    document: &PreparedDocument,
+    roots: &[PathBuf],
+    cancellation: &CancellationToken,
+) -> Result<TokenSequence> {
+    let content = read_document_content(document, roots)?;
+    let parsed = parse_python(&content, cancellation)?;
+    if parsed.result.status != "PARSER_ACCEPTED" {
+        return Err(ProductError::integrity(
+            "SOURCE_PARSER_DRIFT",
+            "an accepted source document no longer passes the pinned parser",
+        ));
+    }
+    TokenSequence::encode(&parsed.lexical_tokens)
 }
 
 fn validate_source_outcome(outcome: &SourceOutcomeV4) -> Result<()> {
@@ -1075,7 +1315,7 @@ fn load_benchmark(
                 "a benchmark record hash differs from its manifest",
             ));
         }
-        let encoded_tokens = match record.content_kind {
+        let tokens = match record.content_kind {
             BenchmarkContentKind::PythonModule => {
                 let parsed = parse_python(&content, cancellation)?;
                 if parsed.result.status != "PARSER_ACCEPTED" {
@@ -1084,23 +1324,23 @@ fn load_benchmark(
                         "a protected Python module does not pass the pinned parser",
                     ));
                 }
-                parsed
-                    .lexical_tokens
-                    .iter()
-                    .map(encode_token)
-                    .collect::<Result<Vec<_>>>()?
+                TokenSequence::encode(&parsed.lexical_tokens)?
             }
             BenchmarkContentKind::PythonFragment => fragment_tokens(&content, cancellation)?,
-            BenchmarkContentKind::CanonicalJson => Vec::new(),
+            BenchmarkContentKind::CanonicalJson => TokenSequence::default(),
         };
-        let shingles = shingle_set(&encoded_tokens)?;
-        let signature = (!encoded_tokens.is_empty()).then(|| minhash_signature(&shingles));
+        let borrowed = shingle_set(&tokens)?;
+        let signature = (tokens.len() > 0).then(|| minhash_signature(shingle_slices(&borrowed)));
+        let shingles = borrowed
+            .into_iter()
+            .map(Cow::into_owned)
+            .collect::<BTreeSet<_>>();
         protected.push(ProtectedBenchmark {
             identity: benchmark_identity(record),
             kind: record.content_kind,
             content,
             canonical_sha256,
-            encoded_tokens,
+            tokens,
             shingles,
             signature,
         });
@@ -1108,7 +1348,7 @@ fn load_benchmark(
     Ok(protected)
 }
 
-fn fragment_tokens(fragment: &[u8], cancellation: &CancellationToken) -> Result<Vec<Vec<u8>>> {
+fn fragment_tokens(fragment: &[u8], cancellation: &CancellationToken) -> Result<TokenSequence> {
     let normalized = normalize_newlines(fragment);
     let prefix = b"def __evalplus_fragment__():\n";
     let mut wrapped = prefix.to_vec();
@@ -1152,7 +1392,7 @@ fn fragment_tokens(fragment: &[u8], cancellation: &CancellationToken) -> Result<
         ));
     }
     tokens.drain(..wrapper_tokens.len());
-    tokens.iter().map(encode_token).collect()
+    TokenSequence::encode(&tokens)
 }
 
 /// `DECONTAM-001`: CRLF and CR become LF, without trimming or adding bytes.
@@ -1177,7 +1417,9 @@ pub(crate) fn normalize_newlines(bytes: &[u8]) -> Vec<u8> {
 }
 fn deduplicate(
     documents: &[PreparedDocument],
+    roots: &[PathBuf],
     maximum_candidate_pairs: u64,
+    cancellation: &CancellationToken,
 ) -> Result<(DedupManifestV1, Vec<Vec<usize>>)> {
     let mut union = UnionFind::new(documents.len());
     let mut exact_groups: BTreeMap<&str, Vec<usize>> = BTreeMap::new();
@@ -1219,21 +1461,31 @@ fn deduplicate(
         ));
     }
     let mut near_edges = 0_u64;
-    // Shingles are rebuilt for the pairs that need an exact Jaccard rather than
-    // held for every document. `candidates` is an ordered set, so every pair
-    // sharing a left document is contiguous and that side is built once.
-    let mut cached_left: Option<usize> = None;
-    let mut left_shingles = BTreeSet::new();
+    // The exact Jaccard is the one thing after the load pass that still needs
+    // tokens, and it needs them only for documents the bands proposed — a set
+    // the configuration bounds. Those are re-derived here rather than every
+    // document's being held for the few that are asked for. `candidates` is an
+    // ordered set, so pairs sharing a left document are contiguous and that side
+    // is derived once.
+    let mut cached_left: Option<(usize, TokenSequence)> = None;
     for (left, right) in &candidates {
         if documents[*left].canonical_sha256 == documents[*right].canonical_sha256 {
             continue;
         }
-        if cached_left != Some(*left) {
-            left_shingles = shingle_set(&documents[*left].encoded_tokens)?;
-            cached_left = Some(*left);
+        if cached_left.as_ref().map(|(index, _)| *index) != Some(*left) {
+            cached_left = Some((
+                *left,
+                read_document_tokens(&documents[*left], roots, cancellation)?,
+            ));
         }
-        let right_shingles = shingle_set(&documents[*right].encoded_tokens)?;
-        if jaccard_exceeds(&left_shingles, &right_shingles) {
+        let left_tokens = &cached_left.as_ref().expect("just populated").1;
+        let right_tokens = read_document_tokens(&documents[*right], roots, cancellation)?;
+        let left_shingles = shingle_set(left_tokens)?;
+        let right_shingles = shingle_set(&right_tokens)?;
+        if jaccard_exceeds(
+            shingle_slices(&left_shingles),
+            shingle_slices(&right_shingles),
+        ) {
             union.union(*left, *right);
             near_edges += 1;
         }
@@ -1303,9 +1555,9 @@ fn representative_order(left: &PreparedDocument, right: &PreparedDocument) -> Or
             (left.comment_bytes as u128 * right.canonical_bytes as u128)
                 .cmp(&(right.comment_bytes as u128 * left.canonical_bytes as u128))
         })
-        // The encoded tokens are one per lexical token, so this is the same
-        // higher-token-count tie-break DEDUP-001 specifies.
-        .then_with(|| right.encoded_tokens.len().cmp(&left.encoded_tokens.len()))
+        // Counted one per lexical token, so this is the higher-token-count
+        // tie-break DEDUP-001 specifies.
+        .then_with(|| right.token_count.cmp(&left.token_count))
         .then_with(|| left.source_id.as_bytes().cmp(right.source_id.as_bytes()))
 }
 
@@ -1315,149 +1567,43 @@ fn provenance_complete(document: &PreparedDocument) -> bool {
         && !document.provenance.source_path.is_empty()
 }
 
+/// `DECONTAM-001`'s cluster rule, over verdicts the load pass already reached.
+///
+/// A whole duplicate cluster is rejected if any member matched a protected
+/// record. That is the only part of decontamination that needs to see documents
+/// together, and it needs one flag per document rather than their contents.
 fn decontaminate(
     documents: &[PreparedDocument],
     duplicate_groups: &[Vec<usize>],
-    protected: &[ProtectedBenchmark],
+    protected_records: usize,
     benchmark_manifest_sha256: &str,
-) -> Result<(DecontaminationManifestV1, BTreeSet<usize>)> {
-    let mut exact = BTreeMap::new();
-    let mut bands: BTreeMap<[u8; 32], Vec<usize>> = BTreeMap::new();
-    let mut spans: BTreeMap<[u8; 32], Vec<usize>> = BTreeMap::new();
-    let mut short_sequences: BTreeMap<Vec<Vec<u8>>, Vec<usize>> = BTreeMap::new();
-    let mut canonical_json = Vec::new();
-    for (index, record) in protected.iter().enumerate() {
-        match record.kind {
-            BenchmarkContentKind::CanonicalJson => canonical_json.push(index),
-            _ => {
-                exact
-                    .entry(record.canonical_sha256.as_str())
-                    .or_insert_with(Vec::new)
-                    .push(index);
-                if let Some(signature) = &record.signature {
-                    for key in lsh_keys(signature) {
-                        bands.entry(key).or_default().push(index);
-                    }
-                }
-                if record.encoded_tokens.len() < PROTECTED_SPAN_TOKENS {
-                    short_sequences
-                        .entry(record.encoded_tokens.clone())
-                        .or_default()
-                        .push(index);
-                } else {
-                    for window in record.encoded_tokens.windows(PROTECTED_SPAN_TOKENS) {
-                        spans.entry(sequence_hash(window)).or_default().push(index);
-                    }
-                }
-            }
-        }
-    }
-
-    let mut outcomes = Vec::new();
-    let mut matched_documents = BTreeSet::new();
-    for (document_index, document) in documents.iter().enumerate() {
-        let mut matches: BTreeMap<usize, BTreeSet<&'static str>> = BTreeMap::new();
-        if let Some(indices) = exact.get(document.canonical_sha256.as_str()) {
-            for index in indices {
-                matches.entry(*index).or_default().insert("EXACT_SOURCE");
-            }
-        }
-        for index in &canonical_json {
-            let bytes = &protected[*index].content;
-            if !bytes.is_empty()
-                && document
-                    .content
-                    .windows(bytes.len())
-                    .any(|part| part == bytes)
-            {
-                matches
-                    .entry(*index)
-                    .or_default()
-                    .insert("CANONICAL_JSON_EXACT");
-            }
-        }
-        let mut benchmark_candidates = BTreeSet::new();
-        for key in lsh_keys(&document.signature) {
-            if let Some(indices) = bands.get(&key) {
-                benchmark_candidates.extend(indices.iter().copied());
-            }
-        }
-        // Built once per document, and only when the bands actually proposed a
-        // benchmark candidate to compare against.
-        if !benchmark_candidates.is_empty() {
-            let document_shingles = shingle_set(&document.encoded_tokens)?;
-            for index in benchmark_candidates {
-                if jaccard_exceeds(&document_shingles, &protected[index].shingles) {
-                    matches.entry(index).or_default().insert("LEXICAL_JACCARD");
-                }
-            }
-        }
-        if let Some(indices) = short_sequences.get(&document.encoded_tokens) {
-            for index in indices {
-                matches
-                    .entry(*index)
-                    .or_default()
-                    .insert("PROTECTED_COMPLETE_SEQUENCE");
-            }
-        }
-        if document.encoded_tokens.len() >= PROTECTED_SPAN_TOKENS {
-            for window in document.encoded_tokens.windows(PROTECTED_SPAN_TOKENS) {
-                if let Some(indices) = spans.get(&sequence_hash(window)) {
-                    for index in indices {
-                        if !protected[*index]
-                            .encoded_tokens
-                            .windows(PROTECTED_SPAN_TOKENS)
-                            .any(|protected_window| protected_window == window)
-                        {
-                            continue;
-                        }
-                        matches
-                            .entry(*index)
-                            .or_default()
-                            .insert("PROTECTED_50_TOKEN_SPAN");
-                    }
-                }
-            }
-        }
-        if !matches.is_empty() {
-            matched_documents.insert(document_index);
-            let benchmark_identities = matches
-                .keys()
-                .map(|index| protected[*index].identity.clone())
-                .collect::<Vec<_>>();
-            let reasons = matches
-                .values()
-                .flat_map(|reasons| reasons.iter().copied())
-                .collect::<BTreeSet<_>>()
-                .into_iter()
-                .map(str::to_owned)
-                .collect();
-            outcomes.push(DecontaminationOutcomeV1 {
-                source_id: document.source_id.clone(),
-                benchmark_identities,
-                reasons,
-            });
-        }
-    }
+) -> (DecontaminationManifestV1, BTreeSet<usize>) {
+    let mut outcomes = documents
+        .iter()
+        .filter_map(|document| document.benchmark_match.clone())
+        .collect::<Vec<_>>();
     outcomes.sort_by(|left, right| left.source_id.as_bytes().cmp(right.source_id.as_bytes()));
     let mut rejected_clusters = BTreeSet::new();
     for (cluster, group) in duplicate_groups.iter().enumerate() {
-        if group.iter().any(|index| matched_documents.contains(index)) {
+        if group
+            .iter()
+            .any(|index| documents[*index].benchmark_match.is_some())
+        {
             rejected_clusters.insert(cluster);
         }
     }
-    Ok((
+    (
         DecontaminationManifestV1 {
             schema: DECONTAMINATION_MANIFEST_SCHEMA.to_owned(),
             benchmark_manifest_sha256: benchmark_manifest_sha256.to_owned(),
             registry_id: EVALPLUS_REGISTRY_ID.to_owned(),
             registry_commit: EVALPLUS_REGISTRY_COMMIT.to_owned(),
-            protected_records: protected.len() as u64,
+            protected_records: protected_records as u64,
             rejected_clusters: rejected_clusters.len() as u64,
             rejected_documents: outcomes,
         },
         rejected_clusters,
-    ))
+    )
 }
 
 #[derive(Clone, Debug)]
@@ -1579,19 +1725,65 @@ fn assign_splits(
         assignments,
     ))
 }
-fn encode_token(token: &LexicalToken) -> Result<Vec<u8>> {
-    let kind = token.kind.as_bytes();
-    let kind_length = u64::try_from(kind.len()).map_err(|_| accounting_overflow())?;
-    let text_length = u64::try_from(token.text.len()).map_err(|_| accounting_overflow())?;
-    let mut encoded = Vec::with_capacity(16 + kind.len() + token.text.len());
-    encoded.extend_from_slice(&kind_length.to_le_bytes());
-    encoded.extend_from_slice(kind);
-    encoded.extend_from_slice(&text_length.to_le_bytes());
-    encoded.extend_from_slice(&token.text);
-    Ok(encoded)
+/// A document's `DEDUP-001` encoded lexical tokens as one buffer plus the end
+/// offset of each token, rather than one heap allocation per token.
+///
+/// This is the layout, not the policy: `encode` produces exactly the bytes the
+/// per-token form did, in the same order, so every hash derived from them is
+/// unchanged. Two properties of that encoding make the flat form strictly
+/// better. It is self-delimiting — each token is a `u64` kind length, the kind,
+/// a `u64` text length, then the text — so two token sequences are equal exactly
+/// when their concatenations are, and the offsets never have to be consulted to
+/// compare. And a shingle is the concatenation of five *consecutive* tokens with
+/// no separator, so here it is a contiguous slice: the shingle set and the
+/// protected-span hash read it in place instead of rebuilding it.
+#[derive(Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
+struct TokenSequence {
+    bytes: Vec<u8>,
+    ends: Vec<u32>,
 }
 
-fn shingle_set(tokens: &[Vec<u8>]) -> Result<BTreeSet<Vec<u8>>> {
+impl TokenSequence {
+    fn encode(tokens: &[LexicalToken]) -> Result<Self> {
+        let mut bytes = Vec::new();
+        let mut ends = Vec::with_capacity(tokens.len());
+        for token in tokens {
+            let kind = token.kind.as_bytes();
+            let kind_length = u64::try_from(kind.len()).map_err(|_| accounting_overflow())?;
+            let text_length = u64::try_from(token.text.len()).map_err(|_| accounting_overflow())?;
+            bytes.extend_from_slice(&kind_length.to_le_bytes());
+            bytes.extend_from_slice(kind);
+            bytes.extend_from_slice(&text_length.to_le_bytes());
+            bytes.extend_from_slice(&token.text);
+            ends.push(u32::try_from(bytes.len()).map_err(|_| accounting_overflow())?);
+        }
+        Ok(Self { bytes, ends })
+    }
+
+    fn len(&self) -> usize {
+        self.ends.len()
+    }
+
+    /// The encoded bytes of `count` consecutive tokens beginning at `first`.
+    fn run(&self, first: usize, count: usize) -> &[u8] {
+        let start = if first == 0 {
+            0
+        } else {
+            self.ends[first - 1] as usize
+        };
+        &self.bytes[start..self.ends[first + count - 1] as usize]
+    }
+
+    /// Every run of `count` consecutive tokens, in order, empty when the
+    /// sequence is shorter than one run.
+    fn runs(&self, count: usize) -> impl Iterator<Item = &[u8]> {
+        (0..(self.len() + 1).saturating_sub(count)).map(move |first| self.run(first, count))
+    }
+}
+
+/// Only the short-document form owns bytes: it carries a domain prefix and the
+/// token count ahead of the tokens, so it is not a slice of them.
+fn shingle_set(tokens: &TokenSequence) -> Result<BTreeSet<Cow<'_, [u8]>>> {
     let mut shingles = BTreeSet::new();
     if tokens.len() < 5 {
         let mut short = SHORT_DOMAIN.to_vec();
@@ -1600,30 +1792,24 @@ fn shingle_set(tokens: &[Vec<u8>]) -> Result<BTreeSet<Vec<u8>>> {
                 .map_err(|_| accounting_overflow())?
                 .to_le_bytes(),
         );
-        for token in tokens {
-            short.extend_from_slice(token);
-        }
-        shingles.insert(short);
+        short.extend_from_slice(&tokens.bytes);
+        shingles.insert(Cow::Owned(short));
     } else {
-        for window in tokens.windows(5) {
-            let capacity = window.iter().try_fold(0_usize, |total, token| {
-                total
-                    .checked_add(token.len())
-                    .ok_or_else(accounting_overflow)
-            })?;
-            let mut shingle = Vec::with_capacity(capacity);
-            for token in window {
-                shingle.extend_from_slice(token);
-            }
-            shingles.insert(shingle);
+        for shingle in tokens.runs(5) {
+            shingles.insert(Cow::Borrowed(shingle));
         }
     }
     Ok(shingles)
 }
 
-fn minhash_signature(shingles: &BTreeSet<Vec<u8>>) -> [u64; MINHASH_COMPONENTS] {
+fn shingle_slices<'a>(
+    shingles: &'a BTreeSet<Cow<'a, [u8]>>,
+) -> impl ExactSizeIterator<Item = &'a [u8]> {
+    shingles.iter().map(Cow::as_ref)
+}
+
+fn minhash_signature<'a>(shingles: impl Iterator<Item = &'a [u8]>) -> [u64; MINHASH_COMPONENTS] {
     let bases = shingles
-        .iter()
         .map(|shingle| {
             let mut hasher = Sha256::new();
             hasher.update(SHINGLE_BASE_DOMAIN);
@@ -1661,18 +1847,41 @@ fn lsh_keys(signature: &[u64; MINHASH_COMPONENTS]) -> [[u8; 32]; LSH_BANDS] {
     })
 }
 
-fn jaccard_exceeds(left: &BTreeSet<Vec<u8>>, right: &BTreeSet<Vec<u8>>) -> bool {
-    let intersection = left.intersection(right).count() as u128;
-    let union = left.len() as u128 + right.len() as u128 - intersection;
+/// Both sides arrive in ascending order, so the exact intersection is one merge
+/// pass. Taking iterators rather than one concrete set lets a document's
+/// borrowed shingles meet a protected record's owned ones without either being
+/// rebuilt in the other's representation.
+fn jaccard_exceeds<'l, 'r>(
+    left: impl ExactSizeIterator<Item = &'l [u8]>,
+    right: impl ExactSizeIterator<Item = &'r [u8]>,
+) -> bool {
+    let (left_len, right_len) = (left.len() as u128, right.len() as u128);
+    let mut left = left.peekable();
+    let mut right = right.peekable();
+    let mut intersection = 0_u128;
+    while let (Some(one), Some(other)) = (left.peek(), right.peek()) {
+        match one.cmp(other) {
+            Ordering::Less => {
+                left.next();
+            }
+            Ordering::Greater => {
+                right.next();
+            }
+            Ordering::Equal => {
+                intersection += 1;
+                left.next();
+                right.next();
+            }
+        }
+    }
+    let union = left_len + right_len - intersection;
     intersection * 100 > union * 85
 }
 
-fn sequence_hash(tokens: &[Vec<u8>]) -> [u8; 32] {
+fn sequence_hash(tokens: &[u8]) -> [u8; 32] {
     let mut hasher = Sha256::new();
     hasher.update(b"python-slm/protected-token-span/v1\0");
-    for token in tokens {
-        hasher.update(token);
-    }
+    hasher.update(tokens);
     hasher.finalize().into()
 }
 
@@ -2284,89 +2493,170 @@ mod tests {
         assert!(evalplus_asset("HumanEvalPlus").is_none());
     }
 
-    fn document(label: &str, repository: &str, source: &[u8]) -> PreparedDocument {
-        let parsed = parse_python(source, &CancellationToken::default()).unwrap();
-        assert_eq!(parsed.result.status, "PARSER_ACCEPTED");
-        let encoded_tokens = parsed
-            .lexical_tokens
-            .iter()
-            .map(encode_token)
-            .collect::<Result<Vec<_>>>()
-            .unwrap();
-        let shingles = shingle_set(&encoded_tokens).unwrap();
-        PreparedDocument {
-            source_id: hash(label),
-            repository_group_id: hash(repository),
-            curated_sha256_raw: sha256(source),
-            canonical_sha256: sha256(source),
-            canonical_bytes: source.len() as u64,
-            content: source.to_vec(),
-            provenance: Provenance {
-                origin_url: format!("https://example.invalid/{label}"),
-                revision: "r1".to_owned(),
-                source_path: format!("{label}.py"),
-            },
-            comment_bytes: parsed.result.comment_bytes,
-            signature: minhash_signature(&shingles),
-            encoded_tokens,
+    /// Documents on disk, because that is where the stage now reads them from.
+    ///
+    /// Nothing bulk is carried on a `PreparedDocument` any more, so a fixture
+    /// cannot hand one its bytes: it has to write them where the generation
+    /// would have, which means these tests exercise the re-read and re-parse
+    /// path rather than a convenient stand-in for it.
+    struct Fixture {
+        directory: tempfile::TempDir,
+        documents: Vec<PreparedDocument>,
+    }
+
+    impl Fixture {
+        fn new() -> Self {
+            Self {
+                directory: tempfile::tempdir().unwrap(),
+                documents: Vec::new(),
+            }
+        }
+
+        /// Canonicalized exactly as `prepare-corpus` canonicalizes a content
+        /// root, so containment checks see the same path it would.
+        fn roots(&self) -> Vec<PathBuf> {
+            vec![require_existing_root(self.directory.path(), "TEST").unwrap()]
+        }
+
+        fn add(&mut self, label: &str, repository: &str, source: &[u8]) -> &mut Self {
+            let relative_path = format!("{label}.py");
+            std::fs::write(self.directory.path().join(&relative_path), source).unwrap();
+            let parsed = parse_python(source, &CancellationToken::default()).unwrap();
+            assert_eq!(parsed.result.status, "PARSER_ACCEPTED");
+            let tokens = TokenSequence::encode(&parsed.lexical_tokens).unwrap();
+            let shingles = shingle_set(&tokens).unwrap();
+            self.documents.push(PreparedDocument {
+                source_id: hash(label),
+                repository_group_id: hash(repository),
+                curated_sha256_raw: sha256(source),
+                canonical_sha256: sha256(source),
+                canonical_bytes: source.len() as u64,
+                provenance: Provenance {
+                    origin_url: format!("https://example.invalid/{label}"),
+                    revision: "r1".to_owned(),
+                    source_path: relative_path.clone(),
+                },
+                comment_bytes: parsed.result.comment_bytes,
+                token_count: tokens.len(),
+                generation: 0,
+                relative_path,
+                signature: minhash_signature(shingle_slices(&shingles)),
+                benchmark_match: None,
+            });
+            self
+        }
+
+        fn deduplicate(&self) -> (DedupManifestV1, Vec<Vec<usize>>) {
+            deduplicate(
+                &self.documents,
+                &self.roots(),
+                100,
+                &CancellationToken::default(),
+            )
+            .unwrap()
+        }
+
+        fn tokens(&self, index: usize) -> TokenSequence {
+            read_document_tokens(
+                &self.documents[index],
+                &self.roots(),
+                &CancellationToken::default(),
+            )
+            .unwrap()
         }
     }
-    /// A document whose shingles derive from `tokens` distinct encoded tokens, so
-    /// two of them share `min(a, b) - 4` shingles out of `max(a, b) - 4`.
-    fn synthetic_document(label: &str, tokens: u16) -> PreparedDocument {
-        let encoded_tokens = (0..tokens)
-            .map(|value| value.to_le_bytes().to_vec())
-            .collect::<Vec<_>>();
-        let shingles = shingle_set(&encoded_tokens).expect("synthetic shingles");
-        PreparedDocument {
-            source_id: hash(label),
-            repository_group_id: hash(&format!("repo-{label}")),
-            curated_sha256_raw: hash(&format!("raw-{label}")),
-            canonical_sha256: hash(&format!("canonical-{label}")),
-            canonical_bytes: 1,
-            content: label.as_bytes().to_vec(),
-            provenance: Provenance {
-                origin_url: format!("https://example.invalid/{label}"),
-                revision: "r1".to_owned(),
-                source_path: format!("{label}.py"),
-            },
-            comment_bytes: 0,
-            signature: minhash_signature(&shingles),
-            encoded_tokens,
-        }
+
+    /// `count` single-identifier statements, so two of these share a token prefix
+    /// and their shingle sets overlap in a ratio the counts decide.
+    fn identifier_source(count: usize) -> Vec<u8> {
+        (0..count).fold(Vec::new(), |mut source, index| {
+            source.extend_from_slice(format!("v{index}\n").as_bytes());
+            source
+        })
+    }
+
+    fn owned_shingles(values: std::ops::Range<u8>) -> BTreeSet<Vec<u8>> {
+        values.map(|value| vec![value]).collect()
+    }
+
+    fn slices(set: &BTreeSet<Vec<u8>>) -> impl ExactSizeIterator<Item = &[u8]> {
+        set.iter().map(Vec::as_slice)
     }
 
     #[test]
     fn jaccard_threshold_is_strictly_above_point_eighty_five() {
-        let left = (0_u8..20).map(|value| vec![value]).collect::<BTreeSet<_>>();
-        let equal = (0_u8..17).map(|value| vec![value]).collect::<BTreeSet<_>>();
-        let above = (0_u8..18).map(|value| vec![value]).collect::<BTreeSet<_>>();
-        assert!(!jaccard_exceeds(&left, &equal));
-        assert!(jaccard_exceeds(&left, &above));
+        let left = owned_shingles(0..20);
+        let equal = owned_shingles(0..17);
+        let above = owned_shingles(0..18);
+        assert!(!jaccard_exceeds(slices(&left), slices(&equal)));
+        assert!(jaccard_exceeds(slices(&left), slices(&above)));
+    }
+
+    /// The flat layout must produce byte-identical shingles to the per-token one
+    /// it replaced, because the MinHash signature and therefore every dedup
+    /// decision is a function of those bytes.
+    #[test]
+    fn flat_shingles_match_the_per_token_concatenation() {
+        let source = b"def answer(value):\n    # a comment\n    return value + 42\n";
+        let parsed = parse_python(source, &CancellationToken::default()).unwrap();
+        let tokens = TokenSequence::encode(&parsed.lexical_tokens).unwrap();
+        let per_token = parsed
+            .lexical_tokens
+            .iter()
+            .map(|token| {
+                let mut encoded = Vec::new();
+                encoded.extend_from_slice(&(token.kind.len() as u64).to_le_bytes());
+                encoded.extend_from_slice(token.kind.as_bytes());
+                encoded.extend_from_slice(&(token.text.len() as u64).to_le_bytes());
+                encoded.extend_from_slice(&token.text);
+                encoded
+            })
+            .collect::<Vec<_>>();
+        assert!(
+            tokens.len() >= 5,
+            "the sample must exercise the window form"
+        );
+        assert_eq!(tokens.len(), per_token.len());
+        for (index, token) in per_token.iter().enumerate() {
+            assert_eq!(tokens.run(index, 1), token.as_slice());
+        }
+        let expected = per_token
+            .windows(5)
+            .map(|window| window.concat())
+            .collect::<BTreeSet<_>>();
+        let actual = shingle_set(&tokens)
+            .unwrap()
+            .into_iter()
+            .map(Cow::into_owned)
+            .collect::<BTreeSet<_>>();
+        assert_eq!(actual, expected);
     }
 
     #[test]
     fn lsh_candidates_are_confirmed_by_exact_jaccard() {
-        // 100 shingles against 90 shared ones: a Jaccard of exactly 0.9, which is
-        // above the 0.85 threshold and must survive rebuilding the sets on demand.
-        let documents = vec![
-            synthetic_document("left", 104),
-            synthetic_document("right", 94),
-        ];
-        let (manifest, groups) = deduplicate(&documents, 100).unwrap();
+        // A shared prefix of 94 statements out of 104 puts the exact Jaccard near
+        // 0.9 — above the 0.85 threshold — and it must survive both sides being
+        // re-read and re-parsed rather than held.
+        let mut fixture = Fixture::new();
+        fixture
+            .add("left", "repo-left", &identifier_source(104))
+            .add("right", "repo-right", &identifier_source(94));
+        let (manifest, groups) = fixture.deduplicate();
         assert_eq!(manifest.near_duplicate_edges, 1);
         assert_eq!(groups.len(), 1);
         assert_eq!(groups[0].len(), 2);
     }
+
     #[test]
     fn exact_dedup_is_order_invariant_and_retains_all_members() {
-        let first = document("first", "repo-a", b"def answer():\n    return 42\n");
-        let second = document("second", "repo-b", b"def answer():\n    return 42\n");
-        let third = document("third", "repo-c", b"def other():\n    return 7\n");
-        let ordered = vec![first.clone(), second.clone(), third.clone()];
-        let reversed = vec![third, second, first];
-        let (left, _) = deduplicate(&ordered, 100).unwrap();
-        let (right, _) = deduplicate(&reversed, 100).unwrap();
+        let mut fixture = Fixture::new();
+        fixture
+            .add("first", "repo-a", b"def answer():\n    return 42\n")
+            .add("second", "repo-b", b"def answer():\n    return 42\n")
+            .add("third", "repo-c", b"def other():\n    return 7\n");
+        let (left, _) = fixture.deduplicate();
+        fixture.documents.reverse();
+        let (right, _) = fixture.deduplicate();
         assert_eq!(left.clusters, right.clusters);
         assert_eq!(left.exact_duplicate_edges, 1);
         assert_eq!(left.clusters[0].member_source_ids.len(), 2);
@@ -2374,23 +2664,49 @@ mod tests {
 
     #[test]
     fn decontamination_rejects_the_entire_duplicate_cluster() {
-        let first = document("first", "repo-a", b"def answer():\n    return 42\n");
-        let second = document("second", "repo-b", b"def answer():\n    return 42\n");
-        let documents = vec![first, second];
-        let (_, groups) = deduplicate(&documents, 100).unwrap();
+        let mut fixture = Fixture::new();
+        fixture
+            .add("first", "repo-a", b"def answer():\n    return 42\n")
+            .add("second", "repo-b", b"def answer():\n    return 42\n");
+        let (_, groups) = fixture.deduplicate();
+        let tokens = fixture.tokens(0);
         let protected = vec![ProtectedBenchmark {
             identity: "humanevalplus:0:/prompt:prompt".to_owned(),
             kind: BenchmarkContentKind::PythonModule,
-            content: documents[0].content.clone(),
-            canonical_sha256: documents[0].canonical_sha256.clone(),
-            encoded_tokens: documents[0].encoded_tokens.clone(),
-            // Protected records keep their shingles: there are only a few thousand
-            // of them, and they are compared against every document.
-            shingles: shingle_set(&documents[0].encoded_tokens).unwrap(),
-            signature: Some(documents[0].signature),
+            content: b"def answer():\n    return 42\n".to_vec(),
+            canonical_sha256: fixture.documents[0].canonical_sha256.clone(),
+            shingles: shingle_set(&tokens)
+                .unwrap()
+                .into_iter()
+                .map(Cow::into_owned)
+                .collect(),
+            signature: Some(fixture.documents[0].signature),
+            tokens,
         }];
-        let (manifest, rejected) =
-            decontaminate(&documents, &groups, &protected, &hash("benchmark")).unwrap();
+        // Matching now happens while a document's tokens exist, so the fixture
+        // reaches the same verdict the load pass would.
+        let index = ProtectedIndex::build(&protected);
+        for position in 0..fixture.documents.len() {
+            let tokens = fixture.tokens(position);
+            let content =
+                read_document_content(&fixture.documents[position], &fixture.roots()).unwrap();
+            let document = &fixture.documents[position];
+            fixture.documents[position].benchmark_match = index
+                .match_document(
+                    &document.source_id,
+                    &document.canonical_sha256,
+                    &content,
+                    &tokens,
+                    &document.signature,
+                )
+                .unwrap();
+        }
+        let (manifest, rejected) = decontaminate(
+            &fixture.documents,
+            &groups,
+            protected.len(),
+            &hash("benchmark"),
+        );
         assert_eq!(rejected.len(), 1);
         assert_eq!(manifest.rejected_documents.len(), 2);
         assert!(
@@ -2402,13 +2718,14 @@ mod tests {
 
     #[test]
     fn repository_groups_never_cross_split_components() {
-        let documents = vec![
-            document("first", "shared", b"def first():\n    return 1\n"),
-            document("second", "shared", b"def second():\n    return 2\n"),
-            document("third", "other", b"def third():\n    return 3\n"),
-        ];
-        let (_, groups) = deduplicate(&documents, 100).unwrap();
-        let (manifest, assignments) = assign_splits(&documents, &groups, &BTreeSet::new()).unwrap();
+        let mut fixture = Fixture::new();
+        fixture
+            .add("first", "shared", b"def first():\n    return 1\n")
+            .add("second", "shared", b"def second():\n    return 2\n")
+            .add("third", "other", b"def third():\n    return 3\n");
+        let documents = &fixture.documents;
+        let (_, groups) = fixture.deduplicate();
+        let (manifest, assignments) = assign_splits(documents, &groups, &BTreeSet::new()).unwrap();
         let shared = assignments
             .iter()
             .filter(|assignment| {
@@ -2425,12 +2742,13 @@ mod tests {
     fn fragment_wrapper_removes_only_wrapper_tokens() {
         let fragment = b"assert value == 7\n";
         let tokens = fragment_tokens(fragment, &CancellationToken::default()).unwrap();
-        let module = document("wrapped", "repo", b"def holder():\n    assert value == 7\n");
+        let mut fixture = Fixture::new();
+        fixture.add("wrapped", "repo", b"def holder():\n    assert value == 7\n");
+        let module = fixture.tokens(0);
         assert!(
             module
-                .encoded_tokens
-                .windows(tokens.len())
-                .any(|window| window == tokens)
+                .runs(tokens.len())
+                .any(|window| window == tokens.bytes)
         );
     }
 
