@@ -455,11 +455,21 @@ fn run_updates(
 fn diagnostic_batch(first_target: u64, valid_targets: u64) -> TrainingBatch {
     let input = ((first_target / valid_targets) % 251) as u16;
     let target = input.wrapping_add(1);
+    // The diagnostic micro-batch is split into canonical sequences so the trial
+    // exercises the same batch shape the accelerator backend receives.
+    let mut sequence_lengths = Vec::new();
+    let mut remaining = valid_targets;
+    while remaining > 0 {
+        let length = remaining.min(crate::storage::SEQUENCE_TARGETS);
+        sequence_lengths.push(length);
+        remaining -= length;
+    }
     TrainingBatch {
         first_target,
         valid_targets,
         input_ids: vec![input; valid_targets as usize],
         target_ids: vec![target; valid_targets as usize],
+        sequence_lengths,
     }
 }
 

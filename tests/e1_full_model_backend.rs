@@ -311,6 +311,25 @@ mod hardware {
             valid_targets: SPAN,
             input_ids,
             target_ids,
+            sequence_lengths: vec![SPAN],
+        }
+    }
+
+    /// Several sequences fused into one dispatch, which is the shape the frozen
+    /// P14 micro-batch requires and the coordinator already requests.
+    fn multi_sequence_batch(first_target: u64, sequences: u64) -> TrainingBatch {
+        let vocabulary = GqaDimensions::oracle_fixture().vocabulary as u64;
+        let total = SPAN * sequences;
+        TrainingBatch {
+            first_target,
+            valid_targets: total,
+            input_ids: (0..total)
+                .map(|index| ((first_target + index) % vocabulary) as u16)
+                .collect(),
+            target_ids: (0..total)
+                .map(|index| ((first_target + index + 1) % vocabulary) as u16)
+                .collect(),
+            sequence_lengths: vec![SPAN; sequences as usize],
         }
     }
 

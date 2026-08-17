@@ -348,6 +348,11 @@ pub struct TrainingBatch {
     pub valid_targets: u64,
     pub input_ids: Vec<u16>,
     pub target_ids: Vec<u16>,
+    /// Lengths of the concatenated sequences, in order. A backend needs the
+    /// boundaries to dispatch several sequences at once; the flat token vectors
+    /// alone cannot express them. Never persisted — `TrainerSnapshot` does not
+    /// carry a batch — so the checkpoint contract is unaffected.
+    pub sequence_lengths: Vec<u64>,
 }
 
 impl TrainingBatch {
@@ -357,17 +362,71 @@ impl TrainingBatch {
             valid_targets: span.valid_targets,
             input_ids: span.input_ids().to_vec(),
             target_ids: span.target_ids().to_vec(),
+            sequence_lengths: vec![span.valid_targets],
         }
+    }
+
+    /// Fuse contiguous spans into one micro-batch. The spans must be adjacent in
+    /// the canonical target stream, because `first_target` is a single monotone
+    /// cursor over it.
+    pub fn from_loaded_spans(spans: &[LoadedSpan]) -> Result<Self> {
+        let first = spans.first().ok_or_else(|| {
+            ProductError::integrity(
+                "P12_BATCH_SHAPE_INVALID",
+                "a training batch requires at least one span",
+            )
+        })?;
+        let mut input_ids = Vec::new();
+        let mut target_ids = Vec::new();
+        let mut sequence_lengths = Vec::with_capacity(spans.len());
+        let mut expected_first = first.first_id;
+        for span in spans {
+            if span.first_id != expected_first {
+                return Err(ProductError::integrity(
+                    "P12_BATCH_SPAN_ORDER_INVALID",
+                    "micro-batch spans are not contiguous in the canonical target stream",
+                ));
+            }
+            input_ids.extend_from_slice(span.input_ids());
+            target_ids.extend_from_slice(span.target_ids());
+            sequence_lengths.push(span.valid_targets);
+            expected_first += span.valid_targets;
+        }
+        Ok(Self {
+            first_target: first.first_id,
+            valid_targets: expected_first - first.first_id,
+            input_ids,
+            target_ids,
+            sequence_lengths,
+        })
+    }
+
+    /// The batch as ordered `(inputs, targets)` sequence slices.
+    pub fn sequences(&self) -> Vec<(&[u16], &[u16])> {
+        let mut offset = 0_usize;
+        self.sequence_lengths
+            .iter()
+            .map(|length| {
+                let end = offset + *length as usize;
+                let sequence = (&self.input_ids[offset..end], &self.target_ids[offset..end]);
+                offset = end;
+                sequence
+            })
+            .collect()
     }
 
     fn validate(&self) -> Result<()> {
         if self.valid_targets == 0
             || self.input_ids.len() as u64 != self.valid_targets
             || self.target_ids.len() as u64 != self.valid_targets
+            || self.sequence_lengths.is_empty()
+            || self.sequence_lengths.contains(&0)
+            || self.sequence_lengths.iter().sum::<u64>() != self.valid_targets
         {
             return Err(ProductError::integrity(
                 "P12_BATCH_SHAPE_INVALID",
-                "a training batch does not contain one input and target per valid target",
+                "a training batch does not contain one input and target per valid target, \
+                 or its sequence lengths do not cover them exactly",
             ));
         }
         Ok(())

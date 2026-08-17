@@ -725,12 +725,39 @@ resume gates pass untouched. Re-measured effect: peak memory `16,318` to `13,601
 17 percent reduction, for a 7 percent slowdown to `2,453` targets/s. That is the expected
 recompute trade and confirms the remaining gap is structural, not a tuning matter.
 
-**Still required**, in the order the E1B plan sets out: the batched sequence dimension
-with batched heads and broadcast K/V, two-stage chunked cross-entropy, manual per-layer
-activation checkpointing for attention, and then true BF16 storage as a separately
-verified step. `burn` 0.21 offers no trainable flash attention and no downstream custom
-`Backward`, so the two-stage detach plus `(x * seed.detach()).backward()` vector-Jacobian
-product is the available mechanism.
+**Phase 3, batching, has landed.** The graph is now `[B, L, ...]` throughout. Heads fold
+into the batch axis so all of them run as one batched matmul instead of twelve per layer,
+each K/V head is expanded across its query group rather than re-sliced per query head, and
+the causal mask and RoPE tables broadcast instead of being sliced per sequence.
+`TrainingBatch` carries `sequence_lengths`, so a micro-batch states its own boundaries;
+sequences of equal length are grouped into one dispatch, which keeps the ragged final
+update exact rather than padded. The fixture runs through the batched path at one
+sequence, so the conformance gate still covers the code production uses.
+
+Measured at one sequence per dispatch: `13,361` MiB and `3,894` targets/s, a 59 percent
+throughput gain over the pre-batching `2,453`, bringing the projection from `226.5` to
+`142.7` hours. That gain comes from batching the heads, not from batching sequences.
+
+**Batching sequences does not pay until the materializations are bounded, and the
+measurement is emphatic.** At four sequences per dispatch the run reaches `30,582` MiB
+attributable and a `32,158` MiB peak, essentially the whole 32 GB device, and throughput
+*collapses* to `649` targets/s, six times worse than a single sequence, for a `855.9`-hour
+projection. Under that memory pressure the allocator thrashes and the arithmetic stops
+mattering. The frozen micro-batch of 16 is therefore unreachable by batching alone, and
+this settles the order of the remaining work: Phase 4 must land before any batch wider than
+one sequence is worth measuring again.
+
+One honest consequence: batched kernels reduce in a different order, so gradient
+conformance moved from `5.714e-6` to `3.190342e-4` relative L2 and from `0.999999999984`
+to `0.999999949415` cosine. Both remain far inside the frozen `PRECISION-002` bound, and
+the forward stays exact byte for byte, but the sensitivity of gradients to kernel shape is
+exactly why the amendment used a bound rather than byte equality.
+
+**Still required**: two-stage chunked cross-entropy, manual per-layer activation
+checkpointing for attention, and then true BF16 storage as a separately verified step.
+`burn` 0.21 offers no trainable flash attention and no downstream custom `Backward`, so the
+two-stage detach plus `(x * seed.detach()).backward()` vector-Jacobian product is the
+available mechanism.
 
 ### E2 — Final-Run Launch Mode
 

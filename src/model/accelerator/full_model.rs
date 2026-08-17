@@ -129,49 +129,68 @@ impl<B: AutodiffBackend> FullModelGraph<B> {
         }
     }
 
-    fn rms_norm(&self, input: Tensor<B, 2>, scale_name: &str) -> Result<Tensor<B, 2>> {
-        let scale = self.parameter(scale_name)?.clone();
+    fn rms_norm(&self, input: Tensor<B, 3>, scale_name: &str) -> Result<Tensor<B, 3>> {
+        let [_, _, width] = input.dims();
+        let scale = self.parameter(scale_name)?.clone().reshape([1, 1, width]);
         // Square by multiplication, never `powf_scalar(2.0)`: the generic power
         // derivative reaches the gradient through exp/log and loses the last
         // FP32 digits even though its forward value is exact.
         let squares = input.clone() * input.clone();
         let inverse = squares
-            .mean_dim(1)
+            .mean_dim(2)
             .add_scalar(RMS_NORM_EPSILON)
             .sqrt()
             .recip();
         Ok(bf16_store(input * inverse * scale))
     }
 
-    fn linear(&self, input: Tensor<B, 2>, weight_name: &str) -> Result<Tensor<B, 2>> {
+    /// One GEMM over the flattened batch. Folding `[B, L]` into a single row axis
+    /// keeps this a single large matmul instead of one dispatch per sequence.
+    fn linear(&self, input: Tensor<B, 3>, weight_name: &str) -> Result<Tensor<B, 3>> {
+        let [batch, positions, width] = input.dims();
         let weight = self.parameter(weight_name)?.clone();
-        Ok(bf16_store(input.matmul(weight.transpose())))
+        let [outputs, _] = weight.dims();
+        let projected = input
+            .reshape([batch * positions, width])
+            .matmul(weight.transpose());
+        Ok(bf16_store(projected.reshape([batch, positions, outputs])))
     }
 
     fn apply_rope(
         &self,
-        input: Tensor<B, 2>,
+        input: Tensor<B, 3>,
         tables: &(Tensor<B, 2>, Tensor<B, 2>),
-    ) -> Result<Tensor<B, 2>> {
-        let [positions, width] = input.dims();
+    ) -> Result<Tensor<B, 3>> {
+        let [batch, positions, width] = input.dims();
         ensure!(
             width.is_multiple_of(self.dimensions.head_width),
             "E1_GRAPH_ROPE_WIDTH_INVALID"
         );
         let half = width / 2;
-        let cosine = tables.0.clone().slice([0..positions, 0..half]);
-        let sine = tables.1.clone().slice([0..positions, 0..half]);
-        let pairs = input.reshape([positions, half, 2]);
+        // The frozen tables cover the maximum context; broadcast one slice across
+        // the batch rather than rebuilding them per sequence.
+        let cosine = tables
+            .0
+            .clone()
+            .slice([0..positions, 0..half])
+            .reshape([1, positions, half]);
+        let sine = tables
+            .1
+            .clone()
+            .slice([0..positions, 0..half])
+            .reshape([1, positions, half]);
+        let pairs = input.reshape([batch, positions, half, 2]);
         let even = pairs
             .clone()
-            .slice([0..positions, 0..half, 0..1])
-            .reshape([positions, half]);
+            .slice([0..batch, 0..positions, 0..half, 0..1])
+            .reshape([batch, positions, half]);
         let odd = pairs
-            .slice([0..positions, 0..half, 1..2])
-            .reshape([positions, half]);
+            .slice([0..batch, 0..positions, 0..half, 1..2])
+            .reshape([batch, positions, half]);
         let rotated_even = bf16_store(even.clone() * cosine.clone() - odd.clone() * sine.clone());
         let rotated_odd = bf16_store(even * sine + odd * cosine);
-        Ok(Tensor::stack::<3>(vec![rotated_even, rotated_odd], 2).reshape([positions, width]))
+        Ok(Tensor::stack::<4>(vec![rotated_even, rotated_odd], 3)
+            .reshape([batch, positions, width]))
     }
 
     /// One complete forward pass over a single sequence, returning the summed
@@ -179,20 +198,35 @@ impl<B: AutodiffBackend> FullModelGraph<B> {
     /// logits bits.
     fn forward_loss(
         &self,
-        input_ids: &[u16],
-        target_ids: &[u16],
+        sequences: &[(&[u16], &[u16])],
         constants: &GraphConstants<B>,
         normalizer: f32,
         capture_logits: bool,
         device: &B::Device,
     ) -> Result<(Tensor<B, 1>, Vec<u16>)> {
-        let positions = input_ids.len();
+        let batch = sequences.len();
+        ensure!(batch > 0, "E1_GRAPH_BATCH_EMPTY");
+        let positions = sequences[0].0.len();
         ensure!(
-            positions > 0
-                && positions == target_ids.len()
-                && positions <= self.dimensions.max_context,
+            positions > 0 && positions <= self.dimensions.max_context,
             "E1_GRAPH_SEQUENCE_INVALID"
         );
+        // Every sequence in one dispatch shares a length; the caller groups by
+        // length so the ragged final update stays exact instead of padded.
+        ensure!(
+            sequences
+                .iter()
+                .all(|(inputs, targets)| inputs.len() == positions && targets.len() == positions),
+            "E1_GRAPH_SEQUENCE_INVALID"
+        );
+        let input_ids = sequences
+            .iter()
+            .flat_map(|(inputs, _)| inputs.iter().copied())
+            .collect::<Vec<_>>();
+        let target_ids = sequences
+            .iter()
+            .flat_map(|(_, targets)| targets.iter().copied())
+            .collect::<Vec<_>>();
 
         let token_indices = Tensor::<B, 1, Int>::from_data(
             TensorData::new(
@@ -200,20 +234,26 @@ impl<B: AutodiffBackend> FullModelGraph<B> {
                     .iter()
                     .map(|token| i32::from(*token))
                     .collect::<Vec<_>>(),
-                [positions],
+                [batch * positions],
             ),
             device,
         );
         let embeddings = self.parameter("tok_embeddings.weight")?.clone();
-        let mut hidden = embeddings.select(0, token_indices);
+        let width = self.dimensions.width;
+        let mut hidden = embeddings
+            .select(0, token_indices)
+            .reshape([batch, positions, width]);
 
         let head_width = self.dimensions.head_width;
-        let queries_per_kv = self.dimensions.query_heads / self.dimensions.key_value_heads;
+        let query_heads = self.dimensions.query_heads;
+        let key_value_heads = self.dimensions.key_value_heads;
+        let queries_per_kv = query_heads / key_value_heads;
         let scale = (head_width as f32).sqrt();
         let mask = constants
             .causal_mask
             .clone()
-            .slice([0..positions, 0..positions]);
+            .slice([0..positions, 0..positions])
+            .reshape([1, positions, positions]);
 
         for block in 0..self.dimensions.layers {
             let normalized =
@@ -228,27 +268,33 @@ impl<B: AutodiffBackend> FullModelGraph<B> {
             )?;
             let value = self.linear(normalized, &format!("blocks.{block}.attn.v.weight"))?;
 
-            let mut heads = Vec::with_capacity(self.dimensions.query_heads);
-            for query_head in 0..self.dimensions.query_heads {
-                let key_value_head = query_head / queries_per_kv;
-                let query_start = query_head * head_width;
-                let key_start = key_value_head * head_width;
-                let query_slice = query
-                    .clone()
-                    .slice([0..positions, query_start..query_start + head_width]);
-                let key_slice = key
-                    .clone()
-                    .slice([0..positions, key_start..key_start + head_width]);
-                let value_slice = value
-                    .clone()
-                    .slice([0..positions, key_start..key_start + head_width]);
-                let scores =
-                    query_slice.matmul(key_slice.transpose()).div_scalar(scale) + mask.clone();
-                let probabilities = softmax(scores, 1);
-                heads.push(bf16_store(probabilities.matmul(value_slice)));
-            }
+            // Fold heads into the batch axis so all heads run as one batched
+            // matmul, and expand each K/V head across its query group instead of
+            // re-slicing it per query head.
+            let folded = batch * query_heads;
+            let query = query
+                .reshape([batch, positions, query_heads, head_width])
+                .swap_dims(1, 2)
+                .reshape([folded, positions, head_width]);
+            let group = |projection: Tensor<B, 3>| {
+                projection
+                    .reshape([batch, positions, key_value_heads, head_width])
+                    .swap_dims(1, 2)
+                    .reshape([batch, key_value_heads, 1, positions, head_width])
+                    .repeat_dim(2, queries_per_kv)
+                    .reshape([folded, positions, head_width])
+            };
+            let key = group(key);
+            let value = group(value);
+
+            let scores = query.matmul(key.swap_dims(1, 2)).div_scalar(scale) + mask.clone();
+            let probabilities = softmax(scores, 2);
+            let context = bf16_store(probabilities.matmul(value));
             let attention = self.linear(
-                Tensor::cat(heads, 1),
+                context
+                    .reshape([batch, query_heads, positions, head_width])
+                    .swap_dims(1, 2)
+                    .reshape([batch, positions, width]),
                 &format!("blocks.{block}.attn.o.weight"),
             )?;
             hidden = bf16_store(hidden + attention);
@@ -283,19 +329,19 @@ impl<B: AutodiffBackend> FullModelGraph<B> {
             Vec::new()
         };
 
-        let maxima = logits.clone().max_dim(1).detach();
-        let log_partition = (logits.clone() - maxima.clone()).exp().sum_dim(1).log() + maxima;
-        let target_indices = Tensor::<B, 2, Int>::from_data(
+        let maxima = logits.clone().max_dim(2).detach();
+        let log_partition = (logits.clone() - maxima.clone()).exp().sum_dim(2).log() + maxima;
+        let target_indices = Tensor::<B, 3, Int>::from_data(
             TensorData::new(
                 target_ids
                     .iter()
                     .map(|token| i32::from(*token))
                     .collect::<Vec<_>>(),
-                [positions, 1],
+                [batch, positions, 1],
             ),
             device,
         );
-        let target_logits = logits.gather(1, target_indices);
+        let target_logits = logits.gather(2, target_indices);
         let loss = (log_partition - target_logits).sum().div_scalar(normalizer);
         Ok((loss, logits_bits))
     }
@@ -305,21 +351,14 @@ impl<B: AutodiffBackend> FullModelGraph<B> {
     /// valid-target count for the oracle-mean parity fixture.
     pub fn training_step(
         &self,
-        input_ids: &[u16],
-        target_ids: &[u16],
+        sequences: &[(&[u16], &[u16])],
         constants: &GraphConstants<B>,
         normalizer: f32,
         capture_logits: bool,
         device: &B::Device,
     ) -> Result<FullGraphOutput> {
-        let (loss, logits_bits) = self.forward_loss(
-            input_ids,
-            target_ids,
-            constants,
-            normalizer,
-            capture_logits,
-            device,
-        )?;
+        let (loss, logits_bits) =
+            self.forward_loss(sequences, constants, normalizer, capture_logits, device)?;
         let gradients = loss.clone().backward();
         let loss_f32 = loss
             .try_into_data()
@@ -355,20 +394,25 @@ impl<B: AutodiffBackend> FullModelGraph<B> {
     /// The per-span losses stay on device and are concatenated for a single
     /// host transfer: reading each span individually would force one full device
     /// synchronization per span and dominate evaluation wall-clock.
+    /// Forward-only summed losses over a held-out set, grouped into batched
+    /// dispatches by sequence length and read back once.
     pub fn validation_loss_sums(
         &self,
         spans: &[(Vec<u16>, Vec<u16>)],
+        batch_sequences: usize,
         constants: &GraphConstants<B>,
         device: &B::Device,
     ) -> Result<Vec<f32>> {
         if spans.is_empty() {
             return Ok(Vec::new());
         }
-        let mut losses = Vec::with_capacity(spans.len());
-        for (input_ids, target_ids) in spans {
-            let (loss, _) =
-                self.forward_loss(input_ids, target_ids, constants, 1.0, false, device)?;
-            losses.push(loss);
+        ensure!(batch_sequences > 0, "E1_GRAPH_BATCH_EMPTY");
+        let mut losses = Vec::new();
+        for group in group_by_length(spans) {
+            for chunk in group.chunks(batch_sequences) {
+                let (loss, _) = self.forward_loss(chunk, constants, 1.0, false, device)?;
+                losses.push(loss);
+            }
         }
         Tensor::cat(losses, 0)
             .try_into_data()
@@ -376,6 +420,28 @@ impl<B: AutodiffBackend> FullModelGraph<B> {
             .to_vec::<f32>()
             .context("E1_GRAPH_LOSS_DTYPE_INVALID")
     }
+}
+
+/// Group spans by exact length, preserving first-seen order.
+///
+/// Sequences in one dispatch must share a length. The canonical run is uniform
+/// except for its final update, which is 18 full spans plus one 1,024-target span
+/// — grouping keeps that exact instead of padding it into a uniform shape, which
+/// would change valid-target accounting.
+pub(crate) fn group_by_length(spans: &[(Vec<u16>, Vec<u16>)]) -> Vec<Vec<(&[u16], &[u16])>> {
+    let mut lengths: Vec<usize> = Vec::new();
+    let mut groups: Vec<Vec<(&[u16], &[u16])>> = Vec::new();
+    for (inputs, targets) in spans {
+        let entry = (inputs.as_slice(), targets.as_slice());
+        match lengths.iter().position(|length| *length == inputs.len()) {
+            Some(index) => groups[index].push(entry),
+            None => {
+                lengths.push(inputs.len());
+                groups.push(vec![entry]);
+            }
+        }
+    }
+    groups
 }
 
 /// Device-resident graph constants shared by every sequence: the inclusive
@@ -494,9 +560,10 @@ fn execute_fixture_once<B: AutodiffBackend>(
         )?;
         check(cancellation, "after-parameter-load")?;
         let constants = graph_constants::<B>(graph.dimensions(), device)?;
+        // The fixture runs through the batched path at one sequence, so the
+        // exact-forward conformance gate keeps covering the code production uses.
         let output = graph.training_step(
-            &FIXTURE_INPUT_TOKENS,
-            &FIXTURE_TARGET_TOKENS,
+            &[(&FIXTURE_INPUT_TOKENS[..], &FIXTURE_TARGET_TOKENS[..])],
             &constants,
             FIXTURE_TARGET_TOKENS.len() as f32,
             true,

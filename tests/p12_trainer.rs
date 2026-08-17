@@ -128,6 +128,7 @@ fn batch(first_target: u64, valid_targets: u64) -> TrainingBatch {
         valid_targets,
         input_ids: vec![7; valid_targets as usize],
         target_ids: vec![8; valid_targets as usize],
+        sequence_lengths: vec![valid_targets],
     }
 }
 

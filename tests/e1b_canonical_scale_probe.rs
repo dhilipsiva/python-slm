@@ -94,14 +94,16 @@ fn canonical_validation_set(dimensions: &GqaDimensions) -> ValidationSet {
     ValidationSet::new(spans, dimensions).expect("canonical validation set")
 }
 
-fn sequence_batch(first_target: u64, length: u64) -> TrainingBatch {
+fn sequence_batch(first_target: u64, sequence_targets: u64, sequences: u64) -> TrainingBatch {
+    let total = sequence_targets * sequences;
     TrainingBatch {
         first_target,
-        valid_targets: length,
-        input_ids: (0..length).map(|index| (index % 32_000) as u16).collect(),
-        target_ids: (0..length)
+        valid_targets: total,
+        input_ids: (0..total).map(|index| (index % 32_000) as u16).collect(),
+        target_ids: (0..total)
             .map(|index| ((index + 1) % 32_000) as u16)
             .collect(),
+        sequence_lengths: vec![sequence_targets; sequences as usize],
     }
 }
 
@@ -110,10 +112,15 @@ fn sequence_batch(first_target: u64, length: u64) -> TrainingBatch {
 fn probe_canonical_scale_memory_and_throughput() {
     let dimensions = GqaDimensions::canonical();
     let sequence_targets = 2_048_u64;
+    let sequences_per_dispatch: u64 = std::env::var("RUST_LLM_E1B_SEQUENCES")
+        .ok()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(1);
     let baseline = device_memory_used_mib();
 
     println!("\n=== E1B probe: canonical scale, one sequence per dispatch ===");
     println!("  model: {} parameters", dimensions.parameter_count());
+    println!("  sequences per dispatch: {sequences_per_dispatch}");
     match baseline {
         Some(used) => println!("  device memory before construction: {used} MiB"),
         None => println!("  device memory reading unavailable (nvidia-smi not found)"),
@@ -132,7 +139,7 @@ fn probe_canonical_scale_memory_and_throughput() {
     // One warmup dispatch so kernel compilation and autotuning are not timed.
     let warmup_started = Instant::now();
     backend
-        .accumulate(&sequence_batch(0, sequence_targets))
+        .accumulate(&sequence_batch(0, sequence_targets, sequences_per_dispatch))
         .expect("warmup forward and backward");
     println!(
         "  first dispatch including kernel compilation: {:.2} s",
@@ -142,16 +149,20 @@ fn probe_canonical_scale_memory_and_throughput() {
     let measured_dispatches = 5_u64;
     let steady_started = Instant::now();
     for index in 0..measured_dispatches {
-        let first_target = (index + 1) * sequence_targets;
+        let first_target = (index + 1) * sequence_targets * sequences_per_dispatch;
         backend
-            .accumulate(&sequence_batch(first_target, sequence_targets))
+            .accumulate(&sequence_batch(
+                first_target,
+                sequence_targets,
+                sequences_per_dispatch,
+            ))
             .expect("steady-state forward and backward");
     }
     let steady = steady_started.elapsed();
     let peak = sampler.finish();
 
     let per_sequence = steady.as_secs_f64() / measured_dispatches as f64;
-    let targets_per_second = sequence_targets as f64 / per_sequence;
+    let targets_per_second = (sequence_targets * sequences_per_dispatch) as f64 / per_sequence;
     let required = 2_000_000_000.0 / 28_800.0;
 
     println!("  ---");

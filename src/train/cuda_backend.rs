@@ -32,6 +32,11 @@ type CudaDevice = burn::backend::cuda::CudaDevice;
 
 pub const CUDA_FULL_MODEL_BACKEND: &str = "e1-cuda-full-model-backend-v1";
 
+/// Held-out sequences per evaluation dispatch. Evaluation is forward-only and
+/// detached, so it can batch more widely than training; this is a Rust constant
+/// because the frozen defaults file is byte-pinned and cannot take new fields.
+pub const EVALUATION_BATCH_SEQUENCES: usize = 8;
+
 pub struct CudaTrainerBackend {
     device: CudaDevice,
     state: FullModelState,
@@ -106,28 +111,59 @@ impl CudaTrainerBackend {
 
 impl TrainerBackend for CudaTrainerBackend {
     fn accumulate(&mut self, batch: &TrainingBatch) -> Result<BatchGradient> {
-        crate::train::full_state::validate_token_span(
-            &batch.input_ids,
-            &batch.target_ids,
-            self.state.dimensions(),
-        )?;
-        let output = self
-            .graph
-            .training_step(
-                &batch.input_ids,
-                &batch.target_ids,
-                &self.constants,
-                1.0,
-                false,
-                &self.device,
-            )
-            .map_err(graph_failure)?;
+        let sequences = batch.sequences();
+        for (inputs, targets) in &sequences {
+            crate::train::full_state::validate_token_span(
+                inputs,
+                targets,
+                self.state.dimensions(),
+            )?;
+        }
+        // Sequences of one length go out together; the ragged final update simply
+        // yields a second, shorter dispatch rather than being padded.
+        let mut grouped: Vec<Vec<(&[u16], &[u16])>> = Vec::new();
+        let mut lengths: Vec<usize> = Vec::new();
+        for sequence in sequences {
+            match lengths
+                .iter()
+                .position(|length| *length == sequence.0.len())
+            {
+                Some(index) => grouped[index].push(sequence),
+                None => {
+                    lengths.push(sequence.0.len());
+                    grouped.push(vec![sequence]);
+                }
+            }
+        }
+
+        let mut loss_sum = 0.0_f64;
+        let mut gradient_sums: Vec<f32> = Vec::new();
+        for group in grouped {
+            let output = self
+                .graph
+                .training_step(&group, &self.constants, 1.0, false, &self.device)
+                .map_err(graph_failure)?;
+            loss_sum += f64::from(output.loss_f32);
+            if gradient_sums.is_empty() {
+                gradient_sums = output.gradient_f32;
+            } else {
+                if gradient_sums.len() != output.gradient_f32.len() {
+                    return Err(ProductError::integrity(
+                        "E1_GRAPH_GRADIENT_LAYOUT_MISMATCH",
+                        "grouped dispatches produced different gradient layouts",
+                    ));
+                }
+                for (total, value) in gradient_sums.iter_mut().zip(output.gradient_f32) {
+                    *total += value;
+                }
+            }
+        }
         let (host_rng_state, device_rng_state) = self
             .state
             .advance_rng(batch.first_target, batch.valid_targets);
         Ok(BatchGradient {
-            loss_sum: f64::from(output.loss_f32),
-            gradient_sums: output.gradient_f32,
+            loss_sum,
+            gradient_sums,
             host_rng_state,
             device_rng_state,
         })
@@ -167,7 +203,12 @@ impl TrainerBackend for CudaTrainerBackend {
         let span_losses = self
             .graph
             .detached()
-            .validation_loss_sums(&spans, &self.constants, &self.device)
+            .validation_loss_sums(
+                &spans,
+                EVALUATION_BATCH_SEQUENCES,
+                &self.constants,
+                &self.device,
+            )
             .map_err(graph_failure)?;
         let mut loss_sum = 0.0_f64;
         for span_loss in span_losses {
