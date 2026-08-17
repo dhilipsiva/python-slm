@@ -978,6 +978,34 @@ reason: `git status -uall` over ~20-30k untracked files exceeds the 2 MiB
 `CAPTURE_LIMIT_BYTES` (`xtask/src/quality_gate.rs:14`) and aborts with the misleading
 `QUALITY_CAPTURE_LIMIT_EXCEEDED`. Keep generated corpora under the ignored roots.
 
+**A latent P5 defect that E3 found by executing.** `parse_python` required the
+tree-sitter module node to start at byte 0 (`src/parser.rs:281`), but tree-sitter
+places leading whitespace *outside* that node as an extra. Any Python file
+beginning with a blank line or a space therefore parsed perfectly and was still
+reported `PYTHON_SYNTAX_REJECTED`, while a file beginning with a *comment* was
+accepted, because comments sit inside the module. The rule was rejecting on layout
+rather than on syntax, and P4 curation was silently discarding a large and
+arbitrary slice of real Python. It is corrected to the requirement it was plainly
+trying to express: everything outside the module node must be insignificant
+whitespace. Nothing meaningful can go unparsed, strictly more documents curate and
+none fewer, and the whole existing suite including P4 and P5 passes unchanged. It
+surfaced because a real EvalPlus prompt starts with two blank lines.
+
+**Two properties of the real assets that the contract's wording does not
+anticipate.** `DECONTAM-001` says "strict ... JSONL decoding", but the assets were
+produced by Python's `json` module and contain bare `NaN`, `Infinity` and
+`-Infinity`, which RFC 8259 forbids. They are recognized explicitly rather than
+tolerated loosely, and then refused a canonical form, because RFC 8785 cannot
+represent a non-finite value either. Separately, `base_input`/`plus_input` contain
+integers far beyond IEEE-754 double precision — one is 55 digits — and RFC 8785
+serializes numbers through ECMAScript `Number::toString`, i.e. as doubles. Emitting
+the nearest double would silently rewrite `6775685320645824322581483068371419745979053216268760300`
+into `6.775685320645824e+54`, which could never match a source document, so those
+values are counted and skipped rather than fabricated. `serde_json` cannot support
+either decision — it accepts duplicate keys silently and parses oversized integers
+straight into `f64`, destroying the evidence — which is why the importer carries its
+own strict reader.
+
 **Landed so far.** `.gitignore` now matches the artifacts the pipeline actually
 writes. Its extension rules previously matched none of them: token shards are
 `shards/<split>-<seq>.u16le` (`src/storage.rs:820`) and checkpoint tensors are

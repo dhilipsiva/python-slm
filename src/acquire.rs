@@ -1,10 +1,10 @@
-//! Governed HTTPS acquisition.
+﻿//! Governed HTTPS acquisition.
 //!
 //! Every other artifact in this pipeline is reproducible because it is bound to a
 //! digest declared in advance, and acquisition is held to the same standard: the
 //! configuration names each asset's URL, its expected SHA-256, and its expected
 //! length, and nothing is published unless the bytes that arrived match all
-//! three. There is deliberately no discovery or crawling — an endpoint listing
+//! three. There is deliberately no discovery or crawling â€” an endpoint listing
 //! that can change between runs would make the corpus irreproducible, which is
 //! the one property the rest of the repository is built to preserve.
 //!
@@ -419,14 +419,14 @@ fn fetch_one(
 /// A create-new directory built beside its destination and renamed into place, so
 /// a failed or interrupted acquisition never leaves a half-populated generation
 /// at the published path.
-struct PartialAcquisition {
+pub(crate) struct PartialTree {
     partial_path: PathBuf,
     final_path: PathBuf,
     published: bool,
 }
 
-impl PartialAcquisition {
-    fn create(final_path: &Path) -> Result<Self> {
+impl PartialTree {
+    pub(crate) fn create(final_path: &Path) -> Result<Self> {
         let parent = final_path.parent().ok_or_else(|| {
             ProductError::usage(
                 "ACQUISITION_OUTPUT_PARENT_INVALID",
@@ -464,7 +464,7 @@ impl PartialAcquisition {
         })
     }
 
-    fn write(&self, relative: &str, bytes: &[u8]) -> Result<()> {
+    pub(crate) fn write(&self, relative: &str, bytes: &[u8]) -> Result<()> {
         let destination = join_relative(&self.partial_path, relative)?;
         if let Some(parent) = destination.parent() {
             fs::create_dir_all(parent).map_err(|_| {
@@ -482,14 +482,14 @@ impl PartialAcquisition {
         })
     }
 
-    fn publish(&mut self) -> Result<()> {
+    pub(crate) fn publish(&mut self) -> Result<()> {
         crate::platform::publish_create_new(&self.partial_path, &self.final_path)?;
         self.published = true;
         Ok(())
     }
 }
 
-impl Drop for PartialAcquisition {
+impl Drop for PartialTree {
     fn drop(&mut self) {
         if !self.published {
             let _ = fs::remove_dir_all(&self.partial_path);
@@ -514,7 +514,7 @@ pub fn acquire(config_path: &Path) -> Result<serde_json::Value> {
         .timeout_read(Duration::from_secs(config.limits.read_timeout_seconds))
         .build();
 
-    let mut generation = PartialAcquisition::create(&config.output_root)?;
+    let mut generation = PartialTree::create(&config.output_root)?;
     let mut acquired = Vec::with_capacity(config.assets.len());
     let mut acquired_bytes = 0_u64;
     for asset in &config.assets {

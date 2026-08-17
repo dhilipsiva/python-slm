@@ -277,9 +277,21 @@ pub fn parse_python(
     let root = tree.root_node();
     let traversal = traverse(root, canonical_bytes, node_limit)?;
     let mut reasons = Vec::new();
+    // Everything outside the module node must be insignificant whitespace.
+    //
+    // This previously demanded `start_byte == 0` and `end_byte == len`, which is
+    // not the same requirement: tree-sitter places leading whitespace *outside*
+    // the module node as an extra, so a file beginning with a single blank line
+    // parsed perfectly and was still reported `PYTHON_SYNTAX_REJECTED`. A leading
+    // comment was accepted, because comments sit inside the module — the rule was
+    // rejecting on layout rather than on syntax, and it silently discarded a
+    // large and arbitrary slice of real Python during curation. The intent was
+    // that nothing meaningful goes unparsed, and that is what is checked now.
+    let outside_is_whitespace =
+        |range: Option<&[u8]>| range.is_some_and(|bytes| bytes.iter().all(u8::is_ascii_whitespace));
     if root.kind() != "module"
-        || root.start_byte() != 0
-        || root.end_byte() != canonical_bytes.len()
+        || !outside_is_whitespace(canonical_bytes.get(..root.start_byte()))
+        || !outside_is_whitespace(canonical_bytes.get(root.end_byte()..))
         || traversal.has_error
         || traversal.has_python2_syntax
     {

@@ -2,6 +2,7 @@
 
 pub mod acquire;
 pub mod backend;
+pub mod benchmark;
 pub mod commands;
 pub mod config;
 pub mod corpus;

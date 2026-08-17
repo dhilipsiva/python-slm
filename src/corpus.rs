@@ -1,4 +1,4 @@
-//! Deterministic P9A deduplication, decontamination, splitting, and span ordering.
+﻿//! Deterministic P9A deduplication, decontamination, splitting, and span ordering.
 
 use crate::backend::PROTOTYPE_PROFILE;
 use crate::data::Provenance;
@@ -41,8 +41,8 @@ pub const SPAN_MANIFEST_SCHEMA: &str = "python-slm-span-order-manifest-v1";
 pub const SPAN_RESULT_SCHEMA: &str = "python-slm-plan-spans-result-v1";
 
 const SOURCE_GENERATION_SCHEMA: &str = "python-slm-source-generation-v4";
-const EVALPLUS_REGISTRY: &str = "evalplus-v0.3.1";
-const EVALPLUS_COMMIT: &str = "e5d0ed0bab96280b60b637ec7f15b5e4841b0cb2";
+pub(crate) const EVALPLUS_REGISTRY_ID: &str = "evalplus-v0.3.1";
+pub(crate) const EVALPLUS_REGISTRY_COMMIT: &str = "e5d0ed0bab96280b60b637ec7f15b5e4841b0cb2";
 
 /// The frozen identity of each `DECONTAM-001` asset: release file name, release
 /// version, the gzip asset's SHA-256, and the SHA-256 of its decoded bytes.
@@ -60,7 +60,7 @@ const EVALPLUS_COMMIT: &str = "e5d0ed0bab96280b60b637ec7f15b5e4841b0cb2";
 /// compressed and 7,714,666 decoded across 164 JSONL records;
 /// `MbppPlus.jsonl.gz` is 336,032 and 2,592,369 across 378. The compressed counts
 /// match the GitHub release metadata exactly, and 164 and 378 are the canonical
-/// HumanEval+ and MBPP+ task counts — which is the cheapest independent signal
+/// HumanEval+ and MBPP+ task counts â€” which is the cheapest independent signal
 /// that these are the full assets rather than the `-Mini`, `-NoExtreme`, or
 /// `-OriginFmt` variants published in the same releases. `DECONTAM-001` specifies
 /// the full assets.
@@ -659,8 +659,8 @@ fn validate_benchmark_manifest(
     config: &CorpusPolicyConfigV1,
 ) -> Result<()> {
     if benchmark.schema != BENCHMARK_MANIFEST_SCHEMA
-        || benchmark.registry_id != EVALPLUS_REGISTRY
-        || benchmark.registry_commit != EVALPLUS_COMMIT
+        || benchmark.registry_id != EVALPLUS_REGISTRY_ID
+        || benchmark.registry_commit != EVALPLUS_REGISTRY_COMMIT
         || benchmark.assets.len() != 2
         || benchmark.records.is_empty()
         || benchmark.records.len() as u64 > config.limits.maximum_benchmark_records
@@ -984,7 +984,9 @@ fn fragment_tokens(fragment: &[u8], cancellation: &CancellationToken) -> Result<
     tokens.iter().map(encode_token).collect()
 }
 
-fn normalize_newlines(bytes: &[u8]) -> Vec<u8> {
+/// `DECONTAM-001`: CRLF and CR become LF, without trimming or adding bytes.
+/// Shared with the importer so one frozen rule has one implementation.
+pub(crate) fn normalize_newlines(bytes: &[u8]) -> Vec<u8> {
     let mut normalized = Vec::with_capacity(bytes.len());
     let mut index = 0;
     while index < bytes.len() {
@@ -1259,8 +1261,8 @@ fn decontaminate(
         DecontaminationManifestV1 {
             schema: DECONTAMINATION_MANIFEST_SCHEMA.to_owned(),
             benchmark_manifest_sha256: benchmark_manifest_sha256.to_owned(),
-            registry_id: EVALPLUS_REGISTRY.to_owned(),
-            registry_commit: EVALPLUS_COMMIT.to_owned(),
+            registry_id: EVALPLUS_REGISTRY_ID.to_owned(),
+            registry_commit: EVALPLUS_REGISTRY_COMMIT.to_owned(),
             protected_records: protected.len() as u64,
             rejected_clusters: rejected_clusters.len() as u64,
             rejected_documents: outcomes,

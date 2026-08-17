@@ -29,6 +29,11 @@ enum Command {
         #[arg(long)]
         discover: bool,
     },
+    /// Import the pinned EvalPlus assets into a benchmark protection generation.
+    ImportBenchmark {
+        #[arg(long)]
+        config: PathBuf,
+    },
     /// Curate the governed source corpus. Implemented by Phase 4.
     Curate {
         #[arg(long)]
@@ -138,6 +143,7 @@ pub fn run(args: impl IntoIterator<Item = OsString>) -> Result<Value> {
                 crate::acquire::acquire(&config)
             }
         }
+        Command::ImportBenchmark { config } => crate::benchmark::import_benchmark(&config),
         Command::Curate { config } => crate::data::curate(&config),
         Command::TrainTokenizer { config } => crate::tokenizer::train_tokenizer(&config),
         Command::Tokenize { config } => crate::storage::tokenize(&config),
