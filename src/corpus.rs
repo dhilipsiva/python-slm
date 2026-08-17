@@ -1,4 +1,4 @@
-﻿//! Deterministic P9A deduplication, decontamination, splitting, and span ordering.
+//! Deterministic P9A deduplication, decontamination, splitting, and span ordering.
 
 use crate::backend::PROTOTYPE_PROFILE;
 use crate::data::Provenance;
@@ -118,12 +118,29 @@ static PARTIAL_COUNTER: AtomicU64 = AtomicU64::new(0);
 pub struct CorpusPolicyConfigV1 {
     pub schema: String,
     pub profile: String,
-    pub source_generation_manifest: HashBoundInput,
-    pub source_content_root: PathBuf,
+    /// One entry per P4 generation, in the operator's order.
+    ///
+    /// A single generation cannot reach production scale: `prepare-corpus` reads
+    /// the whole generation manifest through the 64 MiB control-file bound
+    /// (`src/data/source/io.rs:8`), and an accepted outcome carrying its
+    /// `governed_source_metadata` block runs to roughly 2.4 KB, which caps one
+    /// manifest near 28,000 documents against the 1.5 to 3 million the frozen
+    /// target needs. Composing many generations keeps each one independently
+    /// verifiable and under that bound rather than raising it.
+    pub source_generations: Vec<SourceGenerationInput>,
     pub benchmark_manifest: HashBoundInput,
     pub benchmark_content_root: PathBuf,
     pub output_root: PathBuf,
     pub limits: CorpusPolicyLimits,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct SourceGenerationInput {
+    pub manifest: HashBoundInput,
+    /// The generation's own root; `content_path` values are relative to it, so
+    /// each generation keeps its own and they are never interchangeable.
+    pub content_root: PathBuf,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -435,15 +452,19 @@ fn prepare_portable(config_path: &Path) -> Result<Value> {
     let config_bytes = read_control_file(config_path, None, "CORPUS_CONFIG_READ_FAILED")?;
     let config: CorpusPolicyConfigV1 = parse_closed(&config_bytes, "CORPUS_CONFIG_INVALID")?;
     validate_prepare_config(&config)?;
-    let source_bytes = read_control_file(
-        &config.source_generation_manifest.path,
-        Some(&config.source_generation_manifest.sha256),
-        "SOURCE_GENERATION_READ_FAILED",
-    )?;
-    let source: SourceGenerationV4 = parse_closed(&source_bytes, "SOURCE_GENERATION_INVALID")?;
-    validate_source_generation(&source)?;
-    let source_root =
-        require_existing_root(&config.source_content_root, "SOURCE_CONTENT_ROOT_INVALID")?;
+    let mut sources = Vec::with_capacity(config.source_generations.len());
+    for generation in &config.source_generations {
+        let source_bytes = read_control_file(
+            &generation.manifest.path,
+            Some(&generation.manifest.sha256),
+            "SOURCE_GENERATION_READ_FAILED",
+        )?;
+        let source: SourceGenerationV4 = parse_closed(&source_bytes, "SOURCE_GENERATION_INVALID")?;
+        validate_source_generation(&source)?;
+        let root = require_existing_root(&generation.content_root, "SOURCE_CONTENT_ROOT_INVALID")?;
+        sources.push((source, root));
+    }
+    let source_generation_sha256 = combined_source_generation_sha256(&config.source_generations);
     let benchmark_bytes = read_control_file(
         &config.benchmark_manifest.path,
         Some(&config.benchmark_manifest.sha256),
@@ -454,11 +475,13 @@ fn prepare_portable(config_path: &Path) -> Result<Value> {
     validate_benchmark_manifest(&benchmark, &config)?;
     let benchmark_root =
         require_existing_root(&config.benchmark_content_root, "BENCHMARK_ROOT_INVALID")?;
-    require_output_boundary(&config.output_root, &source_root)?;
+    for (_, root) in &sources {
+        require_output_boundary(&config.output_root, root)?;
+    }
     require_output_boundary(&config.output_root, &benchmark_root)?;
 
     let cancellation = CancellationToken::default();
-    let documents = load_documents(&source, &source_root, &config, &cancellation)?;
+    let documents = load_documents(&sources, &config, &cancellation)?;
     let protected = load_benchmark(&benchmark, &benchmark_root, &cancellation)?;
     let (dedup, duplicate_groups) = deduplicate(&documents, config.limits.maximum_candidate_pairs)?;
     let (decontamination, rejected_clusters) = decontaminate(
@@ -502,7 +525,7 @@ fn prepare_portable(config_path: &Path) -> Result<Value> {
     sample_documents.sort_by(sample_document_identity_order);
     let tokenizer_sample = TokenizerSampleManifestV1 {
         schema: SAMPLE_MANIFEST_SCHEMA.to_owned(),
-        source_generation_manifest_sha256: config.source_generation_manifest.sha256.clone(),
+        source_generation_manifest_sha256: source_generation_sha256.clone(),
         documents: sample_documents,
     };
     let sample_bytes =
@@ -518,7 +541,7 @@ fn prepare_portable(config_path: &Path) -> Result<Value> {
     governed_documents.sort_by(governed_document_order);
     let governed = GovernedCorpusManifestV2 {
         schema: GOVERNED_CORPUS_SCHEMA.to_owned(),
-        source_generation_manifest_sha256: config.source_generation_manifest.sha256.clone(),
+        source_generation_manifest_sha256: source_generation_sha256.clone(),
         split_manifest_sha256: split_sha256,
         tokenizer_sample_manifest_sha256: sample_sha256,
         documents: governed_documents,
@@ -545,7 +568,7 @@ fn prepare_portable(config_path: &Path) -> Result<Value> {
         schema: GENERATION_SCHEMA.to_owned(),
         profile: PROTOTYPE_PROFILE.to_owned(),
         qualification_status: "SKIPPED".to_owned(),
-        source_generation_manifest_sha256: config.source_generation_manifest.sha256,
+        source_generation_manifest_sha256: source_generation_sha256,
         benchmark_manifest_sha256: config.benchmark_manifest.sha256,
         dedup_manifest: artifact_binding("dedup-manifest.json", &dedup_bytes),
         decontamination_manifest: artifact_binding(
@@ -599,19 +622,44 @@ fn validate_prepare_config(config: &CorpusPolicyConfigV1) -> Result<()> {
             "the requested profile is designed but not implemented",
         ));
     }
-    for input in [
-        &config.source_generation_manifest,
-        &config.benchmark_manifest,
-    ] {
-        if !input.path.is_absolute() || !is_sha256(&input.sha256) {
+    if config.source_generations.is_empty() {
+        return Err(ProductError::usage(
+            "CONFIG_INPUT_INVALID",
+            "at least one source generation is required",
+        ));
+    }
+    let mut manifests = BTreeSet::new();
+    let mut roots = BTreeSet::new();
+    for generation in &config.source_generations {
+        if !generation.manifest.path.is_absolute()
+            || !is_sha256(&generation.manifest.sha256)
+            || !generation.content_root.is_absolute()
+        {
             return Err(ProductError::usage(
                 "CONFIG_INPUT_INVALID",
                 "hash-bound corpus inputs require absolute paths and lowercase SHA-256",
             ));
         }
+        // Naming one generation twice would double every document it holds, and
+        // the duplicate would be indistinguishable from a genuine one downstream.
+        if !manifests.insert(generation.manifest.path.clone())
+            || !roots.insert(generation.content_root.clone())
+        {
+            return Err(ProductError::usage(
+                "CONFIG_SOURCE_GENERATION_DUPLICATE",
+                "a source generation manifest or content root is named twice",
+            ));
+        }
     }
-    if !config.source_content_root.is_absolute()
-        || !config.benchmark_content_root.is_absolute()
+    if !config.benchmark_manifest.path.is_absolute()
+        || !is_sha256(&config.benchmark_manifest.sha256)
+    {
+        return Err(ProductError::usage(
+            "CONFIG_INPUT_INVALID",
+            "hash-bound corpus inputs require absolute paths and lowercase SHA-256",
+        ));
+    }
+    if !config.benchmark_content_root.is_absolute()
         || !config.output_root.is_absolute()
         || config.limits.maximum_documents == 0
         || config.limits.maximum_total_canonical_bytes == 0
@@ -724,16 +772,39 @@ fn validate_benchmark_manifest(
     Ok(())
 }
 
+/// The identity of the composed source generations.
+///
+/// Downstream this stays one value — `tokenize` binds the sample manifest and the
+/// tokenizer artifact to it by equality (`src/storage.rs:631-633`) — so the
+/// generalization is a domain-separated digest over the per-generation digests in
+/// configuration order, not a list. Order is significant because it is the order
+/// documents are loaded in, and a domain tag keeps a one-element combination
+/// distinguishable from the bare digest it combines.
+fn combined_source_generation_sha256(generations: &[SourceGenerationInput]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(b"python-slm/source-generation-set/v1\0");
+    hasher.update((generations.len() as u64).to_le_bytes());
+    for generation in generations {
+        hasher.update(generation.manifest.sha256.as_bytes());
+    }
+    hex::encode(hasher.finalize())
+}
+
 fn load_documents(
-    source: &SourceGenerationV4,
-    root: &Path,
+    sources: &[(SourceGenerationV4, PathBuf)],
     config: &CorpusPolicyConfigV1,
     cancellation: &CancellationToken,
 ) -> Result<Vec<PreparedDocument>> {
-    let accepted = source
-        .outcomes
+    // Every capacity applies to the composed corpus, not to one generation.
+    let accepted = sources
         .iter()
-        .filter(|outcome| outcome.status == "POLICY_ACCEPTED")
+        .flat_map(|(source, root)| {
+            source
+                .outcomes
+                .iter()
+                .filter(|outcome| outcome.status == "POLICY_ACCEPTED")
+                .map(move |outcome| (outcome, root.as_path()))
+        })
         .collect::<Vec<_>>();
     if accepted.is_empty() || accepted.len() as u64 > config.limits.maximum_documents {
         return Err(ProductError::gate(
@@ -745,7 +816,7 @@ fn load_documents(
     let mut source_ids = BTreeSet::new();
     let mut total_bytes = 0_u64;
     let mut total_shingles = 0_u64;
-    for outcome in accepted {
+    for (outcome, root) in accepted {
         validate_source_outcome(outcome)?;
         if !source_ids.insert(outcome.source_id.as_str()) {
             return Err(ProductError::integrity(

@@ -1006,6 +1006,28 @@ either decision — it accepts duplicate keys silently and parses oversized inte
 straight into `f64`, destroying the evidence — which is why the importer carries its
 own strict reader.
 
+**Multi-generation corpus input has landed.** `CorpusPolicyConfigV1` now takes a
+non-empty `source_generations` list instead of one manifest and one root, so many
+P4 generations compose into a single corpus and each stays independently
+verifiable and under the 64 MiB bound rather than the bound being raised. Every
+capacity applies to the composed corpus. Identity uniqueness holds across the set,
+not merely within one generation, and naming a manifest or root twice is refused
+before anything is read. The composed identity is a domain-separated digest over
+the per-generation digests in configuration order, which keeps the single value
+that `tokenize` binds the sample manifest and tokenizer artifact to by equality.
+The load-bearing property is covered by test: a duplicate straddling two
+generations collapses to one representative exactly as it would inside one, since
+composing would otherwise silently admit the duplicates deduplication exists to
+remove.
+
+**This does not finish the ceiling problem.** `tokenize` still reads one
+`governed-corpus-manifest.json` and both stages still read one
+`tokenizer-sample-manifest.json`, all through the same 64 MiB bound, at roughly
+545 and 480 bytes per document — about 123,000 and 140,000 documents. Those are
+emitted by `prepare-corpus` rather than supplied, so they need streaming or
+splitting rather than a list, and the real per-document cost should be measured in
+Phase 5 before either is sized.
+
 **Landed so far.** `.gitignore` now matches the artifacts the pipeline actually
 writes. Its extension rules previously matched none of them: token shards are
 `shards/<split>-<seq>.u16le` (`src/storage.rs:820`) and checkpoint tensors are
