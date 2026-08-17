@@ -250,8 +250,10 @@ fn tokenize_portable(config_path: &Path) -> Result<Value> {
         Some(&config.tokenizer_sample_manifest.sha256),
         "TOKENIZER_SAMPLE_READ_FAILED",
     )?;
-    let sample: TokenizerSampleManifestV1 =
-        parse_closed(&sample_bytes, "TOKENIZER_SAMPLE_INVALID")?;
+    let sample = crate::tokenizer::load_sample_manifest(
+        &config.tokenizer_sample_manifest.path,
+        &sample_bytes,
+    )?;
     let artifact_bytes = read_control_file(
         &config.tokenizer_artifact.path,
         Some(&config.tokenizer_artifact.sha256),
@@ -552,6 +554,55 @@ fn parse_governed_corpus(
                 tokenizer_sample_manifest_sha256: corpus.tokenizer_sample_manifest_sha256,
                 tokenizer_artifact_sha256: config.tokenizer_artifact.sha256.clone(),
                 documents: corpus.documents,
+            })
+        }
+        // The sharded form: the documents live in hash-bound parts beside the
+        // index rather than inline, which is what lets the set exceed the
+        // control-file bound. Parts resolve relative to the index's own
+        // directory, and the index is itself hash-bound by the configuration, so
+        // the chain from configuration to document stays unbroken.
+        Some(crate::corpus::GOVERNED_CORPUS_INDEX_SCHEMA) => {
+            let index: crate::corpus::GovernedCorpusManifestV3 =
+                parse_closed(bytes, "CORPUS_MANIFEST_INVALID")?;
+            let root = config.corpus_manifest.path.parent().ok_or_else(|| {
+                ProductError::integrity(
+                    "CORPUS_MANIFEST_INVALID",
+                    "the corpus manifest has no parent directory to resolve its parts against",
+                )
+            })?;
+            let mut documents = Vec::new();
+            for (ordinal, reference) in index.parts.iter().enumerate() {
+                require_portable_relative_path(
+                    &reference.relative_path,
+                    "CORPUS_MANIFEST_INVALID",
+                )?;
+                let part_bytes = read_control_file(
+                    &join_relative(root, &reference.relative_path)?,
+                    Some(&reference.sha256),
+                    "CORPUS_MANIFEST_READ_FAILED",
+                )?;
+                let part: crate::corpus::GovernedCorpusPartV1 =
+                    parse_closed(&part_bytes, "CORPUS_MANIFEST_INVALID")?;
+                // Ordinal and count are checked so a reordered or truncated set
+                // cannot pass as a complete one.
+                if part.schema != crate::corpus::GOVERNED_CORPUS_PART_SCHEMA
+                    || part.part != ordinal as u64
+                    || part.documents.len() as u64 != reference.documents
+                {
+                    return Err(ProductError::integrity(
+                        "CORPUS_MANIFEST_INVALID",
+                        "a governed corpus part is out of order, mislabelled, or short",
+                    ));
+                }
+                documents.extend(part.documents);
+            }
+            Ok(GovernedCorpusManifestV1 {
+                schema: CORPUS_MANIFEST_SCHEMA.to_owned(),
+                source_generation_manifest_sha256: index.source_generation_manifest_sha256,
+                split_manifest_sha256: index.split_manifest_sha256,
+                tokenizer_sample_manifest_sha256: index.tokenizer_sample_manifest_sha256,
+                tokenizer_artifact_sha256: config.tokenizer_artifact.sha256.clone(),
+                documents,
             })
         }
         _ => Err(ProductError::integrity(
@@ -1458,5 +1509,136 @@ mod tests {
             config.tokenizer_artifact.sha256
         );
         assert_eq!(normalized.documents, corpus.documents);
+    }
+
+    /// The sharded governed corpus: the same documents, in hash-bound parts.
+    ///
+    /// The parts are what carry the documents past the control-file bound, so the
+    /// chain from the configured index digest through to a document has to reject
+    /// every way a part set can be wrong.
+    #[test]
+    fn a_sharded_governed_corpus_loads_and_resists_tampering() {
+        let directory = tempfile::tempdir().unwrap();
+        let hash = "a".repeat(64);
+        let document = |label: &str| GovernedCorpusDocumentV1 {
+            component_id: hash.clone(),
+            repository_group_id: hash.clone(),
+            source_id: crate::data::source::sha256(label.as_bytes()),
+            curated_sha256_raw: hash.clone(),
+            canonical_sha256: hash.clone(),
+            canonical_bytes: 100,
+            relative_path: format!("documents/{label}.py"),
+            split: CorpusSplit::Train,
+        };
+
+        // Two parts, so ordering across parts is actually exercised.
+        let mut parts = Vec::new();
+        for (ordinal, labels) in [["a", "b"], ["c", "d"]].into_iter().enumerate() {
+            let part = crate::corpus::GovernedCorpusPartV1 {
+                schema: crate::corpus::GOVERNED_CORPUS_PART_SCHEMA.to_owned(),
+                part: ordinal as u64,
+                documents: labels.iter().map(|label| document(label)).collect(),
+            };
+            let bytes = compact_json_line(&part, "TEST").unwrap();
+            let relative_path = format!("governed-corpus-part-{ordinal:05}.json");
+            std::fs::write(directory.path().join(&relative_path), &bytes).unwrap();
+            parts.push(crate::corpus::ManifestPartRef {
+                relative_path,
+                sha256: crate::data::source::sha256(&bytes),
+                documents: part.documents.len() as u64,
+            });
+        }
+        let index = crate::corpus::GovernedCorpusManifestV3 {
+            schema: crate::corpus::GOVERNED_CORPUS_INDEX_SCHEMA.to_owned(),
+            source_generation_manifest_sha256: hash.clone(),
+            split_manifest_sha256: "b".repeat(64),
+            tokenizer_sample_manifest_sha256: "c".repeat(64),
+            parts,
+        };
+        let mut config = config_for(directory.path().join("governed-corpus-manifest.json"));
+        config.limits.maximum_documents = 4;
+
+        let bytes = compact_json_line(&index, "TEST").unwrap();
+        let loaded = parse_governed_corpus(&bytes, &config).unwrap();
+        assert_eq!(loaded.schema, CORPUS_MANIFEST_SCHEMA);
+        assert_eq!(loaded.documents.len(), 4);
+        // Parts concatenate in index order, so the flattened set is the one an
+        // inline manifest would have carried.
+        assert_eq!(
+            loaded.documents[0].source_id,
+            crate::data::source::sha256(b"a")
+        );
+        assert_eq!(
+            loaded.documents[3].source_id,
+            crate::data::source::sha256(b"d")
+        );
+
+        // A part whose bytes no longer match its declared digest.
+        let tampered_path = directory.path().join("governed-corpus-part-00001.json");
+        let original = std::fs::read(&tampered_path).unwrap();
+        let mut mutated = original.clone();
+        let last = mutated.len() - 2;
+        mutated[last] ^= 0x20;
+        std::fs::write(&tampered_path, &mutated).unwrap();
+        assert!(
+            parse_governed_corpus(&bytes, &config).is_err(),
+            "a mutated part must not load"
+        );
+        std::fs::write(&tampered_path, &original).unwrap();
+
+        let reject = |index: &crate::corpus::GovernedCorpusManifestV3, why: &str| {
+            let bytes = compact_json_line(index, "TEST").unwrap();
+            assert!(parse_governed_corpus(&bytes, &config).is_err(), "{why}");
+        };
+
+        // A declared part that is simply absent.
+        let mut missing = index.clone();
+        missing.parts[1].relative_path = "governed-corpus-part-00009.json".to_owned();
+        reject(&missing, "a missing part must not load");
+
+        // A part count the index disagrees with, which is how truncation shows up.
+        let mut short = index.clone();
+        short.parts[1].documents = 1;
+        reject(
+            &short,
+            "a part whose count disagrees with the index must not load",
+        );
+
+        // Reordering the index without relabelling the parts.
+        let mut reordered = index.clone();
+        reordered.parts.swap(0, 1);
+        reject(&reordered, "a reordered part set must not load");
+
+        // A part path that tries to escape the index's directory.
+        let mut escaping = index;
+        escaping.parts[0].relative_path = "../outside.json".to_owned();
+        reject(&escaping, "a part path escaping the root must not load");
+    }
+
+    fn config_for(corpus_manifest: PathBuf) -> TokenMaterializeConfigV1 {
+        TokenMaterializeConfigV1 {
+            schema: CONFIG_SCHEMA.to_owned(),
+            profile: PROTOTYPE_PROFILE.to_owned(),
+            corpus_manifest: HashBoundInput {
+                path: corpus_manifest,
+                sha256: "d".repeat(64),
+            },
+            content_root: PathBuf::from("C:/content"),
+            tokenizer_sample_manifest: HashBoundInput {
+                path: PathBuf::from("C:/sample.json"),
+                sha256: "c".repeat(64),
+            },
+            tokenizer_artifact: HashBoundInput {
+                path: PathBuf::from("C:/tokenizer.json"),
+                sha256: "e".repeat(64),
+            },
+            output_root: PathBuf::from("C:/output"),
+            limits: MaterializationLimits {
+                maximum_documents: 1,
+                maximum_total_canonical_bytes: 1_000,
+                maximum_total_stored_ids: 1_000,
+                shard_maximum_ids: 100,
+            },
+        }
     }
 }

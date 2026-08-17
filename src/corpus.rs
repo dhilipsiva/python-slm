@@ -12,9 +12,7 @@ use crate::parser::{CancellationToken, LexicalToken, parse_python};
 use crate::storage::{
     CorpusSplit, GovernedCorpusDocumentV1, TokenCorpusGenerationV1, VerifiedTokenCorpus,
 };
-use crate::tokenizer::{
-    HashBoundInput, SAMPLE_MANIFEST_SCHEMA, TokenizerSampleDocumentV1, TokenizerSampleManifestV1,
-};
+use crate::tokenizer::{HashBoundInput, TokenizerSampleDocumentV1};
 use rand_chacha::ChaCha12Rng;
 use rand_core::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
@@ -32,6 +30,41 @@ pub const PREPARE_CONFIG_SCHEMA: &str = "python-slm-corpus-policy-config-v1";
 pub const BENCHMARK_MANIFEST_SCHEMA: &str = "python-slm-benchmark-protection-manifest-v1";
 pub const GENERATION_SCHEMA: &str = "python-slm-corpus-policy-generation-v1";
 pub const GOVERNED_CORPUS_SCHEMA: &str = "python-slm-governed-corpus-manifest-v2";
+pub const GOVERNED_CORPUS_INDEX_SCHEMA: &str = "python-slm-governed-corpus-manifest-v3";
+pub const GOVERNED_CORPUS_PART_SCHEMA: &str = "python-slm-governed-corpus-part-v1";
+
+/// Documents per emitted manifest part.
+///
+/// The governed corpus and tokenizer sample manifests are read back through the
+/// 64 MiB control-file bound (`src/data/source/io.rs:8`), which at their measured
+/// `561.3` and `463.2` bytes per document capped them near 120,000 and 145,000
+/// documents — far short of a production corpus. Unlike the source generations
+/// these are emitted rather than supplied, so a list in the configuration cannot
+/// help; they are emitted in parts instead, each independently hash-bound and
+/// each comfortably inside the bound.
+pub(crate) const MANIFEST_PART_DOCUMENTS: usize = 50_000;
+
+/// A part that would not read back is refused rather than published, so the
+/// document-count shard size can never silently produce an unreadable artifact.
+const MAXIMUM_PART_BYTES: usize = 32 * 1024 * 1024;
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ManifestPartRef {
+    pub relative_path: String,
+    pub sha256: String,
+    pub documents: u64,
+}
+
+pub(crate) fn require_part_fits(bytes: usize, code: &'static str) -> Result<()> {
+    if bytes > MAXIMUM_PART_BYTES {
+        return Err(ProductError::integrity(
+            code,
+            "an emitted manifest part exceeds the readable control-file bound",
+        ));
+    }
+    Ok(())
+}
 pub const DEDUP_MANIFEST_SCHEMA: &str = "python-slm-dedup-manifest-v1";
 pub const DECONTAMINATION_MANIFEST_SCHEMA: &str = "python-slm-decontamination-manifest-v1";
 pub const SPLIT_MANIFEST_SCHEMA: &str = "python-slm-split-manifest-v1";
@@ -284,6 +317,27 @@ pub struct GovernedCorpusManifestV2 {
     pub documents: Vec<GovernedCorpusDocumentV1>,
 }
 
+/// The sharded form: the same header, with the documents in hash-bound parts
+/// beside it rather than inline. The file keeps its name and its own digest, so
+/// every configuration and every downstream binding equality is unchanged.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct GovernedCorpusManifestV3 {
+    pub schema: String,
+    pub source_generation_manifest_sha256: String,
+    pub split_manifest_sha256: String,
+    pub tokenizer_sample_manifest_sha256: String,
+    pub parts: Vec<ManifestPartRef>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct GovernedCorpusPartV1 {
+    pub schema: String,
+    pub part: u64,
+    pub documents: Vec<GovernedCorpusDocumentV1>,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct DedupManifestV1 {
@@ -532,10 +586,27 @@ fn prepare_portable(config_path: &Path) -> Result<Value> {
         }
     }
     sample_documents.sort_by(sample_document_identity_order);
-    let tokenizer_sample = TokenizerSampleManifestV1 {
-        schema: SAMPLE_MANIFEST_SCHEMA.to_owned(),
+    let mut sample_parts = Vec::new();
+    for (index, chunk) in sample_documents.chunks(MANIFEST_PART_DOCUMENTS).enumerate() {
+        let part = crate::tokenizer::TokenizerSamplePartV1 {
+            schema: crate::tokenizer::SAMPLE_PART_SCHEMA.to_owned(),
+            part: index as u64,
+            documents: chunk.to_vec(),
+        };
+        let bytes = compact_json_line(&part, "TOKENIZER_SAMPLE_SERIALIZATION_FAILED")?;
+        require_part_fits(bytes.len(), "TOKENIZER_SAMPLE_SERIALIZATION_FAILED")?;
+        let relative_path = format!("tokenizer-sample-part-{index:05}.json");
+        generation.write_file(Path::new(&relative_path), &bytes)?;
+        sample_parts.push(ManifestPartRef {
+            relative_path,
+            sha256: sha256(&bytes),
+            documents: chunk.len() as u64,
+        });
+    }
+    let tokenizer_sample = crate::tokenizer::TokenizerSampleManifestV2 {
+        schema: crate::tokenizer::SAMPLE_MANIFEST_INDEX_SCHEMA.to_owned(),
         source_generation_manifest_sha256: source_generation_sha256.clone(),
-        documents: sample_documents,
+        parts: sample_parts,
     };
     let sample_bytes =
         compact_json_line(&tokenizer_sample, "TOKENIZER_SAMPLE_SERIALIZATION_FAILED")?;
@@ -548,12 +619,32 @@ fn prepare_portable(config_path: &Path) -> Result<Value> {
     let split_bytes = compact_json_line(&split_manifest, "SPLIT_MANIFEST_SERIALIZATION_FAILED")?;
     let split_sha256 = sha256(&split_bytes);
     governed_documents.sort_by(governed_document_order);
-    let governed = GovernedCorpusManifestV2 {
-        schema: GOVERNED_CORPUS_SCHEMA.to_owned(),
+    let mut governed_parts = Vec::new();
+    for (index, chunk) in governed_documents
+        .chunks(MANIFEST_PART_DOCUMENTS)
+        .enumerate()
+    {
+        let part = GovernedCorpusPartV1 {
+            schema: GOVERNED_CORPUS_PART_SCHEMA.to_owned(),
+            part: index as u64,
+            documents: chunk.to_vec(),
+        };
+        let bytes = compact_json_line(&part, "GOVERNED_CORPUS_SERIALIZATION_FAILED")?;
+        require_part_fits(bytes.len(), "GOVERNED_CORPUS_SERIALIZATION_FAILED")?;
+        let relative_path = format!("governed-corpus-part-{index:05}.json");
+        generation.write_file(Path::new(&relative_path), &bytes)?;
+        governed_parts.push(ManifestPartRef {
+            relative_path,
+            sha256: sha256(&bytes),
+            documents: chunk.len() as u64,
+        });
+    }
+    let governed = GovernedCorpusManifestV3 {
+        schema: GOVERNED_CORPUS_INDEX_SCHEMA.to_owned(),
         source_generation_manifest_sha256: source_generation_sha256.clone(),
         split_manifest_sha256: split_sha256,
         tokenizer_sample_manifest_sha256: sample_sha256,
-        documents: governed_documents,
+        parts: governed_parts,
     };
     let governed_bytes = compact_json_line(&governed, "GOVERNED_CORPUS_SERIALIZATION_FAILED")?;
     for (path, bytes) in [

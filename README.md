@@ -78,8 +78,9 @@ cargo run --locked --bin python-slm -- train-tokenizer --config <absolute-config
 ```
 
 The closed `python-slm-tokenizer-train-config-v1` configuration names an absolute,
-hash-bound `python-slm-tokenizer-sample-manifest-v1`, its immutable content root, and a
-create-new tokenizer artifact path. Sample documents bind repository group, source,
+hash-bound tokenizer sample manifest — either the inline
+`python-slm-tokenizer-sample-manifest-v1` or the `-v2` index over hash-bound parts —
+its immutable content root, and a create-new tokenizer artifact path. Sample documents bind repository group, source,
 curated raw, canonical byte, length, and portable relative-path identities. Whole
 documents are ranked by `TOKSAMPLE-001`; the engine enforces the 10,000,000-byte
 repository cap and 2,000,000,000-byte global cap, skips non-fitting documents, and never
@@ -106,7 +107,8 @@ cargo run --locked --bin python-slm -- tokenize --config <absolute-config-path>
 ```
 
 The closed `python-slm-token-materialize-config-v1` configuration binds a governed
-`python-slm-governed-corpus-manifest-v1`, content root, P7 tokenizer sample and
+corpus manifest (`python-slm-governed-corpus-manifest-v1`, `-v2`, or the `-v3` index
+over hash-bound parts), content root, P7 tokenizer sample and
 tokenizer artifact, output root, and explicit document, byte, token, and shard limits.
 The materializer sorts each split by component, repository group, source, and curated
 hash identity; encodes each complete document; appends exactly one EOS; and writes
@@ -151,10 +153,14 @@ Remaining repository/duplicate connected components receive deterministic
 `SPLIT-001` 98/1/1 assignment. A create-new
 `python-slm-corpus-policy-generation-v1` contains deduplication,
 decontamination, split, tokenizer-sample, and
-`python-slm-governed-corpus-manifest-v2` artifacts plus representative source
-bytes. P8 accepts both its immutable v1 governed manifest and P9A's v2 manifest;
-the explicit P8 configuration supplies and verifies the later tokenizer
-artifact binding, avoiding a circular pre-training hash.
+`python-slm-governed-corpus-manifest-v3` artifacts plus representative source
+bytes. The governed corpus and tokenizer sample are each emitted as a hash-bound
+index naming parts of at most 50,000 documents, so neither is capped by the
+64 MiB control-file bound; each part is verified against the index digest and
+rejected if its schema, ordinal, or document count disagrees. P8 accepts the
+immutable v1 governed manifest, P9A's inline v2 manifest, and the v3 index, and
+the explicit P8 configuration supplies and verifies the later tokenizer artifact
+binding, avoiding a circular pre-training hash.
 
 `plan-spans` opens a fully verified P8 token generation, hashes the exact
 frozen-decision byte range, and applies `rand_chacha 0.10.0`

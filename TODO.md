@@ -1026,7 +1026,7 @@ remove.
 545 and 480 bytes per document — about 123,000 and 140,000 documents. Those are
 emitted by `prepare-corpus` rather than supplied, so they need streaming or
 splitting rather than a list, and the real per-document cost should be measured in
-Phase 5 before either is sized.
+Phase 5 before either is sized. *(Since fixed by splitting — see below.)*
 
 **The proof run executed the whole chain, and it settles the scale question.**
 `fetch` → `import-benchmark` → `materialize-source` → `curate` (three shards) →
@@ -1082,7 +1082,7 @@ independent blockers, in the order they bite:
 2. **The two downstream manifest ceilings that Phase 4 did not fix.** A production
    corpus implies roughly `917,000` representatives against `119,550` and
    `144,890`, so both are six to eight times over. They are emitted rather than
-   supplied, so they need streaming or splitting.
+   supplied, so they need streaming or splitting. *(Since fixed — see below.)*
 3. **`assign_splits`.** It completes here, but a two-term fit over 580, 1,253 and
    1,780 documents attributes the `16` percent superlinearity to a quadratic
    coefficient which, extrapolated to `1.5` million documents, dominates by orders
@@ -1129,6 +1129,36 @@ the sixty times the frozen target needs. Closing that needs the structural chang
 rather than more constant factors: not holding the whole corpus resident at once,
 which means spilling shingles and signatures and running deduplication in blocked
 passes.
+
+**The two downstream manifest ceilings are gone.** `prepare-corpus` emits
+`governed-corpus-manifest.json` and `tokenizer-sample-manifest.json` as an index
+plus hash-bound parts of `50,000` documents each, instead of one line holding
+every document. At the measured `561.3` and `463.2` bytes per document that puts a
+part near `28` and `23` MB against the `64` MiB control-file bound, and the
+document count is no longer bounded at all. The ceilings were `119,550` and
+`144,890` against a production corpus of roughly `917,000` representatives.
+
+The filenames, the two configuration shapes, and all five `tokenize` binding
+equalities are unchanged, because the index keeps the header — the three digests
+that bind a corpus to its source generations, its splits, and its sample — and is
+itself the hash-bound file the configuration names. What moved is only where the
+documents live. A part is refused rather than published if it would not read back
+(`MAXIMUM_PART_BYTES`, `32` MiB), so a future change to the shard size cannot
+silently emit an unreadable artifact. On read, each part is verified against the
+index digest, and its schema, its ordinal, and its document count are checked, so
+a reordered, mislabelled, truncated, substituted, or absent part is rejected
+rather than accepted as a smaller corpus. Part paths are portable relative paths
+resolved against the index's own directory and cannot escape it.
+
+Verified by re-running the real chain over the sharded form: `train-tokenizer`
+reported the identical `selected_bytes: 8,780,188` across `1,148` documents and
+`tokenize` the identical `stored_ids: 1,177,713` and
+`training_prefix_ids: 1,136,321` across `1,149` documents, and the two tokenizer
+artifacts agree on all `31,740` merges. Only the embedded binding digests differ,
+which they must, since the index is a different artifact from the file it
+replaced.
+
+That leaves residency as the one remaining structural blocker of the three.
 
 **Landed so far.** `.gitignore` now matches the artifacts the pipeline actually
 writes. Its extension rules previously matched none of them: token shards are

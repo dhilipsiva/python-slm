@@ -3,7 +3,8 @@ use rust_llm_pretrain::corpus::{
     BENCHMARK_MANIFEST_SCHEMA, BenchmarkAssetV1, BenchmarkContentKind,
     BenchmarkProtectionManifestV1, BenchmarkRecordV1, CorpusPolicyConfigV1,
     CorpusPolicyGenerationV1, CorpusPolicyLimits, DECONTAMINATION_MANIFEST_SCHEMA,
-    DecontaminationManifestV1, GENERATION_SCHEMA, GOVERNED_CORPUS_SCHEMA, GovernedCorpusManifestV2,
+    DecontaminationManifestV1, GENERATION_SCHEMA, GOVERNED_CORPUS_INDEX_SCHEMA,
+    GOVERNED_CORPUS_PART_SCHEMA, GovernedCorpusManifestV3, GovernedCorpusPartV1,
     PREPARE_CONFIG_SCHEMA, SourceGenerationInput, prepare,
 };
 use rust_llm_pretrain::tokenizer::HashBoundInput;
@@ -442,13 +443,23 @@ fn prepare_corpus_excludes_benchmark_duplicate_cluster_and_publishes_once() {
     assert_eq!(decontamination.schema, DECONTAMINATION_MANIFEST_SCHEMA);
     assert_eq!(decontamination.rejected_clusters, 1);
     assert_eq!(decontamination.rejected_documents.len(), 2);
-    let governed: GovernedCorpusManifestV2 = serde_json::from_slice(
+    // The governed corpus is emitted as an index plus hash-bound parts, so the
+    // documents are read through the part the index names, and the index digest
+    // is what binds them.
+    let governed: GovernedCorpusManifestV3 = serde_json::from_slice(
         &fs::read(output_root.join("governed-corpus-manifest.json")).unwrap(),
     )
     .unwrap();
-    assert_eq!(governed.schema, GOVERNED_CORPUS_SCHEMA);
-    assert_eq!(governed.documents.len(), 1);
-    assert_eq!(governed.documents[0].source_id, hash(b"c"));
+    assert_eq!(governed.schema, GOVERNED_CORPUS_INDEX_SCHEMA);
+    assert_eq!(governed.parts.len(), 1);
+    assert_eq!(governed.parts[0].documents, 1);
+    let part_bytes = fs::read(output_root.join(&governed.parts[0].relative_path)).unwrap();
+    assert_eq!(hash(&part_bytes), governed.parts[0].sha256);
+    let part: GovernedCorpusPartV1 = serde_json::from_slice(&part_bytes).unwrap();
+    assert_eq!(part.schema, GOVERNED_CORPUS_PART_SCHEMA);
+    assert_eq!(part.part, 0);
+    assert_eq!(part.documents.len(), 1);
+    assert_eq!(part.documents[0].source_id, hash(b"c"));
     assert!(
         output_root
             .join("documents")

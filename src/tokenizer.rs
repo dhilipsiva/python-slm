@@ -20,6 +20,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 pub const IMPLEMENTATION_PHASE: &str = "P7";
 pub const TRAIN_CONFIG_SCHEMA: &str = "python-slm-tokenizer-train-config-v1";
 pub const SAMPLE_MANIFEST_SCHEMA: &str = "python-slm-tokenizer-sample-manifest-v1";
+pub const SAMPLE_MANIFEST_INDEX_SCHEMA: &str = "python-slm-tokenizer-sample-manifest-v2";
+pub const SAMPLE_PART_SCHEMA: &str = "python-slm-tokenizer-sample-part-v1";
 pub const ARTIFACT_SCHEMA: &str = "python-slm-byte-bpe-tokenizer-v1";
 pub const TRAIN_RESULT_SCHEMA: &str = "python-slm-tokenizer-train-result-v1";
 pub const VOCABULARY_SIZE: u32 = 32_000;
@@ -61,6 +63,91 @@ pub struct TokenizerSampleManifestV1 {
     pub schema: String,
     pub source_generation_manifest_sha256: String,
     pub documents: Vec<TokenizerSampleDocumentV1>,
+}
+
+/// The sharded form of the sample manifest: the same header, with the documents
+/// in hash-bound parts beside it. The file keeps its name and its own digest, so
+/// the three binding equalities that reference it are unchanged.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct TokenizerSampleManifestV2 {
+    pub schema: String,
+    pub source_generation_manifest_sha256: String,
+    pub parts: Vec<crate::corpus::ManifestPartRef>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct TokenizerSamplePartV1 {
+    pub schema: String,
+    pub part: u64,
+    pub documents: Vec<TokenizerSampleDocumentV1>,
+}
+
+/// Load a sample manifest in either form, returning the flattened document set.
+///
+/// The inline form is still accepted; the sharded form is what lets the set
+/// exceed the control-file bound. Parts resolve relative to the index's own
+/// directory, so an index and its parts always travel together, and each part is
+/// read under the digest the index declares — the index is itself hash-bound by
+/// the configuration, so the chain from configuration to document is unbroken.
+pub(crate) fn load_sample_manifest(
+    manifest_path: &Path,
+    bytes: &[u8],
+) -> Result<TokenizerSampleManifestV1> {
+    let value: serde_json::Value = serde_json::from_slice(bytes).map_err(|_| {
+        ProductError::integrity(
+            "TOKENIZER_SAMPLE_INVALID",
+            "the tokenizer sample manifest is malformed",
+        )
+    })?;
+    match value.get("schema").and_then(serde_json::Value::as_str) {
+        Some(SAMPLE_MANIFEST_SCHEMA) => parse_closed(bytes, "TOKENIZER_SAMPLE_INVALID"),
+        Some(SAMPLE_MANIFEST_INDEX_SCHEMA) => {
+            let index: TokenizerSampleManifestV2 = parse_closed(bytes, "TOKENIZER_SAMPLE_INVALID")?;
+            let root = manifest_path.parent().ok_or_else(|| {
+                ProductError::integrity(
+                    "TOKENIZER_SAMPLE_INVALID",
+                    "the sample manifest has no parent directory to resolve its parts against",
+                )
+            })?;
+            let mut documents = Vec::new();
+            for (ordinal, reference) in index.parts.iter().enumerate() {
+                require_portable_relative_path(
+                    &reference.relative_path,
+                    "TOKENIZER_SAMPLE_INVALID",
+                )?;
+                let part_bytes = read_control_file(
+                    &join_relative(root, &reference.relative_path)?,
+                    Some(&reference.sha256),
+                    "TOKENIZER_SAMPLE_READ_FAILED",
+                )?;
+                let part: TokenizerSamplePartV1 =
+                    parse_closed(&part_bytes, "TOKENIZER_SAMPLE_INVALID")?;
+                // Ordinal and count are checked so a reordered or truncated set
+                // cannot pass as a complete one.
+                if part.schema != SAMPLE_PART_SCHEMA
+                    || part.part != ordinal as u64
+                    || part.documents.len() as u64 != reference.documents
+                {
+                    return Err(ProductError::integrity(
+                        "TOKENIZER_SAMPLE_INVALID",
+                        "a sample manifest part is out of order, mislabelled, or short",
+                    ));
+                }
+                documents.extend(part.documents);
+            }
+            Ok(TokenizerSampleManifestV1 {
+                schema: SAMPLE_MANIFEST_SCHEMA.to_owned(),
+                source_generation_manifest_sha256: index.source_generation_manifest_sha256,
+                documents,
+            })
+        }
+        _ => Err(ProductError::integrity(
+            "TOKENIZER_SAMPLE_INVALID",
+            "the tokenizer sample manifest schema is unsupported",
+        )),
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -313,8 +400,7 @@ fn train_tokenizer_portable(config_path: &Path) -> Result<Value> {
         Some(&config.sample_manifest.sha256),
         "TOKENIZER_SAMPLE_READ_FAILED",
     )?;
-    let manifest: TokenizerSampleManifestV1 =
-        parse_closed(&manifest_bytes, "TOKENIZER_SAMPLE_INVALID")?;
+    let manifest = load_sample_manifest(&config.sample_manifest.path, &manifest_bytes)?;
     validate_manifest(&manifest)?;
     let content_root =
         require_existing_root(&config.content_root, "TOKENIZER_CONTENT_ROOT_INVALID")?;
@@ -897,6 +983,108 @@ fn publish_new_file(path: &Path, bytes: &[u8]) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The sharded sample manifest: documents across several hash-bound parts.
+    ///
+    /// This is the form that lets the set exceed the 64 MiB control-file bound,
+    /// so the chain from index to part to document has to be as tamper-evident as
+    /// the single file it replaces.
+    #[test]
+    fn a_sharded_sample_manifest_loads_and_resists_tampering() {
+        let directory = tempfile::tempdir().unwrap();
+        let document = |label: &str| TokenizerSampleDocumentV1 {
+            repository_group_id: "aa".repeat(32),
+            source_id: crate::data::source::sha256(label.as_bytes()),
+            curated_sha256_raw: "bb".repeat(32),
+            canonical_sha256: "cc".repeat(32),
+            canonical_bytes: 128,
+            relative_path: format!("documents/{label}.py"),
+        };
+
+        // Two parts, so ordering across parts is actually exercised.
+        let mut parts = Vec::new();
+        for (ordinal, labels) in [["a", "b"], ["c", "d"]].into_iter().enumerate() {
+            let part = TokenizerSamplePartV1 {
+                schema: SAMPLE_PART_SCHEMA.to_owned(),
+                part: ordinal as u64,
+                documents: labels.iter().map(|label| document(label)).collect(),
+            };
+            let bytes = serde_json::to_vec(&part).unwrap();
+            let relative_path = format!("tokenizer-sample-part-{ordinal:05}.json");
+            std::fs::write(directory.path().join(&relative_path), &bytes).unwrap();
+            parts.push(crate::corpus::ManifestPartRef {
+                relative_path,
+                sha256: crate::data::source::sha256(&bytes),
+                documents: part.documents.len() as u64,
+            });
+        }
+        let index = TokenizerSampleManifestV2 {
+            schema: SAMPLE_MANIFEST_INDEX_SCHEMA.to_owned(),
+            source_generation_manifest_sha256: "dd".repeat(32),
+            parts,
+        };
+        let index_path = directory.path().join("tokenizer-sample-manifest.json");
+        let index_bytes = serde_json::to_vec(&index).unwrap();
+
+        let loaded = load_sample_manifest(&index_path, &index_bytes).unwrap();
+        assert_eq!(loaded.schema, SAMPLE_MANIFEST_SCHEMA);
+        assert_eq!(loaded.documents.len(), 4);
+        // Parts concatenate in index order, so the flattened set is the same one
+        // an inline manifest would have carried.
+        assert_eq!(
+            loaded.documents[0].source_id,
+            crate::data::source::sha256(b"a")
+        );
+        assert_eq!(
+            loaded.documents[3].source_id,
+            crate::data::source::sha256(b"d")
+        );
+
+        // A part whose bytes no longer match its declared digest.
+        let tampered_path = directory.path().join("tokenizer-sample-part-00001.json");
+        let original = std::fs::read(&tampered_path).unwrap();
+        let mut mutated = original.clone();
+        let last = mutated.len() - 2;
+        mutated[last] ^= 0x20;
+        std::fs::write(&tampered_path, &mutated).unwrap();
+        assert!(
+            load_sample_manifest(&index_path, &index_bytes).is_err(),
+            "a mutated part must not load"
+        );
+        std::fs::write(&tampered_path, &original).unwrap();
+
+        // A declared part that is simply absent.
+        let mut missing = index.clone();
+        missing.parts[1].relative_path = "tokenizer-sample-part-00009.json".to_owned();
+        assert!(
+            load_sample_manifest(&index_path, &serde_json::to_vec(&missing).unwrap()).is_err(),
+            "a missing part must not load"
+        );
+
+        // A part count the index disagrees with, which is how truncation shows up.
+        let mut short = index.clone();
+        short.parts[1].documents = 1;
+        assert!(
+            load_sample_manifest(&index_path, &serde_json::to_vec(&short).unwrap()).is_err(),
+            "a part whose count disagrees with the index must not load"
+        );
+
+        // Reordering the index without relabelling the parts.
+        let mut reordered = index.clone();
+        reordered.parts.swap(0, 1);
+        assert!(
+            load_sample_manifest(&index_path, &serde_json::to_vec(&reordered).unwrap()).is_err(),
+            "a reordered part set must not load"
+        );
+
+        // A part path that tries to escape the index's directory.
+        let mut escaping = index;
+        escaping.parts[0].relative_path = "../outside.json".to_owned();
+        assert!(
+            load_sample_manifest(&index_path, &serde_json::to_vec(&escaping).unwrap()).is_err(),
+            "a part path escaping the index directory must not load"
+        );
+    }
 
     fn sample_binding() -> SampleBinding {
         SampleBinding {
