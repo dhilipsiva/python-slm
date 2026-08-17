@@ -1291,16 +1291,45 @@ were found by executing rather than by reading: `materialize-source` had to be
 written before an authorized tree could be enumerated at all, and a latent P5
 defect was silently discarding every Python file that began with whitespace.
 
-**One scale question is still unmeasured, and it is the last code risk.**
-`train-tokenizer` measured `6.2` s at `318` MiB peak on the proof run's `8.78` MB
-sample. The sample cap is `2,000,000,000` bytes. If residency there is linear in
-the sample the way `prepare-corpus`'s was in the corpus, the cap implies tens of
-gigabytes, which is the `24`–`40` GB the exploration estimated and nothing since
-has checked. The stage is also single-threaded and unresumable, so a failure near
-the end of a multi-hour training loses all of it. **Measure it on a sample one or
-two orders larger before committing to a full run** — the same one-stage probe
-used for `prepare-corpus` answers it in an afternoon, and it is much cheaper to
-learn there than eight hours into acquisition.
+**`train-tokenizer` at the sample cap is measured, and it fits.** It had one
+point — `6.2` s at `318` MiB on the proof run's `8.78` MB sample — against a
+`2,000,000,000`-byte cap, and the exploration's `24`–`40` GB guess had never been
+checked. A six-point sweep over local Python from `8` MB to `184.6` MB, a `23x`
+range, settles it:
+
+| Sample | Peak | Wall clock |
+|---|---|---|
+| `8.0` MB | `332.4` MiB | `5.0` s |
+| `16.0` MB | `515.0` MiB | `10.1` s |
+| `32.0` MB | `993.9` MiB | `19.7` s |
+| `64.0` MB | `1,610.7` MiB | `39.1` s |
+| `128.0` MB | `3,085.4` MiB | `78.3` s |
+| `184.6` MB | `4,351.3` MiB | `117.2` s |
+
+Both are strictly linear: `peak_MiB = 184.1 + 22.62 x sample_MB` at `R^2 =
+0.99921`, and `seconds = 0.63 x sample_MB` at `R^2 = 0.99935` — a flat `1.55`
+MB/s across the whole range. **At the `2,000,000,000`-byte cap that is `42.3` GiB
+and `20.0` minutes.** The memory lands at the top of the old estimate and inside
+this host's `93.6` GB, and it never coincides with `prepare-corpus`'s `38` GiB
+because the stages are separate processes run in sequence. Twenty minutes also
+makes "single-threaded and unresumable" a much smaller property than it sounded:
+losing a run costs twenty minutes, not an evening.
+
+Linearity is what the code says too, which is why the fit is believable rather
+than a coincidence of this corpus. `train_rules` (`src/tokenizer.rs:628`) builds
+`tokens`, `previous` and `next` as one `u32` per sample byte, and an `occurrences`
+map holding one `u32` per adjacent position; every structure is `O(sample bytes)`
+and none is `O(bytes^2)` or `O(bytes x vocabulary)`. There is a hard ceiling well
+above the cap: a sample over `u32::MAX - 1` bytes is refused outright with
+`TOKENIZER_SAMPLE_TOO_LARGE`.
+
+The probe drove the real `train-tokenizer` command over a hand-built sample
+manifest rather than the whole pipeline, because the manifest carries identities
+and byte counts and no license field — so measuring against arbitrary local
+Python asserts nothing governed, and no artifact left the ignored scratch root.
+Each run trained a full `32,000`-token vocabulary, and the `8` MB point
+reproduces the pipeline's known one (`332.4` MiB against `318` MiB at `8.78` MB),
+which is what says the harness is measuring the same thing.
 
 **What actually blocks E3 is not code any more: it is the corpus.** The frozen
 target needs roughly `2,000,000,001` stored train IDs. `SOURCE-001`
@@ -1312,7 +1341,7 @@ authorization to use.
 
 Working projections for that run. Each basis says what it rests on, because they
 are not equally solid: the two corpus-size rows inherit an estimate, the rest
-extrapolate measurements taken on this host.
+extrapolate measurements taken on this host. Nothing here is now unmeasured.
 
 | Quantity | Projection | Basis |
 |---|---|---|
@@ -1322,7 +1351,8 @@ extrapolate measurements taken on this host.
 | Source generations | `~50`, more in practice | `1.45` million accepted at a measured `28,929` per generation, before the rejected outcomes each manifest also carries |
 | `prepare-corpus` peak memory | `~38` GiB | measured `43.8` MiB fixed plus `27.5` KiB per document, linear over three points |
 | `prepare-corpus` wall clock | `~3.9` hours | measured `16.0` s for `29.3` MiB, single-threaded |
-| `train-tokenizer` peak memory | **unmeasured** | `318` MiB at `8.78` MB is the only point; see above |
+| `train-tokenizer` peak memory | `~42.3` GiB | measured `184.1` MiB fixed plus `22.62` MiB per sample MB, linear over six points to `184.6` MB |
+| `train-tokenizer` wall clock | `~20` minutes | measured flat `1.55` MB/s over the same range |
 | Token shards on disk | `~4` GB | exact: `2,000,000,001` IDs at `2` bytes |
 
 Three traps that still apply to whoever runs it. `training_target_satisfied:
@@ -1337,11 +1367,12 @@ status -uall` over tens of thousands of untracked files exceeds the `2` MiB
 with the misleading `QUALITY_CAPTURE_LIMIT_EXCEEDED`.
 
 **The honest position on the checkbox.** Nothing known now says the frozen target
-is unreachable on this host — the memory blocker that did say so is gone, and the
-remaining projections fit. But E3 stays unchecked until an installed P8 generation
-actually reports `training_target_satisfied: true` at exactly `2,000,000,001`
-stored IDs, and reaching that needs a governed corpus this repository cannot
-acquire on its own.
+is unreachable on this host. The memory blocker that did say so is gone, every
+projection above is now measured rather than estimated, and the two heaviest
+stages peak at `38` and `42.3` GiB in sequence against `93.6` GB. But E3 stays
+unchecked until an installed P8 generation actually reports
+`training_target_satisfied: true` at exactly `2,000,000,001` stored IDs, and
+reaching that needs a governed corpus this repository cannot acquire on its own.
 
 ### E4 — Hardware Diagnostics on the Qualified Tuple
 
