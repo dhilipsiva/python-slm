@@ -20,9 +20,14 @@ enum Command {
     /// Emit deterministic canonical initialization and CPU-oracle diagnostics.
     ModelOracle,
     /// Acquire hash-pinned assets over HTTPS into a create-new generation.
+    ///
+    /// `--discover` instead reports what an origin currently serves and writes
+    /// nothing, which is how a digest is obtained before it can be pinned.
     Fetch {
         #[arg(long)]
         config: PathBuf,
+        #[arg(long)]
+        discover: bool,
     },
     /// Curate the governed source corpus. Implemented by Phase 4.
     Curate {
@@ -126,7 +131,13 @@ pub fn run(args: impl IntoIterator<Item = OsString>) -> Result<Value> {
             )
         }),
         Command::ModelOracle => crate::model::oracle_result_value(),
-        Command::Fetch { config } => crate::acquire::acquire(&config),
+        Command::Fetch { config, discover } => {
+            if discover {
+                crate::acquire::discover(&config)
+            } else {
+                crate::acquire::acquire(&config)
+            }
+        }
         Command::Curate { config } => crate::data::curate(&config),
         Command::TrainTokenizer { config } => crate::tokenizer::train_tokenizer(&config),
         Command::Tokenize { config } => crate::storage::tokenize(&config),

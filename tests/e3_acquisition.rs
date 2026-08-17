@@ -444,6 +444,63 @@ fn a_named_credential_is_read_from_the_environment_and_never_serialized() {
     unsafe { std::env::remove_var("PYTHON_SLM_E3_FIXTURE_TOKEN") };
 }
 
+/// Discovery reports what an origin serves and writes nothing, which is what
+/// makes it safe as the trust-on-first-use step: no artifact exists for a later
+/// stage to depend on, so an unverified byte cannot leak into the pipeline.
+#[test]
+fn discovery_reports_the_digest_and_writes_nothing() {
+    use rust_llm_pretrain::acquire::{
+        DiscoveryAssetV1, DiscoveryConfigV1, DiscoveryLimits, discover,
+    };
+
+    let payload = b"discoverable payload\n".to_vec();
+    let server = FixtureServer::start(vec![(
+        "/payload.bin".to_owned(),
+        Reply::Body(payload.clone()),
+    )]);
+    let directory = tempfile::tempdir().unwrap();
+    let configuration = DiscoveryConfigV1 {
+        schema: "python-slm-acquisition-discovery-v1".to_owned(),
+        profile: PROTOTYPE_PROFILE.to_owned(),
+        allow_loopback_plain_http: true,
+        assets: vec![DiscoveryAssetV1 {
+            role: "fixture-asset".to_owned(),
+            url: server.url("/payload.bin"),
+            credential_env: None,
+        }],
+        limits: DiscoveryLimits {
+            maximum_assets: 4,
+            maximum_asset_bytes: 1_000_000,
+            maximum_redirects: 2,
+            connect_timeout_seconds: 10,
+            read_timeout_seconds: 30,
+        },
+    };
+    let config_path = directory.path().join("discover.json");
+    std::fs::write(&config_path, serde_json::to_vec(&configuration).unwrap()).unwrap();
+
+    let before: Vec<_> = std::fs::read_dir(directory.path()).unwrap().collect();
+    let result = discover(&config_path).unwrap();
+
+    assert_eq!(result["status"], "ASSETS_DISCOVERED");
+    assert_eq!(result["artifacts_written"], false);
+    assert_eq!(result["assets"][0]["sha256"], digest(&payload));
+    assert_eq!(result["assets"][0]["bytes"], payload.len());
+
+    // Nothing was created anywhere: the directory holds only the config it did.
+    let after: Vec<_> = std::fs::read_dir(directory.path()).unwrap().collect();
+    assert_eq!(before.len(), after.len());
+
+    // The ceiling still bounds an undeclared transfer.
+    let mut tiny = configuration.clone();
+    tiny.limits.maximum_asset_bytes = 4;
+    std::fs::write(&config_path, serde_json::to_vec(&tiny).unwrap()).unwrap();
+    assert_eq!(
+        discover(&config_path).unwrap_err().code,
+        "ACQUISITION_LENGTH_MISMATCH"
+    );
+}
+
 #[test]
 fn acquisition_refuses_to_overwrite_an_existing_generation() {
     let payload = b"payload".to_vec();

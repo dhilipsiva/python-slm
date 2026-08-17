@@ -97,19 +97,26 @@ fn prepare_corpus_excludes_benchmark_duplicate_cluster_and_publishes_once() {
         registry_id: "evalplus-v0.3.1".to_owned(),
         registry_commit: "e5d0ed0bab96280b60b637ec7f15b5e4841b0cb2".to_owned(),
         assets: vec![
+            // The frozen DECONTAM-001 identities. These are compared against
+            // compiled-in constants now, not merely checked for hash shape, so a
+            // synthetic corpus fixture still has to name the real assets.
             BenchmarkAssetV1 {
                 dataset: "humanevalplus".to_owned(),
                 release_asset: "HumanEvalPlus.jsonl.gz".to_owned(),
                 release_version: "v0.1.10".to_owned(),
-                asset_sha256: hash(b"human-asset"),
-                decoded_sha256: hash(b"human-decoded"),
+                asset_sha256: "272720b90ac375502c8ed23cd791c2a93dfb22a911641a494da74a426c09f101"
+                    .to_owned(),
+                decoded_sha256: "42526ec0e7d5f3ee0b06d6ced98f8c8bae3d76519151bfb3d36f79010645bd7f"
+                    .to_owned(),
             },
             BenchmarkAssetV1 {
                 dataset: "mbppplus".to_owned(),
                 release_asset: "MbppPlus.jsonl.gz".to_owned(),
                 release_version: "v0.2.0".to_owned(),
-                asset_sha256: hash(b"mbpp-asset"),
-                decoded_sha256: hash(b"mbpp-decoded"),
+                asset_sha256: "af43697e8791c4c149bdfd6b489d8b5412507551ac20e28a439f650b8225db63"
+                    .to_owned(),
+                decoded_sha256: "b54e762755248ca411b523c917fa9f93c07b5ff2966bf60b3917b853926a3dad"
+                    .to_owned(),
             },
         ],
         records: vec![BenchmarkRecordV1 {
@@ -188,4 +195,27 @@ fn prepare_corpus_excludes_benchmark_duplicate_cluster_and_publishes_once() {
         "OUTPUT_ALREADY_EXISTS"
     );
     assert!(!temporary.path().join("docs/receipts").exists());
+
+    // A benchmark manifest carrying a plausible but wrong digest used to pass
+    // every gate here, because the asset hashes were only checked for shape and
+    // never compared to a known value — so a manifest protecting nothing could
+    // certify decontamination. They are bound to the frozen DECONTAM-001
+    // identities now, and this is the assertion that says so.
+    let mut forged = benchmark.clone();
+    forged.assets[0].asset_sha256 = hash(b"a plausible but fabricated digest");
+    let forged_manifest_path = temporary.path().join("forged-benchmark.json");
+    let forged_bytes = write_json(&forged_manifest_path, &forged);
+    let mut forged_config = config.clone();
+    forged_config.output_root = temporary.path().join("corpus-policy-forged");
+    forged_config.benchmark_manifest = HashBoundInput {
+        path: forged_manifest_path,
+        sha256: hash(&forged_bytes),
+    };
+    let forged_config_path = temporary.path().join("forged-config.json");
+    write_json(&forged_config_path, &forged_config);
+    assert_eq!(
+        prepare(&forged_config_path).unwrap_err().code,
+        "BENCHMARK_ASSET_DIGEST_MISMATCH"
+    );
+    assert!(!forged_config.output_root.exists());
 }

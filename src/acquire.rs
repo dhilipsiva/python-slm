@@ -31,6 +31,8 @@ pub const IMPLEMENTATION_PHASE: &str = "E3";
 pub const ACQUISITION_CONFIG_SCHEMA: &str = "python-slm-acquisition-config-v1";
 pub const ACQUISITION_RESULT_SCHEMA: &str = "python-slm-acquisition-result-v1";
 pub const ACQUISITION_MANIFEST_SCHEMA: &str = "python-slm-acquisition-manifest-v1";
+pub const DISCOVERY_CONFIG_SCHEMA: &str = "python-slm-acquisition-discovery-v1";
+pub const DISCOVERY_RESULT_SCHEMA: &str = "python-slm-acquisition-discovery-result-v1";
 
 /// Bytes read per streaming chunk. Bounded so a hostile or misdeclared response
 /// cannot force an unbounded allocation before the length check runs.
@@ -293,17 +295,28 @@ fn transport_label(allow_loopback_plain_http: bool) -> &'static str {
 
 struct FetchedAsset {
     bytes: Vec<u8>,
+    sha256: String,
     redirects_followed: u64,
+}
+
+/// One transfer to perform. Discovery has no declared digest or length, so the
+/// only bound available to it is an explicit ceiling; the publishing path passes
+/// its declaration as that ceiling and checks the result afterwards.
+struct FetchRequest<'a> {
+    url: &'a str,
+    credential_env: Option<&'a str>,
+    ceiling_bytes: u64,
 }
 
 /// Stream one asset, following redirects manually so every hop is re-validated
 /// against the HTTPS rule rather than trusted to the client's own policy.
 fn fetch_one(
     agent: &ureq::Agent,
-    asset: &AcquisitionAssetV1,
+    request: FetchRequest<'_>,
     maximum_redirects: u64,
     allow_loopback_plain_http: bool,
 ) -> Result<FetchedAsset> {
+    let asset = request;
     let credential = match &asset.credential_env {
         Some(variable) => {
             let token = std::env::var(variable).map_err(|_| {
@@ -324,7 +337,7 @@ fn fetch_one(
         None => None,
     };
 
-    let mut url = asset.url.clone();
+    let mut url = asset.url.to_owned();
     let mut redirects_followed = 0_u64;
     let response = loop {
         let mut request = agent.get(&url);
@@ -370,15 +383,12 @@ fn fetch_one(
         redirects_followed += 1;
     };
 
-    // Read with a hard ceiling one byte above the declaration, so an over-long
-    // body is detected rather than absorbed.
-    let mut reader = response.into_reader().take(
-        asset
-            .expected_bytes
-            .checked_add(1)
-            .unwrap_or(asset.expected_bytes),
-    );
-    let mut bytes = Vec::with_capacity(asset.expected_bytes as usize);
+    // Read against a hard ceiling one byte above what the caller will accept, so
+    // an over-long body is detected rather than absorbed.
+    let mut reader = response
+        .into_reader()
+        .take(asset.ceiling_bytes.saturating_add(1));
+    let mut bytes = Vec::new();
     let mut chunk = vec![0_u8; STREAM_CHUNK_BYTES];
     loop {
         let read = reader.read(&mut chunk).map_err(|error| {
@@ -391,28 +401,17 @@ fn fetch_one(
             break;
         }
         bytes.extend_from_slice(&chunk[..read]);
-        if bytes.len() as u64 > asset.expected_bytes {
+        if bytes.len() as u64 > asset.ceiling_bytes {
             return Err(ProductError::integrity(
                 "ACQUISITION_LENGTH_MISMATCH",
-                "the origin returned more bytes than the asset declares",
+                "the origin returned more bytes than the caller will accept",
             ));
         }
     }
-    if bytes.len() as u64 != asset.expected_bytes {
-        return Err(ProductError::integrity(
-            "ACQUISITION_LENGTH_MISMATCH",
-            "the origin returned fewer bytes than the asset declares",
-        ));
-    }
-    let observed = hex::encode(Sha256::digest(&bytes));
-    if observed != asset.expected_sha256 {
-        return Err(ProductError::integrity(
-            "ACQUISITION_DIGEST_MISMATCH",
-            "the acquired bytes do not match the declared digest",
-        ));
-    }
+    let sha256 = hex::encode(Sha256::digest(&bytes));
     Ok(FetchedAsset {
         bytes,
+        sha256,
         redirects_followed,
     })
 }
@@ -521,10 +520,28 @@ pub fn acquire(config_path: &Path) -> Result<serde_json::Value> {
     for asset in &config.assets {
         let fetched = fetch_one(
             &agent,
-            asset,
+            FetchRequest {
+                url: &asset.url,
+                credential_env: asset.credential_env.as_deref(),
+                ceiling_bytes: asset.expected_bytes,
+            },
             config.limits.maximum_redirects,
             config.allow_loopback_plain_http,
         )?;
+        // Verification happens here rather than inside the transfer, because
+        // discovery performs the same transfer with nothing to verify against.
+        if fetched.bytes.len() as u64 != asset.expected_bytes {
+            return Err(ProductError::integrity(
+                "ACQUISITION_LENGTH_MISMATCH",
+                "the origin returned fewer bytes than the asset declares",
+            ));
+        }
+        if fetched.sha256 != asset.expected_sha256 {
+            return Err(ProductError::integrity(
+                "ACQUISITION_DIGEST_MISMATCH",
+                "the acquired bytes do not match the declared digest",
+            ));
+        }
         generation.write(&asset.relative_path, &fetched.bytes)?;
         acquired_bytes = acquired_bytes
             .checked_add(fetched.bytes.len() as u64)
@@ -576,6 +593,190 @@ pub fn acquire(config_path: &Path) -> Result<serde_json::Value> {
         ProductError::internal(
             "ACQUISITION_RESULT_SERIALIZE_FAILED",
             "could not serialize the closed acquisition result",
+        )
+    })
+}
+
+/// Report what an origin currently serves, without publishing anything.
+///
+/// Pinning needs a digest, but a digest can only be obtained from the bytes, so
+/// the very first pin is unavoidably trust-on-first-use. This makes that step
+/// explicit and visible rather than a quiet exception inside the normal path:
+/// discovery writes **no artifact at all**, so nothing downstream can ever come
+/// to depend on a byte that was never verified. The operator reads the reported
+/// digest, pins it, and from then on the publishing path is strictly checked.
+///
+/// It has its own closed schema so a discovery configuration can never be run as
+/// an acquisition, or the reverse.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct DiscoveryConfigV1 {
+    pub schema: String,
+    pub profile: String,
+    pub allow_loopback_plain_http: bool,
+    pub assets: Vec<DiscoveryAssetV1>,
+    pub limits: DiscoveryLimits,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct DiscoveryAssetV1 {
+    pub role: String,
+    pub url: String,
+    pub credential_env: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct DiscoveryLimits {
+    pub maximum_assets: u64,
+    /// With nothing declared, this ceiling is the only bound on a transfer, so it
+    /// is mandatory rather than advisory.
+    pub maximum_asset_bytes: u64,
+    pub maximum_redirects: u64,
+    pub connect_timeout_seconds: u64,
+    pub read_timeout_seconds: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct DiscoveredAssetV1 {
+    pub role: String,
+    pub url: String,
+    pub sha256: String,
+    pub bytes: u64,
+    pub redirects_followed: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct DiscoveryResultV1 {
+    pub schema: String,
+    pub status: String,
+    pub qualification_status: String,
+    pub profile: String,
+    pub configuration_sha256: String,
+    pub assets: Vec<DiscoveredAssetV1>,
+    pub artifacts_written: bool,
+    pub receipts_written: bool,
+    pub limitations: Vec<String>,
+}
+
+impl DiscoveryConfigV1 {
+    pub fn validate(&self) -> Result<()> {
+        if self.schema != DISCOVERY_CONFIG_SCHEMA {
+            return Err(ProductError::usage(
+                "ACQUISITION_CONFIG_SCHEMA_UNSUPPORTED",
+                "the discovery configuration is not the closed discovery schema",
+            ));
+        }
+        if self.profile != crate::backend::PROTOTYPE_PROFILE {
+            return Err(ProductError::gate(
+                "DEFERRED_POST_P16",
+                "only the prototype profile is implemented",
+            ));
+        }
+        if self.limits.maximum_assets == 0
+            || self.limits.maximum_asset_bytes == 0
+            || self.limits.connect_timeout_seconds == 0
+            || self.limits.read_timeout_seconds == 0
+        {
+            return Err(ProductError::usage(
+                "ACQUISITION_LIMIT_INVALID",
+                "every discovery limit except the redirect bound must be nonzero",
+            ));
+        }
+        if self.limits.maximum_asset_bytes > MAXIMUM_DECLARED_ASSET_BYTES {
+            return Err(ProductError::usage(
+                "ACQUISITION_LENGTH_INVALID",
+                "the discovery ceiling exceeds the implausible-transfer bound",
+            ));
+        }
+        if self.assets.is_empty() || self.assets.len() as u64 > self.limits.maximum_assets {
+            return Err(ProductError::usage(
+                "ACQUISITION_ASSET_COUNT_INVALID",
+                "the discovery set is empty or exceeds its configured bound",
+            ));
+        }
+        for asset in &self.assets {
+            require_acquisition_url(&asset.url, self.allow_loopback_plain_http)?;
+            require_bounded_text(&asset.role, "ACQUISITION_ROLE_INVALID")?;
+            if let Some(variable) = &asset.credential_env {
+                require_bounded_text(variable, "ACQUISITION_CREDENTIAL_ENV_INVALID")?;
+                if variable.contains('=') {
+                    return Err(ProductError::usage(
+                        "ACQUISITION_CREDENTIAL_ENV_INVALID",
+                        "a credential environment variable name may not contain '='",
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn sha256(&self) -> Result<String> {
+        Ok(sha256(&compact_json_line(
+            self,
+            "ACQUISITION_CONFIG_SERIALIZE_FAILED",
+        )?))
+    }
+}
+
+pub fn discover(config_path: &Path) -> Result<serde_json::Value> {
+    crate::platform::require_portable_data_host()?;
+    let config_bytes = crate::data::source::read_control_file(
+        config_path,
+        None,
+        "ACQUISITION_CONFIG_READ_FAILED",
+    )?;
+    let config: DiscoveryConfigV1 = parse_closed(&config_bytes, "ACQUISITION_CONFIG_INVALID")?;
+    config.validate()?;
+
+    let agent = ureq::AgentBuilder::new()
+        .redirects(0)
+        .timeout_connect(Duration::from_secs(config.limits.connect_timeout_seconds))
+        .timeout_read(Duration::from_secs(config.limits.read_timeout_seconds))
+        .build();
+
+    let mut discovered = Vec::with_capacity(config.assets.len());
+    for asset in &config.assets {
+        let fetched = fetch_one(
+            &agent,
+            FetchRequest {
+                url: &asset.url,
+                credential_env: asset.credential_env.as_deref(),
+                ceiling_bytes: config.limits.maximum_asset_bytes,
+            },
+            config.limits.maximum_redirects,
+            config.allow_loopback_plain_http,
+        )?;
+        discovered.push(DiscoveredAssetV1 {
+            role: asset.role.clone(),
+            url: asset.url.clone(),
+            sha256: fetched.sha256,
+            bytes: fetched.bytes.len() as u64,
+            redirects_followed: fetched.redirects_followed,
+        });
+    }
+
+    let result = DiscoveryResultV1 {
+        schema: DISCOVERY_RESULT_SCHEMA.to_owned(),
+        status: "ASSETS_DISCOVERED".to_owned(),
+        qualification_status: "SKIPPED".to_owned(),
+        profile: config.profile.clone(),
+        configuration_sha256: config.sha256()?,
+        assets: discovered,
+        artifacts_written: false,
+        receipts_written: false,
+        limitations: vec![
+            "discovery-is-trust-on-first-use-and-verifies-nothing".to_owned(),
+            "no-artifact-is-written-so-nothing-downstream-can-depend-on-this".to_owned(),
+        ],
+    };
+    serde_json::to_value(result).map_err(|_| {
+        ProductError::internal(
+            "ACQUISITION_RESULT_SERIALIZE_FAILED",
+            "could not serialize the closed discovery result",
         )
     })
 }

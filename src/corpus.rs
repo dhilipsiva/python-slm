@@ -43,6 +43,61 @@ pub const SPAN_RESULT_SCHEMA: &str = "python-slm-plan-spans-result-v1";
 const SOURCE_GENERATION_SCHEMA: &str = "python-slm-source-generation-v4";
 const EVALPLUS_REGISTRY: &str = "evalplus-v0.3.1";
 const EVALPLUS_COMMIT: &str = "e5d0ed0bab96280b60b637ec7f15b5e4841b0cb2";
+
+/// The frozen identity of each `DECONTAM-001` asset: release file name, release
+/// version, the gzip asset's SHA-256, and the SHA-256 of its decoded bytes.
+///
+/// These digests were missing, and their absence was a real hole rather than an
+/// oversight in degree. `validate_benchmark_manifest` checked only that the two
+/// hashes were *shaped* like SHA-256 and never compared them to anything, so a
+/// hand-written manifest carrying plausible hex and a single trivial record
+/// passed every gate and produced a decontamination manifest that certified
+/// almost nothing. Binding them here is what makes the benchmark path mean what
+/// it claims.
+///
+/// Obtained 2026-08-17 by `fetch --discover` against the pinned release assets
+/// and cross-checked three ways. `HumanEvalPlus.jsonl.gz` is 925,932 bytes
+/// compressed and 7,714,666 decoded across 164 JSONL records;
+/// `MbppPlus.jsonl.gz` is 336,032 and 2,592,369 across 378. The compressed counts
+/// match the GitHub release metadata exactly, and 164 and 378 are the canonical
+/// HumanEval+ and MBPP+ task counts — which is the cheapest independent signal
+/// that these are the full assets rather than the `-Mini`, `-NoExtreme`, or
+/// `-OriginFmt` variants published in the same releases. `DECONTAM-001` specifies
+/// the full assets.
+///
+/// Only the identities this validator actually checks are carried in code. The
+/// byte and task counts stay in this comment until the importer that consumes
+/// them exists, rather than sitting in the struct unread.
+const EVALPLUS_ASSETS: [EvalPlusAsset; 2] = [
+    EvalPlusAsset {
+        dataset: "humanevalplus",
+        release_asset: "HumanEvalPlus.jsonl.gz",
+        release_version: "v0.1.10",
+        asset_sha256: "272720b90ac375502c8ed23cd791c2a93dfb22a911641a494da74a426c09f101",
+        decoded_sha256: "42526ec0e7d5f3ee0b06d6ced98f8c8bae3d76519151bfb3d36f79010645bd7f",
+    },
+    EvalPlusAsset {
+        dataset: "mbppplus",
+        release_asset: "MbppPlus.jsonl.gz",
+        release_version: "v0.2.0",
+        asset_sha256: "af43697e8791c4c149bdfd6b489d8b5412507551ac20e28a439f650b8225db63",
+        decoded_sha256: "b54e762755248ca411b523c917fa9f93c07b5ff2966bf60b3917b853926a3dad",
+    },
+];
+
+pub(crate) struct EvalPlusAsset {
+    pub dataset: &'static str,
+    pub release_asset: &'static str,
+    pub release_version: &'static str,
+    pub asset_sha256: &'static str,
+    pub decoded_sha256: &'static str,
+}
+
+pub(crate) fn evalplus_asset(dataset: &str) -> Option<&'static EvalPlusAsset> {
+    EVALPLUS_ASSETS
+        .iter()
+        .find(|asset| asset.dataset == dataset)
+}
 const SHINGLE_BASE_DOMAIN: &[u8] = b"python-slm/shingle-base/v1\0";
 const COEFFICIENT_DOMAIN: &[u8] = b"python-slm/minhash-coeff/v1\0";
 const LSH_DOMAIN: &[u8] = b"python-slm/lsh-band/v1\0";
@@ -617,18 +672,14 @@ fn validate_benchmark_manifest(
     }
     let mut assets = BTreeSet::new();
     for asset in &benchmark.assets {
-        let expected = match asset.dataset.as_str() {
-            "humanevalplus" => ("HumanEvalPlus.jsonl.gz", "v0.1.10"),
-            "mbppplus" => ("MbppPlus.jsonl.gz", "v0.2.0"),
-            _ => {
-                return Err(ProductError::integrity(
-                    "BENCHMARK_ASSET_INVALID",
-                    "the benchmark manifest contains an unknown dataset",
-                ));
-            }
-        };
-        if asset.release_asset != expected.0
-            || asset.release_version != expected.1
+        let expected = evalplus_asset(&asset.dataset).ok_or_else(|| {
+            ProductError::integrity(
+                "BENCHMARK_ASSET_INVALID",
+                "the benchmark manifest contains an unknown dataset",
+            )
+        })?;
+        if asset.release_asset != expected.release_asset
+            || asset.release_version != expected.release_version
             || !is_sha256(&asset.asset_sha256)
             || !is_sha256(&asset.decoded_sha256)
             || !assets.insert(asset.dataset.as_str())
@@ -636,6 +687,17 @@ fn validate_benchmark_manifest(
             return Err(ProductError::integrity(
                 "BENCHMARK_ASSET_INVALID",
                 "the benchmark asset identity is malformed or duplicated",
+            ));
+        }
+        // The digests are compared against the frozen values, not merely checked
+        // for shape. Without this a plausible-looking manifest protecting nothing
+        // passes every other gate here.
+        if asset.asset_sha256 != expected.asset_sha256
+            || asset.decoded_sha256 != expected.decoded_sha256
+        {
+            return Err(ProductError::integrity(
+                "BENCHMARK_ASSET_DIGEST_MISMATCH",
+                "a benchmark asset digest differs from the frozen DECONTAM-001 identity",
             ));
         }
     }
@@ -1993,6 +2055,42 @@ mod tests {
 
     fn hash(label: &str) -> String {
         sha256(label.as_bytes())
+    }
+
+    /// The frozen `DECONTAM-001` table is transcribed by hand from a discovery
+    /// run, so a mistyped digest is the obvious failure mode. This checks the
+    /// shape of every field rather than trusting the transcription, and it fails
+    /// at test time instead of at the point where a corpus is being decontaminated.
+    #[test]
+    fn the_frozen_evalplus_table_is_well_formed() {
+        assert_eq!(EVALPLUS_ASSETS.len(), 2);
+        let mut datasets = BTreeSet::new();
+        for asset in &EVALPLUS_ASSETS {
+            assert!(
+                datasets.insert(asset.dataset),
+                "duplicate dataset {}",
+                asset.dataset
+            );
+            assert!(
+                is_sha256(asset.asset_sha256),
+                "{} asset digest is not lowercase SHA-256",
+                asset.dataset
+            );
+            assert!(
+                is_sha256(asset.decoded_sha256),
+                "{} decoded digest is not lowercase SHA-256",
+                asset.dataset
+            );
+            assert_ne!(asset.asset_sha256, asset.decoded_sha256);
+            assert!(asset.release_asset.ends_with(".jsonl.gz"));
+            assert!(asset.release_version.starts_with('v'));
+        }
+        // The two datasets DECONTAM-001 names, and nothing else.
+        assert!(evalplus_asset("humanevalplus").is_some());
+        assert!(evalplus_asset("mbppplus").is_some());
+        assert!(evalplus_asset("nonexistent").is_none());
+        // A near-miss on the dataset key must not resolve to a real asset.
+        assert!(evalplus_asset("HumanEvalPlus").is_none());
     }
 
     fn document(label: &str, repository: &str, source: &[u8]) -> PreparedDocument {
