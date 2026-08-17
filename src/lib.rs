@@ -1,5 +1,6 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 
+pub mod acquire;
 pub mod backend;
 pub mod commands;
 pub mod config;

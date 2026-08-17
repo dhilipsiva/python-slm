@@ -4446,6 +4446,7 @@ dependencies = [
  "burn",
  "burn-autodiff",
  "clap",
+ "flate2",
  "half",
  "hex",
  "libc",
@@ -4459,6 +4460,7 @@ dependencies = [
  "tempfile",
  "tree-sitter",
  "tree-sitter-python",
+ "ureq",
  "windows-sys 0.61.2",
 ]
 

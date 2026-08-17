@@ -19,6 +19,11 @@ enum Command {
     Plan,
     /// Emit deterministic canonical initialization and CPU-oracle diagnostics.
     ModelOracle,
+    /// Acquire hash-pinned assets over HTTPS into a create-new generation.
+    Fetch {
+        #[arg(long)]
+        config: PathBuf,
+    },
     /// Curate the governed source corpus. Implemented by Phase 4.
     Curate {
         #[arg(long)]
@@ -121,6 +126,7 @@ pub fn run(args: impl IntoIterator<Item = OsString>) -> Result<Value> {
             )
         }),
         Command::ModelOracle => crate::model::oracle_result_value(),
+        Command::Fetch { config } => crate::acquire::acquire(&config),
         Command::Curate { config } => crate::data::curate(&config),
         Command::TrainTokenizer { config } => crate::tokenizer::train_tokenizer(&config),
         Command::Tokenize { config } => crate::storage::tokenize(&config),

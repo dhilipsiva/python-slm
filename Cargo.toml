@@ -59,6 +59,15 @@ burn = { version = "=0.21.0", default-features = false, features = ["std"], opti
 # autodiff crate is a direct dependency of every accelerator boundary.
 burn-autodiff = { version = "=0.21.0", default-features = false, optional = true }
 clap = { version = "4.5", features = ["derive"] }
+# Governed acquisition. `AGENTS.md` requires the contract's HTTPS and redirect
+# rules and `docs/rebuild-contract.md:109` marks HTTPS/checksums/credentials
+# REIMPLEMENT, so these belong to the data lane rather than to an accelerator
+# feature. `ureq` is blocking and rustls-backed, which avoids pulling a tokio
+# runtime into a pipeline that has no other async. `flate2` covers the gzip that
+# DECONTAM-001 requires for the pinned `.jsonl.gz` benchmark assets. Both, and
+# every crate they need, were already resolved in `Cargo.lock` through the
+# accelerator tree, so naming them directly adds edges without version churn.
+flate2 = "1.1"
 half = { version = "2.7", optional = true }
 hex = "0.4"
 serde = { version = "1.0", features = ["derive"] }
@@ -70,6 +79,7 @@ rand = "0.10"
 rand_distr = "=0.6.0"
 tree-sitter = "=0.25.8"
 tree-sitter-python = "=0.25.0"
+ureq = "2.12"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_LibraryLoader", "Win32_System_WindowsProgramming"] }
