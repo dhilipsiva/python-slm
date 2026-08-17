@@ -8,6 +8,7 @@ pub mod config;
 pub mod corpus;
 pub mod data;
 pub mod error;
+pub mod materialize;
 pub mod model;
 pub mod parser;
 pub mod platform;

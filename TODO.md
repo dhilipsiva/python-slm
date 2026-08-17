@@ -1028,6 +1028,72 @@ emitted by `prepare-corpus` rather than supplied, so they need streaming or
 splitting rather than a list, and the real per-document cost should be measured in
 Phase 5 before either is sized.
 
+**The proof run executed the whole chain, and it settles the scale question.**
+`fetch` → `import-benchmark` → `materialize-source` → `curate` (three shards) →
+`prepare-corpus` → `train-tokenizer` → `tokenize` → `plan-spans` composed on real
+inputs for the first time. The measurement corpus is the local CPython 3.14
+standard library, 2,239 files, licensed `Python-2.0` which the frozen allowlist
+permits. It is a *measurement* corpus and nothing else: every artifact stayed in
+an ignored root, no model was produced, and its authorization record is a local
+operator assertion.
+
+`materialize-source` is new and was required to get here at all. `curate` consumes
+a manifest naming every document with its license, provenance, and expected
+SHA-256, which cannot be hand-written even at proof-run scale. It performs the
+mechanical half — enumerate, hash, order deterministically, shard — and leaves the
+governance half declared by the operator. It shards output because one generation
+manifest cannot hold a production corpus.
+
+Measured, replacing the estimates:
+
+| Quantity | Estimated | Measured |
+|---|---|---|
+| Bytes per source-generation outcome | `~2.4` KB | **`2,319.8`** → `28,929` documents per generation |
+| Bytes per governed-corpus document | `~545` | **`561.3`** → `119,550` documents |
+| Bytes per tokenizer-sample document | `~480` | **`463.2`** → `144,890` documents |
+| `prepare-corpus` residency | `15`–`30x` corpus bytes | **`42.7x`** (`1,250.6` MiB peak for `29.3` MiB accepted) |
+| `assign_splits` at proof scale | might not terminate | **completes**; `16` percent above linear at `1,780` documents |
+
+Per-stage wall clock at this scale: `materialize-source` `54.8` s for 2,206 files,
+`curate` `4.8`–`5.7` s per 800-document shard, `prepare-corpus` `57.7` s for 1,780
+accepted, `train-tokenizer` `6.2` s at `318` MiB peak, `tokenize` `2.9` s,
+`plan-spans` `0.5` s.
+
+Pipeline yield, which is new information and transfers better than any of the
+byte figures: **`80.7` percent** of enumerated documents survive `curate`, and
+**`64.6` percent** of those become dedup representatives, so about **`52` percent**
+of an enumerated tree reaches the token corpus. Scaling a corpus needs that factor
+of roughly two on top of everything else.
+
+The observed `7.655` bytes per stored ID does **not** transfer and should not be
+used for sizing: the tokenizer was trained on `8.78` MB of the same `9.0` MB it
+then encoded, so its compression is overfit to this corpus. A diverse corpus
+compresses less well, which means *fewer* raw bytes per token, not more.
+
+**E3 cannot reach `training_target_satisfied: true` on this host, and the gap is
+now quantified rather than estimated.** `tokenize` reported
+`training_prefix_ids: 1,136,321` against the required `2,000,000,001` and exited
+`0`, which is exactly why the field has to be asserted rather than inferred. Three
+independent blockers, in the order they bite:
+
+1. **`prepare-corpus` residency.** At `42.7x` measured, a production corpus needs
+   on the order of a terabyte of RAM against this host's `93.6` GB. Composing
+   generations does not help — the union is what is held resident.
+2. **The two downstream manifest ceilings that Phase 4 did not fix.** A production
+   corpus implies roughly `917,000` representatives against `119,550` and
+   `144,890`, so both are six to eight times over. They are emitted rather than
+   supplied, so they need streaming or splitting.
+3. **`assign_splits`.** It completes here, but a two-term fit over 580, 1,253 and
+   1,780 documents attributes the `16` percent superlinearity to a quadratic
+   coefficient which, extrapolated to `1.5` million documents, dominates by orders
+   of magnitude. That is an extrapolation across a thousandfold range and should
+   be treated as a direction, not a number — but it agrees with the code, which is
+   `O(components x duplicate_groups)`.
+
+Roughly `61` source generations would be needed for a production corpus, which
+Phase 4 now supports. The other two blockers are unaddressed and each is a real
+piece of work.
+
 **Landed so far.** `.gitignore` now matches the artifacts the pipeline actually
 writes. Its extension rules previously matched none of them: token shards are
 `shards/<split>-<seq>.u16le` (`src/storage.rs:820`) and checkpoint tensors are

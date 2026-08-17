@@ -29,6 +29,11 @@ enum Command {
         #[arg(long)]
         discover: bool,
     },
+    /// Enumerate an authorized local tree into sharded `curate` source manifests.
+    MaterializeSource {
+        #[arg(long)]
+        config: PathBuf,
+    },
     /// Import the pinned EvalPlus assets into a benchmark protection generation.
     ImportBenchmark {
         #[arg(long)]
@@ -143,6 +148,7 @@ pub fn run(args: impl IntoIterator<Item = OsString>) -> Result<Value> {
                 crate::acquire::acquire(&config)
             }
         }
+        Command::MaterializeSource { config } => crate::materialize::materialize_source(&config),
         Command::ImportBenchmark { config } => crate::benchmark::import_benchmark(&config),
         Command::Curate { config } => crate::data::curate(&config),
         Command::TrainTokenizer { config } => crate::tokenizer::train_tokenizer(&config),
