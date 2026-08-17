@@ -1094,6 +1094,42 @@ Roughly `61` source generations would be needed for a production corpus, which
 Phase 4 now supports. The other two blockers are unaddressed and each is a real
 piece of work.
 
+**`prepare-corpus` residency is down from `42.7x` to `13.8x`**, peak `1,250.6` to
+`402.9` MiB on the same corpus, for about five percent more wall clock. Both
+changes are losslessly semantics-preserving and the evidence is that the published
+generation digest is byte-identical across all three runs
+(`b507dcad7f164d958e9e3577b3ef6c1a97a9bbf54ea942081615838af69cad60`).
+
+- **The lexical tokens were retained for a number.** `PreparedDocument` held a
+  `Vec<LexicalToken>` — a heap `String` kind and a heap `Vec<u8>` text per token,
+  across millions of tokens — and every later use needed only `.len()`, which the
+  one-to-one `encoded_tokens` already carries. Deleting the field alone took
+  `42.7x` to `30x`.
+- **The shingle set is derived, so it is no longer stored.** A shingle
+  concatenates five encoded tokens, so the set costs roughly five times the token
+  bytes and was the single largest structure, yet it is wholly a function of
+  `encoded_tokens` and is consulted only for the exact Jaccard of an LSH candidate
+  pair and once per document in decontamination. It is rebuilt for those cases
+  instead. The candidate set is ordered, so pairs sharing a left document are
+  contiguous and that side is built once. That took `30x` to `13.8x`.
+
+Deliberately not done: hashing shingles to fixed-width keys would cut the rebuild
+cost further but replaces `DEDUP-001`'s exact Jaccard with a probabilistic one,
+and flattening `encoded_tokens` into a buffer plus offsets is lossless but rewrites
+frozen span-matching code for perhaps a further `1.5x`. Neither changes the verdict
+below, so neither is worth its risk yet.
+
+**It is a real improvement and it still does not reach production.** The remaining
+dominant term is `encoded_tokens` at roughly half the residue. At `13.8x` a
+production corpus of about `24.5` GB accepted canonical text implies `338` GB
+against this host's `93.6` GB, where before it implied over a terabyte. Put the
+other way, the tractable corpus at `64` GB of working memory moved from about
+`1.5` GB of accepted text to about `4.6` GB — call it three times more corpus, not
+the sixty times the frozen target needs. Closing that needs the structural change
+rather than more constant factors: not holding the whole corpus resident at once,
+which means spilling shingles and signatures and running deduplication in blocked
+passes.
+
 **Landed so far.** `.gitignore` now matches the artifacts the pipeline actually
 writes. Its extension rules previously matched none of them: token shards are
 `shards/<split>-<seq>.u16le` (`src/storage.rs:820`) and checkpoint tensors are

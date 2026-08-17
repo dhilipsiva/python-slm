@@ -248,9 +248,18 @@ struct PreparedDocument {
     content: Vec<u8>,
     provenance: Provenance,
     comment_bytes: u64,
-    lexical_tokens: Vec<LexicalToken>,
+    /// The encoded form is a one-to-one map of the lexical tokens, so it carries
+    /// the token count too. The lexical tokens themselves are deliberately not
+    /// retained: every later use needed only their number, and holding a `String`
+    /// kind and a `Vec<u8>` text per token — two heap allocations each, across
+    /// millions of tokens — was the single largest resident cost in this stage.
     encoded_tokens: Vec<Vec<u8>>,
-    shingles: BTreeSet<Vec<u8>>,
+    /// The MinHash signature is retained; the shingle set it was built from is
+    /// not. A shingle concatenates five encoded tokens, so the set costs roughly
+    /// five times the token bytes and dominated this stage's residency, yet it is
+    /// wholly derived from `encoded_tokens` and is consulted only for the exact
+    /// Jaccard of an LSH candidate pair. Rebuilding it for those few pairs costs
+    /// far less than holding it for every document.
     signature: [u64; MINHASH_COMPONENTS],
 }
 
@@ -894,11 +903,11 @@ fn load_documents(
             content,
             provenance: outcome.provenance.clone(),
             comment_bytes: parsed.result.comment_bytes,
-            lexical_tokens: parsed.lexical_tokens,
             signature: minhash_signature(&shingles),
             encoded_tokens,
-            shingles,
         });
+        // The shingles have served their purpose; the signature carries forward.
+        drop(shingles);
     }
     documents.sort_by(|left, right| left.source_id.as_bytes().cmp(right.source_id.as_bytes()));
     Ok(documents)
@@ -1119,10 +1128,21 @@ fn deduplicate(
         ));
     }
     let mut near_edges = 0_u64;
+    // Shingles are rebuilt for the pairs that need an exact Jaccard rather than
+    // held for every document. `candidates` is an ordered set, so every pair
+    // sharing a left document is contiguous and that side is built once.
+    let mut cached_left: Option<usize> = None;
+    let mut left_shingles = BTreeSet::new();
     for (left, right) in &candidates {
-        if documents[*left].canonical_sha256 != documents[*right].canonical_sha256
-            && jaccard_exceeds(&documents[*left].shingles, &documents[*right].shingles)
-        {
+        if documents[*left].canonical_sha256 == documents[*right].canonical_sha256 {
+            continue;
+        }
+        if cached_left != Some(*left) {
+            left_shingles = shingle_set(&documents[*left].encoded_tokens)?;
+            cached_left = Some(*left);
+        }
+        let right_shingles = shingle_set(&documents[*right].encoded_tokens)?;
+        if jaccard_exceeds(&left_shingles, &right_shingles) {
             union.union(*left, *right);
             near_edges += 1;
         }
@@ -1192,7 +1212,9 @@ fn representative_order(left: &PreparedDocument, right: &PreparedDocument) -> Or
             (left.comment_bytes as u128 * right.canonical_bytes as u128)
                 .cmp(&(right.comment_bytes as u128 * left.canonical_bytes as u128))
         })
-        .then_with(|| right.lexical_tokens.len().cmp(&left.lexical_tokens.len()))
+        // The encoded tokens are one per lexical token, so this is the same
+        // higher-token-count tie-break DEDUP-001 specifies.
+        .then_with(|| right.encoded_tokens.len().cmp(&left.encoded_tokens.len()))
         .then_with(|| left.source_id.as_bytes().cmp(right.source_id.as_bytes()))
 }
 
@@ -1269,9 +1291,14 @@ fn decontaminate(
                 benchmark_candidates.extend(indices.iter().copied());
             }
         }
-        for index in benchmark_candidates {
-            if jaccard_exceeds(&document.shingles, &protected[index].shingles) {
-                matches.entry(index).or_default().insert("LEXICAL_JACCARD");
+        // Built once per document, and only when the bands actually proposed a
+        // benchmark candidate to compare against.
+        if !benchmark_candidates.is_empty() {
+            let document_shingles = shingle_set(&document.encoded_tokens)?;
+            for index in benchmark_candidates {
+                if jaccard_exceeds(&document_shingles, &protected[index].shingles) {
+                    matches.entry(index).or_default().insert("LEXICAL_JACCARD");
+                }
             }
         }
         if let Some(indices) = short_sequences.get(&document.encoded_tokens) {
@@ -2189,13 +2216,17 @@ mod tests {
                 source_path: format!("{label}.py"),
             },
             comment_bytes: parsed.result.comment_bytes,
-            lexical_tokens: parsed.lexical_tokens,
             signature: minhash_signature(&shingles),
             encoded_tokens,
-            shingles,
         }
     }
-    fn synthetic_document(label: &str, shingles: BTreeSet<Vec<u8>>) -> PreparedDocument {
+    /// A document whose shingles derive from `tokens` distinct encoded tokens, so
+    /// two of them share `min(a, b) - 4` shingles out of `max(a, b) - 4`.
+    fn synthetic_document(label: &str, tokens: u16) -> PreparedDocument {
+        let encoded_tokens = (0..tokens)
+            .map(|value| value.to_le_bytes().to_vec())
+            .collect::<Vec<_>>();
+        let shingles = shingle_set(&encoded_tokens).expect("synthetic shingles");
         PreparedDocument {
             source_id: hash(label),
             repository_group_id: hash(&format!("repo-{label}")),
@@ -2209,10 +2240,8 @@ mod tests {
                 source_path: format!("{label}.py"),
             },
             comment_bytes: 0,
-            lexical_tokens: Vec::new(),
             signature: minhash_signature(&shingles),
-            encoded_tokens: Vec::new(),
-            shingles,
+            encoded_tokens,
         }
     }
 
@@ -2227,15 +2256,11 @@ mod tests {
 
     #[test]
     fn lsh_candidates_are_confirmed_by_exact_jaccard() {
-        let left = (0_u16..100)
-            .map(|value| value.to_le_bytes().to_vec())
-            .collect::<BTreeSet<_>>();
-        let right = (0_u16..90)
-            .map(|value| value.to_le_bytes().to_vec())
-            .collect::<BTreeSet<_>>();
+        // 100 shingles against 90 shared ones: a Jaccard of exactly 0.9, which is
+        // above the 0.85 threshold and must survive rebuilding the sets on demand.
         let documents = vec![
-            synthetic_document("left", left),
-            synthetic_document("right", right),
+            synthetic_document("left", 104),
+            synthetic_document("right", 94),
         ];
         let (manifest, groups) = deduplicate(&documents, 100).unwrap();
         assert_eq!(manifest.near_duplicate_edges, 1);
@@ -2268,7 +2293,9 @@ mod tests {
             content: documents[0].content.clone(),
             canonical_sha256: documents[0].canonical_sha256.clone(),
             encoded_tokens: documents[0].encoded_tokens.clone(),
-            shingles: documents[0].shingles.clone(),
+            // Protected records keep their shingles: there are only a few thousand
+            // of them, and they are compared against every document.
+            shingles: shingle_set(&documents[0].encoded_tokens).unwrap(),
             signature: Some(documents[0].signature),
         }];
         let (manifest, rejected) =
