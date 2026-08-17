@@ -590,7 +590,7 @@ run instead of moving a threshold.
 
 ### E1 — Full-Model Accelerator Training Backend
 
-- [ ] E1 implementation (core landed and hardware-verified; blocked by E1A and E1B)
+- [x] E1 implementation (core landed and hardware-verified; E1A and E1B both resolved)
 
 Dependencies: P10, P12, and P18 implementation.
 
@@ -676,7 +676,7 @@ test so it remains visible and runnable rather than quietly absent.
 
 ### E1B — Batched, Memory-Efficient Attention and Loss
 
-- [ ] E1B implementation
+- [x] E1B implementation
 
 Dependencies: E1 implementation.
 
@@ -803,11 +803,54 @@ FP32 batching costs on gradients that carry this much cancellation.
 `evaluation_is_finite_and_leaves_training_state_unchanged` is no longer ignored: the
 mandatory `1,000,000`-target held-out evaluation now completes in `58` s.
 
-**Still required**: true BF16 storage as a separately verified step, contingent on first
-confirming that cubecl's BF16 matmul accumulates in FP32. At `34.2` hours against the
-`8`-hour SLA the run is still short by a factor of `4.3`, and tensor cores are the only
-remaining lever of that size — the graph is still FP32 throughout and so cannot reach
-them.
+**Phase 5, true BF16 storage, was implemented, measured, and deliberately not kept.**
+Its precondition holds: `MatmulElems::from_globals` promotes the accumulator to FP32
+whenever the output is BF16 or FP16 (`cubek-matmul-0.2.0/src/definition/spec.rs:276`), so
+`sensitive_accumulation: "fp32"` survives BF16 storage. Isolated BF16 matmul is `2.14x`
+to `2.88x` faster than FP32 on this device at the graph's own shapes
+(`tests/e1b_canonical_scale_probe.rs::probe_bf16_versus_f32_matmul_throughput`). The
+whole-model result did not follow:
+
+| Substrate | Best operating point | Peak memory | Throughput | Projection | Conformance | Batch-shape sensitivity |
+|---|---|---|---|---|---|---|
+| FP32 straight-through | 16 sequences | `31,879` MiB | `16,221` targets/s | `34.2` h | `3.190342e-4` | `2.405e-4` |
+| True BF16 storage | 8 sequences | `17,900` MiB | `16,500` targets/s | `33.7` h | `3.713047e-3` | `3.586e-2` |
+
+Equal throughput. The reason BF16 gains so little is structural rather than
+incidental: the frozen semantics deliberately place *no* storage point on the attention
+scores, their softmax, or the loss, and those are exactly the memory- and
+time-dominant tensors, so BF16 can only reach the linear projections while the widening
+casts it forces at every boundary give much of that back. Measured against expectation,
+peak memory fell only 4 percent at eight sequences and *rose* at sixteen, where
+throughput collapsed to `5,571`–`5,981` targets/s across two runs.
+
+Against that, BF16 costs `11.6x` on gradient conformance and `150x` on batch-shape
+sensitivity, the latter reaching `3.586e-2` — larger than the `0.03` conformance bound
+itself. The forward stayed exact byte for byte, and the frozen gate still passed at
+`3.713047e-3`, so this was a trade rather than a failure. **Owner decision on
+2026-08-17: revert to the FP32 substrate.** Equal speed does not buy a `11.6x`
+determinism regression, and neither substrate changes the SLA verdict. The probe is kept
+so the finding stays reproducible.
+
+**The conformance gate now runs at production batch widths.** The fixture executed only
+at one sequence, while training runs at eight or sixteen, and batch width demonstrably
+moves the gradient — so the gate did not cover the shape that ships.
+`run_burn_cubecl_cuda_batched_model_parity` replicates the closed fixture across a batch
+and scales the normalizer, which leaves the loss and gradients at their single-sequence
+values, making the frozen oracle bytes a gate on the batched path. It also fails closed
+if the copies are not bit-identical to each other. Measured: `logits_exact` and
+`loss_exact` hold at every width, and gradient deviation is flat at `3.747215e-4`,
+`3.747288e-4`, and `3.747141e-4` for 4, 8, and 16 sequences against the `0.03` bound.
+
+**E1B is complete, and the run does not meet the SLA.** The frozen configuration is
+runnable, bounded, and gated at its production shape, but `34.2` hours against the
+`28,800`-second completion SLA is short by a factor of `4.3`. That constant is frozen and
+is not retunable after measurement, so this is a blocking input to E5's admission
+projection rather than something E1B can resolve. The remaining levers are outside this
+item: the graph sustains roughly `19` TFLOP/s while isolated FP32 matmul on the same
+shapes reaches `72`–`79`, so matmul is about a quarter of the wall clock and the rest is
+elementwise traffic, launch overhead, and the `541` MB per-micro-batch gradient readback
+the `TrainerBackend` contract requires.
 
 ### E2 — Final-Run Launch Mode
 

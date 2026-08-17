@@ -1,6 +1,6 @@
 //! Windows/Linux NVIDIA CUDA model adapter over the provider-generic parity graph.
 
-use super::full_model::{GraphIdentity, run_repeated_parity};
+use super::full_model::{GraphIdentity, run_repeated_batched_parity, run_repeated_parity};
 use super::{AcceleratorCancellation, validate_repeated_provider_execution};
 use crate::backend::{BURN_CUBECL_CUDA, ProviderIdentity};
 use anyhow::Result;
@@ -25,6 +25,28 @@ pub fn run_burn_cubecl_cuda_model_parity(
     let device = burn::backend::cuda::CudaDevice::new(device_ordinal);
     let (first, second) =
         run_repeated_parity::<Gpu>(&IDENTITY, &device, device_ordinal, cancellation)?;
+    super::validate_repeated_accelerator_execution(&first, &second).map_err(anyhow::Error::new)
+}
+
+/// The same conformance gate, executed at a chosen batch width.
+///
+/// The fixture at one sequence does not cover the shape production runs, and batch
+/// width demonstrably moves the gradient: kernels of different shapes reduce in
+/// different orders. Running the frozen oracle comparison at the operating width is
+/// what makes `PRECISION-002` a gate on the configuration that will actually train.
+pub fn run_burn_cubecl_cuda_batched_model_parity(
+    device_ordinal: usize,
+    batch: usize,
+    cancellation: &AcceleratorCancellation,
+) -> Result<super::AcceleratorModelResult> {
+    let device = burn::backend::cuda::CudaDevice::new(device_ordinal);
+    let (first, second) = run_repeated_batched_parity::<Gpu>(
+        &IDENTITY,
+        &device,
+        device_ordinal,
+        batch,
+        cancellation,
+    )?;
     super::validate_repeated_accelerator_execution(&first, &second).map_err(anyhow::Error::new)
 }
 

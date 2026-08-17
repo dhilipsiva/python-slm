@@ -13,6 +13,11 @@
 
 #![cfg(feature = "cuda")]
 
+use burn::backend::Cuda;
+use burn::tensor::{
+    DType, FloatDType, Tensor, TensorCreationOptions, TensorData, backend::Backend,
+};
+use half::bf16;
 use rust_llm_pretrain::train::cuda_backend::CudaTrainerBackend;
 use rust_llm_pretrain::train::full_state::{GqaDimensions, ValidationSet, ValidationSpan};
 use rust_llm_pretrain::train::trainer::{EVALUATION_TARGETS, TrainerBackend, TrainingBatch};
@@ -80,6 +85,52 @@ impl PeakSampler {
     }
 }
 
+/// Raw device backend, without autodiff: this probe times kernels, not tapes.
+type Raw = Cuda<bf16, i32>;
+type RawDevice = burn::backend::cuda::CudaDevice;
+
+/// Seconds per matmul of the given shape, with either FP32 or BF16 inputs.
+fn matmul_seconds(
+    device: &RawDevice,
+    rows: usize,
+    inner: usize,
+    columns: usize,
+    bf16_inputs: bool,
+) -> f64 {
+    let build = |height: usize, width: usize, offset: f32| {
+        let values = (0..height * width)
+            .map(|index| ((index as f32 * 0.7 + offset) % 3.0 - 1.5) / 8.0)
+            .collect::<Vec<_>>();
+        let tensor = Tensor::<Raw, 2>::from_data(
+            TensorData::new(values, [height, width]),
+            TensorCreationOptions::new(device.clone()).with_dtype(DType::F32),
+        );
+        if bf16_inputs {
+            tensor.cast(FloatDType::BF16)
+        } else {
+            tensor
+        }
+    };
+    let left = build(rows, inner, 0.0);
+    let right = build(inner, columns, 1.3);
+
+    // One warmup so kernel compilation and autotuning are not timed.
+    let mut last = Some(left.clone().matmul(right.clone()));
+    Raw::sync(device).expect("warmup synchronization");
+
+    const REPEATS: usize = 20;
+    let started = Instant::now();
+    for _ in 0..REPEATS {
+        // Overwrite rather than collect: keeping twenty outputs of this size
+        // would exhaust the device before the timing finished.
+        last = Some(left.clone().matmul(right.clone()));
+    }
+    Raw::sync(device).expect("timed synchronization");
+    let elapsed = started.elapsed().as_secs_f64() / REPEATS as f64;
+    drop(last);
+    elapsed
+}
+
 fn canonical_validation_set(dimensions: &GqaDimensions) -> ValidationSet {
     let mut spans = Vec::new();
     let mut remaining = EVALUATION_TARGETS;
@@ -104,6 +155,44 @@ fn sequence_batch(first_target: u64, sequence_targets: u64, sequences: u64) -> T
             .map(|index| ((index + 1) % 32_000) as u16)
             .collect(),
         sequence_lengths: vec![sequence_targets; sequences as usize],
+    }
+}
+
+/// What tensor cores are worth on this device, measured before committing to the
+/// storage change that would reach them.
+///
+/// E1B Phase 5 replaces the FP32 substrate with genuine BF16 storage, which is a
+/// large and numerically consequential change; it is only justified if BF16
+/// matmul is materially faster than the FP32 matmul the graph runs today. The
+/// accumulation question is already settled by reading cubek: `MatmulElems::from_globals`
+/// promotes the accumulator to FP32 whenever the output is BF16 or FP16
+/// (`cubek-matmul-0.2.0/src/definition/spec.rs:276`), so the contract's
+/// `sensitive_accumulation: "fp32"` survives either way. This measures the payoff.
+///
+/// The shapes are the graph's own: the FFN projections and the untied LM head at
+/// eight sequences per dispatch.
+#[test]
+#[ignore = "E1B diagnostic; run explicitly with --ignored on the prototype host"]
+fn probe_bf16_versus_f32_matmul_throughput() {
+    let device = RawDevice::new(0);
+    let rows = 8 * 2_048;
+
+    println!("\n=== E1B probe: BF16 versus FP32 matmul ===");
+    println!("  rows: {rows} (eight 2,048-target sequences)");
+    for (label, inner, columns) in [
+        ("ffn gate/up  768 -> 2432", 768_usize, 2_432_usize),
+        ("ffn down    2432 ->  768", 2_432, 768),
+        ("lm head      768 -> 32000", 768, 32_000),
+    ] {
+        let f32_seconds = matmul_seconds(&device, rows, inner, columns, false);
+        let bf16_seconds = matmul_seconds(&device, rows, inner, columns, true);
+        let flops = 2.0 * rows as f64 * inner as f64 * columns as f64;
+        println!(
+            "  {label}: fp32 {:.2} TFLOP/s, bf16 {:.2} TFLOP/s, speedup {:.2}x",
+            flops / f32_seconds / 1e12,
+            flops / bf16_seconds / 1e12,
+            f32_seconds / bf16_seconds
+        );
     }
 }
 

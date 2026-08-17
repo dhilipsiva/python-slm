@@ -515,8 +515,8 @@ mod cuda;
 
 #[cfg(feature = "cuda")]
 pub use cuda::{
-    run_burn_cubecl_cuda_fixture_observation, run_burn_cubecl_cuda_model_parity,
-    run_burn_cubecl_cuda_provider_parity,
+    run_burn_cubecl_cuda_batched_model_parity, run_burn_cubecl_cuda_fixture_observation,
+    run_burn_cubecl_cuda_model_parity, run_burn_cubecl_cuda_provider_parity,
 };
 
 #[cfg(all(feature = "rocm", target_os = "linux"))]

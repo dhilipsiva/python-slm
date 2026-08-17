@@ -519,6 +519,45 @@ mod hardware {
         );
     }
 
+    /// The conformance gate at the batch widths production will actually run.
+    ///
+    /// The fixture at one sequence does not cover the shape that trains, and batch
+    /// width demonstrably moves the gradient — `a_fused_dispatch_matches_per_sequence_accumulation`
+    /// measures that at `2.4e-4`. Sequences in a dispatch are independent, so a
+    /// correct batched dispatch must reproduce the single-sequence result exactly:
+    /// the same frozen oracle bytes, the same `PRECISION-002` bound.
+    #[test]
+    fn the_conformance_gate_holds_at_production_batch_widths() {
+        let cancellation = rust_llm_pretrain::model::AcceleratorCancellation::default();
+        for batch in [4_usize, 8, 16] {
+            let result = rust_llm_pretrain::model::run_burn_cubecl_cuda_batched_model_parity(
+                0,
+                batch,
+                &cancellation,
+            )
+            .unwrap_or_else(|error| panic!("batch {batch} must pass the gate: {error:#}"));
+
+            assert!(result.checks.logits_exact, "batch {batch} forward drift");
+            assert!(result.checks.loss_exact, "batch {batch} loss drift");
+            assert!(
+                result.checks.gradient_within_bound,
+                "batch {batch} gradient outside the frozen bound"
+            );
+            assert!(
+                result.checks.repeated_execution_exact,
+                "batch {batch} repetition drift"
+            );
+
+            let conformance = &result.checks.gradient_conformance;
+            assert_eq!(conformance.nonfinite_values, 0);
+            assert_eq!(conformance.envelope_violations, 0);
+            eprintln!(
+                "PRECISION-002 at batch {batch}: relative_l2={:.6e}, cosine={:.12}",
+                conformance.relative_l2, conformance.cosine_similarity
+            );
+        }
+    }
+
     /// Evaluation over the mandatory 1,000,000 held-out targets, which batched
     /// dispatch and an untracked graph make viable: it used to need roughly
     /// 470,000 single-sequence launches while also retaining a tape it could

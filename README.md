@@ -501,15 +501,21 @@ RTX 5090: relative L2 `5.714e-6` against a `0.03` limit and cosine `0.9999999999
 against a `0.999` floor.
 
 E1B has since batched the graph and bounded both materializations, so the canonical
-model now runs at the frozen micro-batch of 16 sequences: one training step is split
-into several backward passes joined by an exact vector-Jacobian seed, differentiating
-the cross-entropy head in position chunks and recomputing each layer only while its own
+model runs at the frozen micro-batch of 16 sequences: one training step is split into
+several backward passes joined by an exact vector-Jacobian seed, differentiating the
+cross-entropy head in position chunks and recomputing each layer only while its own
 gradient is taken. Measured on the RTX 5090 at 16 sequences per dispatch: `31,879` MiB
-peak and `16,221` targets/s. The conformance numbers are unchanged to the last digit,
-so the staging is numerically transparent. What remains open in E1B is true BF16
-storage; until it lands the graph is FP32 throughout and cannot reach the tensor cores,
-and the projected wall clock stays above the completion SLA. No training-run,
-performance, SLA, or quality claim is made.
+peak and `16,221` targets/s. The conformance numbers are unchanged to the last digit, so
+the staging is numerically transparent, and the gate now also runs at the production
+batch widths rather than only at one sequence. True BF16 storage was implemented and
+measured but not kept: it delivered equal throughput for `11.6x` worse gradient
+conformance, because the frozen semantics place no storage point on the attention scores
+or their softmax, which are the dominant tensors.
+
+The projected wall clock is `34.2` hours against the frozen `28,800`-second completion
+SLA, short by a factor of `4.3`. That constant is not retunable after measurement, so it
+is a blocking input to the E5 admission projection. No training-run, performance, SLA,
+or quality claim is made.
 
 ## Optional scale-up planning
 

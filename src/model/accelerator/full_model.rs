@@ -825,13 +825,23 @@ fn oracle_fixture_states() -> Vec<AdamwParameterState> {
         .collect()
 }
 
+/// Execute the closed fixture with `batch` identical copies of its one sequence.
+///
+/// Sequences in a dispatch are independent, so a correct batched dispatch must
+/// reproduce the single-sequence result exactly: the logits are that sequence's
+/// logits tiled, and scaling the normalizer by the batch leaves the loss and the
+/// gradients at their single-sequence values. That makes the frozen oracle bytes a
+/// gate on the batched path, and the batched path is what production runs — a gate
+/// that only ever ran at one sequence would not cover it.
 fn execute_fixture_once<B: AutodiffBackend>(
     identity: &GraphIdentity,
     device: &B::Device,
     device_ordinal: usize,
+    batch: usize,
     cancellation: &AcceleratorCancellation,
 ) -> Result<AcceleratorModelObservation> {
     let prefix = identity.error_prefix;
+    ensure!(batch > 0, "{prefix}_FIXTURE_BATCH_INVALID");
     check(cancellation, "before-parameter-load")?;
     let outcome = (|| -> Result<AcceleratorModelObservation> {
         let graph = FullModelGraph::<B>::load(
@@ -841,12 +851,11 @@ fn execute_fixture_once<B: AutodiffBackend>(
         )?;
         check(cancellation, "after-parameter-load")?;
         let constants = graph_constants::<B>(graph.dimensions(), device)?;
-        // The fixture runs through the batched path at one sequence, so the
-        // exact-forward conformance gate keeps covering the code production uses.
+        let sequences = vec![(&FIXTURE_INPUT_TOKENS[..], &FIXTURE_TARGET_TOKENS[..]); batch];
         let output = graph.training_step(
-            &[(&FIXTURE_INPUT_TOKENS[..], &FIXTURE_TARGET_TOKENS[..])],
+            &sequences,
             &constants,
-            FIXTURE_TARGET_TOKENS.len() as f32,
+            (FIXTURE_TARGET_TOKENS.len() * batch) as f32,
             true,
             device,
         )?;
@@ -854,8 +863,21 @@ fn execute_fixture_once<B: AutodiffBackend>(
         check(cancellation, "after-forward")?;
         check(cancellation, "after-fused-loss")?;
         check(cancellation, "after-backward")?;
-        let logits_bytes = output
-            .logits_bf16_bits
+        // Every copy must be bit-identical before one of them stands for the
+        // dispatch; a batch that is not homogeneous is a defect, not a rounding.
+        let width = output.logits_bf16_bits.len() / batch;
+        ensure!(
+            output.logits_bf16_bits.len() == width * batch,
+            "{prefix}_FIXTURE_BATCH_LOGIT_SHAPE_INVALID"
+        );
+        ensure!(
+            output
+                .logits_bf16_bits
+                .chunks_exact(width)
+                .all(|copy| copy == &output.logits_bf16_bits[..width]),
+            "{prefix}_FIXTURE_BATCH_NOT_HOMOGENEOUS"
+        );
+        let logits_bytes = output.logits_bf16_bits[..width]
             .iter()
             .flat_map(|bits| bits.to_le_bytes())
             .collect::<Vec<_>>();
@@ -921,8 +943,19 @@ pub(crate) fn run_repeated_parity<B: AutodiffBackend>(
     device_ordinal: usize,
     cancellation: &AcceleratorCancellation,
 ) -> Result<(AcceleratorModelObservation, AcceleratorModelObservation)> {
-    let first = execute_fixture_once::<B>(identity, device, device_ordinal, cancellation)?;
+    run_repeated_batched_parity::<B>(identity, device, device_ordinal, 1, cancellation)
+}
+
+/// The same repeated-execution parity pair, taken at a chosen batch width.
+pub(crate) fn run_repeated_batched_parity<B: AutodiffBackend>(
+    identity: &GraphIdentity,
+    device: &B::Device,
+    device_ordinal: usize,
+    batch: usize,
+    cancellation: &AcceleratorCancellation,
+) -> Result<(AcceleratorModelObservation, AcceleratorModelObservation)> {
+    let first = execute_fixture_once::<B>(identity, device, device_ordinal, batch, cancellation)?;
     check(cancellation, "between-repeated-executions")?;
-    let second = execute_fixture_once::<B>(identity, device, device_ordinal, cancellation)?;
+    let second = execute_fixture_once::<B>(identity, device, device_ordinal, batch, cancellation)?;
     Ok((first, second))
 }
