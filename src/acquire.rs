@@ -293,24 +293,28 @@ fn transport_label(allow_loopback_plain_http: bool) -> &'static str {
     }
 }
 
-struct FetchedAsset {
-    bytes: Vec<u8>,
-    sha256: String,
-    redirects_followed: u64,
+pub(crate) struct FetchedAsset {
+    pub(crate) bytes: Vec<u8>,
+    pub(crate) sha256: String,
+    pub(crate) redirects_followed: u64,
 }
 
 /// One transfer to perform. Discovery has no declared digest or length, so the
 /// only bound available to it is an explicit ceiling; the publishing path passes
 /// its declaration as that ceiling and checks the result afterwards.
-struct FetchRequest<'a> {
-    url: &'a str,
-    credential_env: Option<&'a str>,
-    ceiling_bytes: u64,
+pub(crate) struct FetchRequest<'a> {
+    pub(crate) url: &'a str,
+    pub(crate) credential_env: Option<&'a str>,
+    pub(crate) ceiling_bytes: u64,
 }
 
 /// Stream one asset, following redirects manually so every hop is re-validated
 /// against the HTTPS rule rather than trusted to the client's own policy.
-fn fetch_one(
+///
+/// Shared with the Stack v2 adapter so that resolving a Software Heritage blob
+/// goes through exactly the transport rules the contract sets for any other
+/// acquisition, rather than a second implementation of them.
+pub(crate) fn fetch_one(
     agent: &ureq::Agent,
     request: FetchRequest<'_>,
     maximum_redirects: u64,

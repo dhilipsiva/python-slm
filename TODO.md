@@ -1331,13 +1331,49 @@ Each run trained a full `32,000`-token vocabulary, and the `8` MB point
 reproduces the pipeline's known one (`332.4` MiB against `318` MiB at `8.78` MB),
 which is what says the harness is measuring the same thing.
 
-**What actually blocks E3 is not code any more: it is the corpus.** The frozen
-target needs roughly `2,000,000,001` stored train IDs. `SOURCE-001`
-(`docs/rebuild-contract.md:152`) makes that Stack v2 metadata plus authorized
-Software Heritage content, which means real credentials. Those are the operator's
-to supply and pass only through named environment variables, never a config file
-or a log. The tooling for it is built and tested; what it lacks is an
-authorization to use.
+**What actually blocks E3 is not code any more: it is authorization.** The frozen
+target needs roughly `2,000,000,001` stored train IDs, and `SOURCE-001`
+(`docs/rebuild-contract.md:152`) makes the source Stack v2 metadata plus
+authorized Software Heritage content.
+
+`materialize-stack-source` now implements exactly that. It takes hash-bound
+Parquet metadata shards — acquired by `fetch`, so what it reads is pinned rather
+than crawled — projects the columns the operator binds by name, applies the
+language filter, the licence allowlist and the frozen `1,000,000`-byte document
+ceiling, resolves each surviving identifier to a Software Heritage blob through
+the same transport rules as any other acquisition, and publishes the sharded
+`MaterializedSourceManifestV1` plus content tree that `curate` already consumes.
+
+Three properties are worth stating because they are what make it governed rather
+than merely functional. The identifier-to-content step is a link in the hash
+chain, not a gap in it: the archive addresses content by `sha1_git`, so the blob
+is verified against the identifier that selected it before it is written, and a
+substituted body of the same length fails the run. Licences come per row from the
+shard rather than one blanket declaration over a tree, and a dual-licensed row is
+admitted only if *every* term it carries is allowlisted. And each rejection is
+counted by rule in the result — language, licence, oversize, incomplete,
+duplicate — so a run that admits far fewer documents than expected says which
+rule did it instead of leaving one number to guess from.
+
+`parquet` and `arrow` are the first data-lane dependencies that genuinely widen
+the tree: 30 new packages. The codec set is pure Rust on purpose. `CLAUDE.md`
+permits exactly one piece of native code on the data lane, the pinned
+tree-sitter C parser, and Parquet's `zstd` feature would bring `zstd-sys` with
+it. That crate is already in `Cargo.lock` through `zip` in the accelerator tree,
+but that tree is feature-gated and never compiles into a CPU or data build, so
+enabling it here would have put C into the default build. Verified after the
+change: no `zstd-sys`, `zip`, `libz`, `lz4-sys`, `snappy-sys`, `brotli-sys` or
+`openssl` is reachable from the default build. A shard in an unsupported codec
+therefore fails with a typed error naming the codec rather than being silently
+unreadable — which is the honest failure, but it *is* a limitation to check
+against the real shards before a long run.
+
+**What remains is the operator's, and only the operator's.** Accepting the
+HuggingFace dataset terms, obtaining Software Heritage bulk access, and supplying
+both tokens through named environment variables. The adapter is verified against
+Parquet fixtures and a loopback origin, never against the dataset, which is why
+the column mapping is declared in configuration rather than assumed: a schema
+revision is then an operator change instead of a code change.
 
 Working projections for that run. Each basis says what it rests on, because they
 are not equally solid: the two corpus-size rows inherit an estimate, the rest

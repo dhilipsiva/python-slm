@@ -34,6 +34,12 @@ enum Command {
         #[arg(long)]
         config: PathBuf,
     },
+    /// Resolve Stack v2 Python metadata plus authorized Software Heritage content
+    /// into sharded `curate` source manifests: the `SOURCE-001` primary source.
+    MaterializeStackSource {
+        #[arg(long)]
+        config: PathBuf,
+    },
     /// Import the pinned EvalPlus assets into a benchmark protection generation.
     ImportBenchmark {
         #[arg(long)]
@@ -149,6 +155,9 @@ pub fn run(args: impl IntoIterator<Item = OsString>) -> Result<Value> {
             }
         }
         Command::MaterializeSource { config } => crate::materialize::materialize_source(&config),
+        Command::MaterializeStackSource { config } => {
+            crate::stack::materialize_stack_source(&config)
+        }
         Command::ImportBenchmark { config } => crate::benchmark::import_benchmark(&config),
         Command::Curate { config } => crate::data::curate(&config),
         Command::TrainTokenizer { config } => crate::tokenizer::train_tokenizer(&config),

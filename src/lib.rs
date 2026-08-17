@@ -13,6 +13,7 @@ pub mod model;
 pub mod parser;
 pub mod platform;
 pub mod scale_up;
+pub mod stack;
 pub mod storage;
 pub mod tokenizer;
 pub mod train;

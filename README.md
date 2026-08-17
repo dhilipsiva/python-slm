@@ -28,6 +28,44 @@ before reading configuration or mutating state with the typed `PHASE_NOT_IMPLEME
 gate until their owning phases land. Configurations are versioned, explicit, and reject
 unknown fields; there are no legacy fallbacks or hidden production defaults.
 
+## Governed acquisition and source materialization
+
+Everything upstream of `curate` is hash-pinned or it is not deterministic, so
+acquisition is three explicit commands rather than a crawl:
+
+```powershell
+cargo run --locked --bin python-slm -- fetch --config <absolute-config-path> --discover
+cargo run --locked --bin python-slm -- fetch --config <absolute-config-path>
+cargo run --locked --bin python-slm -- materialize-stack-source --config <absolute-config-path>
+```
+
+`fetch --discover` transfers an asset and reports its observed SHA-256 and byte
+count without publishing anything, which is how a digest is obtained before it can
+be pinned. `fetch` then transfers only assets whose digest and length are declared:
+HTTPS only, redirects bounded and re-validated at every hop, bounded streaming
+rather than download-all, every byte hashed before publication, and credentials read
+only from named environment variables. Plain HTTP is admissible solely against a
+literal loopback address, which exists so the transport itself is testable.
+
+`materialize-stack-source` is the `SOURCE-001` primary source adapter. The Stack v2
+shards record Software Heritage *identifiers* rather than a content column, so the
+command reads hash-bound Parquet metadata, projects columns the operator binds by
+name, applies the language filter, the licence allowlist and the frozen
+1,000,000-byte document ceiling, and resolves each surviving identifier to a blob
+through the same transport rules. The archive is content-addressed by `sha1_git`, so
+each blob is verified against the identifier that selected it before it is written —
+the identifier-to-content step is a link in the hash chain, not a gap in it. Licences
+come per row, and a dual-licensed row is admitted only if every term it carries is
+allowlisted. Output is a sharded `MaterializedSourceManifestV1` plus content tree.
+
+`materialize-source` does the same job for an already-authorized local tree, where
+the operator declares one licence expression over the whole tree instead.
+
+Two boundaries stated plainly: the Parquet codec set is pure Rust, because the data
+lane admits no native code beyond the pinned tree-sitter parser, so a shard in an
+unsupported codec fails with a typed error naming it; and the authorization record
+and dataset terms are the operator's to obtain and declare, never verified here.
+
 ## Document source and policy engine
 
 Phase 4 activates bounded materialization of already-authorized local source bytes:

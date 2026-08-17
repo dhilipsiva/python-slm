@@ -79,8 +79,41 @@ clap = { version = "4.5", features = ["derive"] }
 flate2 = "1.1"
 half = { version = "2.7", optional = true }
 hex = "0.4"
+# `SOURCE-001` makes the primary source The Stack v2's Python *metadata* plus
+# authorized Software Heritage content, and that metadata is distributed as
+# Parquet holding Software Heritage identifiers rather than code
+# (`docs/rebuild-contract.md:111,151`). Reading it needs a Parquet reader.
+#
+# Unlike the other data-lane crates this one was not already resolved, so it is
+# the first addition that genuinely widens the tree, and the features are chosen
+# to widen it as little as the format allows. `default-features = false` drops
+# the async runtime, the object store and every cloud transport: the shards
+# arrive as local hash-bound bytes from `fetch`, so this crate only decodes them.
+#
+# The codec set is pure Rust on purpose. `CLAUDE.md` permits exactly one piece of
+# native code on the data lane — the pinned tree-sitter C parser — and Parquet's
+# `zstd` feature would bring `zstd-sys` with it. That crate is already in
+# `Cargo.lock` via `zip` in the accelerator tree, but that tree is feature-gated
+# and never compiles into a CPU or data build; enabling it here would put C into
+# the default build. A shard in an unsupported codec therefore fails with a typed
+# error naming the codec rather than being silently unreadable.
+parquet = { version = "56", default-features = false, features = [
+    "arrow",
+    "snap",
+    "flate2",
+    "flate2-rust_backened",
+    "lz4",
+    "brotli",
+] }
+arrow-array = { version = "56", default-features = false }
+arrow-schema = { version = "56", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+# Software Heritage addresses content by `sha1_git`, so resolving an identifier
+# to bytes and proving they are the ones the shard named needs Git's blob
+# identity, not SHA-256. Already resolved in `Cargo.lock`, pure Rust, and used
+# only for that check — never for an artifact digest, which stays SHA-256.
+sha1 = "0.10"
 sha2 = "0.10"
 rand_chacha = "=0.10.0"
 rand_core = "0.10"
