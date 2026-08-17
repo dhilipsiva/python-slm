@@ -53,6 +53,15 @@ metal = [
 ]
 
 [dependencies]
+# `DECONTAM-001` asks whether any of a thousand protected canonical-JSON records
+# occurs in a document. Asking that one pattern at a time costs corpus bytes
+# times pattern count, which measured at 73 percent of `prepare-corpus`. The
+# patterns run from 2 bytes to 197,766, so no fixed window or prefix anchor
+# separates them; Aho-Corasick answers all of them in one pass over the document
+# and is exactly the substring test the loop it replaces performed. Pure Rust,
+# already resolved in `Cargo.lock`, and on the data lane rather than behind an
+# accelerator feature.
+aho-corasick = "1.1"
 anyhow = { version = "1.0", optional = true }
 burn = { version = "=0.21.0", default-features = false, features = ["std"], optional = true }
 # BalancedCheckpointing is not re-exported through the burn facade, so the

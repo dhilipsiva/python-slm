@@ -1203,17 +1203,37 @@ about `2.9` KiB of LSH band index, and the identities) and the rest is retained
 heap arena, which is the conservative figure to plan against because it is what
 the host must actually supply.
 
-**The stage is now time-bound instead, and one naive loop is most of it.**
-`prepare-corpus` takes `61.0` s for `29.3` MiB, and `44.8` s of that — `73`
-percent — is the `DECONTAM-001` canonical-JSON check, measured by re-running with
-those records removed (`16.2` s). It searches each document for each of `1,053`
-canonical-JSON patterns with `content.windows(pattern).any(...)`, so it costs
-corpus bytes times pattern count with no prefilter. Extrapolated linearly, a
-`24.5` GB corpus is about `10.7` hours of that scan on top of `3.9` hours of
-everything else. A multi-pattern search — Aho-Corasick, or even a first-byte or
-rolling-hash prefilter — collapses the dominant term without changing what
-matches. That is the next piece of work, and it is a throughput problem rather
-than a feasibility one.
+**The canonical-JSON check no longer costs anything measurable.** It had been
+`44.8` s of `prepare-corpus`'s `61.0` s — `73` percent — searching every document
+for each of `1,053` protected records with `content.windows(record).any(...)`, so
+it cost corpus bytes times record count with no prefilter. One anchored
+Aho-Corasick pass replaces it: **`61.0` s to `16.2` s** on the same corpus, which
+is exactly the `16.2` s measured with those records removed entirely. The check
+has gone from the dominant term to a free one, and the generation digest is
+unchanged.
+
+The records run from `2` bytes to `197,766`, so no fixed window or prefix hash
+separates them, but an automaton over them whole is not the answer either — built
+that way it measured `411.1` MiB peak against `91.6`, hundreds of megabytes of
+states bought for nothing. The automaton is built over a `64`-byte anchor of each
+record and every hit is then confirmed in full at its offset. That keeps peak at
+`91.6` MiB exactly, because `64` bytes separates `1,026` of the `1,053` records
+outright and the verification settles the rest. `Standard` match kind with an
+overlapping search is what preserves the old semantics — a record nested inside
+another's match still counts, which the leftmost kinds would drop — and a covering
+test checks the automaton against the record-at-a-time scan on the cases that
+could diverge: a shared anchor completed by only one record, a shared anchor
+completed by neither, a record nested in another's span, and a record shorter
+than the anchor.
+
+`aho-corasick 1.1` joins `flate2` and `ureq` as a data-lane dependency. It was
+already resolved in `Cargo.lock` through the accelerator tree, so naming it
+directly adds one edge and no version churn, and it is pure Rust behind the same
+boundary.
+
+Extrapolated linearly, a `24.5` GB corpus is now about `3.9` hours of
+`prepare-corpus` rather than `14.6`. The stage is single-threaded throughout,
+which is where any further time would come from.
 
 **Landed so far.** `.gitignore` now matches the artifacts the pipeline actually
 writes. Its extension rules previously matched none of them: token shards are

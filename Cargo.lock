@@ -4441,6 +4441,7 @@ dependencies = [
 name = "rust-llm-pretrain"
 version = "0.1.0"
 dependencies = [
+ "aho-corasick",
  "anyhow",
  "base64 0.22.1",
  "burn",

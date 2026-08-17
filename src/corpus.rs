@@ -13,6 +13,7 @@ use crate::storage::{
     CorpusSplit, GovernedCorpusDocumentV1, TokenCorpusGenerationV1, VerifiedTokenCorpus,
 };
 use crate::tokenizer::{HashBoundInput, TokenizerSampleDocumentV1};
+use aho_corasick::{AhoCorasick, AhoCorasickBuilder, AhoCorasickKind, MatchKind};
 use rand_chacha::ChaCha12Rng;
 use rand_core::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
@@ -144,6 +145,21 @@ const MINHASH_COMPONENTS: usize = 256;
 const LSH_BANDS: usize = 32;
 const LSH_ROWS: usize = 8;
 const PROTECTED_SPAN_TOKENS: usize = 50;
+
+/// How much of a protected canonical-JSON record anchors the search for it.
+///
+/// The frozen records run from 2 bytes to 197,766, and an automaton built over
+/// them whole costs hundreds of megabytes of states — real memory spent on a
+/// search that a short anchor plus a verification performs just as fast. At 64
+/// bytes, 1,026 of the 1,053 records are already separated outright, and the few
+/// that collide are settled by the verification every candidate gets anyway. A
+/// record shorter than this is its own anchor, so its verification is trivially
+/// satisfied.
+const CANONICAL_JSON_ANCHOR_BYTES: usize = 64;
+
+fn anchor(record: &[u8]) -> &[u8] {
+    &record[..record.len().min(CANONICAL_JSON_ANCHOR_BYTES)]
+}
 const TARGET_SPAN: u64 = 2_048;
 static PARTIAL_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -564,7 +580,7 @@ fn prepare_portable(config_path: &Path) -> Result<Value> {
     // while that document's tokens exist, so the index has to be ready before
     // the first one is read.
     let protected = load_benchmark(&benchmark, &benchmark_root, &cancellation)?;
-    let protected_index = ProtectedIndex::build(&protected);
+    let protected_index = ProtectedIndex::build(&protected)?;
     let roots = sources
         .iter()
         .map(|(_, root)| root.clone())
@@ -933,22 +949,29 @@ struct ProtectedIndex<'a> {
     bands: BTreeMap<[u8; 32], Vec<usize>>,
     spans: BTreeMap<[u8; 32], Vec<usize>>,
     short_sequences: BTreeMap<&'a TokenSequence, Vec<usize>>,
-    canonical_json: Vec<usize>,
+    /// The canonical-JSON records as one automaton, and the record each of its
+    /// patterns came from. Empty records are excluded, exactly as the
+    /// pattern-at-a-time loop this replaces skipped them.
+    canonical_json: Option<AhoCorasick>,
+    canonical_json_records: Vec<usize>,
 }
 
 impl<'a> ProtectedIndex<'a> {
-    fn build(records: &'a [ProtectedBenchmark]) -> Self {
+    fn build(records: &'a [ProtectedBenchmark]) -> Result<Self> {
         let mut index = Self {
             records,
             exact: BTreeMap::new(),
             bands: BTreeMap::new(),
             spans: BTreeMap::new(),
             short_sequences: BTreeMap::new(),
-            canonical_json: Vec::new(),
+            canonical_json: None,
+            canonical_json_records: Vec::new(),
         };
         for (position, record) in records.iter().enumerate() {
             if record.kind == BenchmarkContentKind::CanonicalJson {
-                index.canonical_json.push(position);
+                if !record.content.is_empty() {
+                    index.canonical_json_records.push(position);
+                }
                 continue;
             }
             index
@@ -977,7 +1000,32 @@ impl<'a> ProtectedIndex<'a> {
                 }
             }
         }
-        index
+        if !index.canonical_json_records.is_empty() {
+            // `Standard` with overlapping search is the semantics the loop this
+            // replaces had: every record that occurs anywhere, including one
+            // nested inside another's match, which the leftmost kinds would drop.
+            // The automaton is built once per run rather than per document, and
+            // is pinned to the contiguous NFA because a dense DFA over even the
+            // anchors would be far larger for no gain.
+            index.canonical_json = Some(
+                AhoCorasickBuilder::new()
+                    .match_kind(MatchKind::Standard)
+                    .kind(Some(AhoCorasickKind::ContiguousNFA))
+                    .build(
+                        index
+                            .canonical_json_records
+                            .iter()
+                            .map(|position| anchor(&records[*position].content)),
+                    )
+                    .map_err(|_| {
+                        ProductError::integrity(
+                            "BENCHMARK_PROTECTION_INDEX_FAILED",
+                            "the protected canonical-JSON records could not be indexed",
+                        )
+                    })?,
+            );
+        }
+        Ok(index)
     }
 
     /// Every protected record this document matches, with the reasons, or `None`
@@ -996,11 +1044,34 @@ impl<'a> ProtectedIndex<'a> {
                 matches.entry(*position).or_default().insert("EXACT_SOURCE");
             }
         }
-        for position in &self.canonical_json {
-            let bytes = &self.records[*position].content;
-            if !bytes.is_empty() && content.windows(bytes.len()).any(|part| part == bytes) {
+        if let Some(automaton) = &self.canonical_json {
+            // One pass over the document answers every canonical-JSON record at
+            // once. Each hit is an anchor, so the record still has to be
+            // confirmed in full at that offset; a record already confirmed is
+            // skipped, and the walk stops early once all of them are.
+            let mut seen = BTreeSet::new();
+            for found in automaton.find_overlapping_iter(content) {
+                let pattern = found.pattern().as_usize();
+                if seen.contains(&pattern) {
+                    continue;
+                }
+                let record = self.records[self.canonical_json_records[pattern]]
+                    .content
+                    .as_slice();
+                let start = found.start();
+                if content.len() - start < record.len()
+                    || &content[start..start + record.len()] != record
+                {
+                    continue;
+                }
+                seen.insert(pattern);
+                if seen.len() == self.canonical_json_records.len() {
+                    break;
+                }
+            }
+            for pattern in seen {
                 matches
-                    .entry(*position)
+                    .entry(self.canonical_json_records[pattern])
                     .or_default()
                     .insert("CANONICAL_JSON_EXACT");
             }
@@ -2685,7 +2756,7 @@ mod tests {
         }];
         // Matching now happens while a document's tokens exist, so the fixture
         // reaches the same verdict the load pass would.
-        let index = ProtectedIndex::build(&protected);
+        let index = ProtectedIndex::build(&protected).unwrap();
         for position in 0..fixture.documents.len() {
             let tokens = fixture.tokens(position);
             let content =
@@ -2714,6 +2785,86 @@ mod tests {
                 .reasons
                 .contains(&"EXACT_SOURCE".to_owned())
         );
+    }
+
+    /// The canonical-JSON check is a plain substring test, and the anchored
+    /// automaton has to answer exactly as the record-at-a-time scan did. The
+    /// cases that could diverge are the ones the anchor cannot settle alone: a
+    /// record whose first 64 bytes appear without the rest, one nested inside
+    /// another record's match, and one shorter than the anchor.
+    #[test]
+    fn anchored_canonical_json_matches_the_substring_test() {
+        let long = |tail: &str| format!("[[{}]],{tail}", "1234567890,".repeat(12)).into_bytes();
+        let records = [
+            long("\"alpha\""),
+            long("\"beta\""),
+            b"[]".to_vec(),
+            b"[[9]]".to_vec(),
+        ];
+        assert!(
+            records[0].len() > CANONICAL_JSON_ANCHOR_BYTES
+                && anchor(&records[0]) == anchor(&records[1]),
+            "the first two records must share an anchor but differ in full"
+        );
+        let protected = records
+            .iter()
+            .enumerate()
+            .map(|(position, content)| ProtectedBenchmark {
+                identity: format!("humanevalplus:{position}:/base_input:base_input"),
+                kind: BenchmarkContentKind::CanonicalJson,
+                content: content.clone(),
+                canonical_sha256: sha256(content),
+                tokens: TokenSequence::default(),
+                shingles: BTreeSet::new(),
+                signature: None,
+            })
+            .collect::<Vec<_>>();
+        let index = ProtectedIndex::build(&protected).unwrap();
+
+        // The reference the automaton has to agree with, for any content.
+        let reference = |content: &[u8]| {
+            records
+                .iter()
+                .enumerate()
+                .filter(|(_, record)| {
+                    !record.is_empty() && content.windows(record.len()).any(|part| part == *record)
+                })
+                .map(|(position, _)| format!("humanevalplus:{position}:/base_input:base_input"))
+                .collect::<Vec<_>>()
+        };
+        let contents: Vec<Vec<u8>> = vec![
+            b"nothing here at all".to_vec(),
+            records[0].clone(),
+            // The shared anchor present, but only the other record completed.
+            records[1].clone(),
+            // A record nested inside a longer one's span.
+            [b"prefix ".to_vec(), records[0].clone(), b" suffix".to_vec()].concat(),
+            // The two-byte record, which is its own anchor.
+            b"x = []".to_vec(),
+            b"y = [[9]] and []".to_vec(),
+            // The shared anchor with neither record completed.
+            [anchor(&records[0]).to_vec(), b"\"gamma\"".to_vec()].concat(),
+        ];
+        for content in &contents {
+            let outcome = index
+                .match_document(
+                    &hash("doc"),
+                    &hash("canonical"),
+                    content,
+                    &TokenSequence::default(),
+                    &[0; MINHASH_COMPONENTS],
+                )
+                .unwrap();
+            let actual = outcome
+                .map(|outcome| outcome.benchmark_identities)
+                .unwrap_or_default();
+            assert_eq!(
+                actual,
+                reference(content),
+                "disagreed on {:?}",
+                String::from_utf8_lossy(&content[..content.len().min(40)])
+            );
+        }
     }
 
     #[test]
