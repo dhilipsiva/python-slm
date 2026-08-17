@@ -10,6 +10,14 @@
 //! Host-derived constants (RoPE tables, the causal mask, token indices) are
 //! created with an explicit F32 dtype so device-default BF16 creation can never
 //! round them.
+//!
+//! Training splits one step into several backward passes so that no stage of the
+//! graph is retained longer than it is needed: the cross-entropy head is
+//! differentiated one position chunk at a time, and each layer is forwarded once
+//! untracked to record its boundary and recomputed with a tape only while its own
+//! gradient is being taken. The stages are joined by the vector-Jacobian seed in
+//! [`vector_jacobian_seed`], which is exact, so the split changes peak memory
+//! without changing the gradient.
 
 use super::{
     ACCELERATOR_OBSERVATION_SCHEMA, AcceleratorCancellation, AcceleratorModelObservation,
@@ -54,6 +62,143 @@ fn bf16_store<B: AutodiffBackend, const D: usize>(tensor: Tensor<B, D>) -> Tenso
         .detach();
     let residual = (quantized - tensor.clone().detach()).detach();
     tensor + residual
+}
+
+/// Flattened positions per cross-entropy chunk.
+///
+/// The `[positions, vocabulary]` logits are by far the largest tensor in the
+/// graph, so bounding the head means bounding this width rather than the sequence
+/// length or the batch. It is a Rust constant because the frozen profile defaults
+/// file is byte-pinned and cannot take a new field.
+///
+/// The value is comfortably above the two-position P9B fixture, so the fixture
+/// stays a single chunk and its loss keeps the exact reduction order the frozen
+/// oracle bytes were taken from.
+pub(crate) const HEAD_CHUNK_POSITIONS: usize = 512;
+
+/// One dispatch's tokens, flattened over the batch.
+///
+/// Every sequence in a dispatch shares a length; callers group by length so the
+/// ragged final update stays exact rather than padded into a uniform shape.
+struct BatchTokens {
+    batch: usize,
+    positions: usize,
+    input_ids: Vec<i32>,
+    target_ids: Vec<i32>,
+}
+
+fn flatten_sequences(sequences: &[(&[u16], &[u16])], max_context: usize) -> Result<BatchTokens> {
+    ensure!(!sequences.is_empty(), "E1_GRAPH_BATCH_EMPTY");
+    let positions = sequences[0].0.len();
+    ensure!(
+        positions > 0 && positions <= max_context,
+        "E1_GRAPH_SEQUENCE_INVALID"
+    );
+    ensure!(
+        sequences
+            .iter()
+            .all(|(inputs, targets)| inputs.len() == positions && targets.len() == positions),
+        "E1_GRAPH_SEQUENCE_INVALID"
+    );
+    let widen = |token: &u16| i32::from(*token);
+    Ok(BatchTokens {
+        batch: sequences.len(),
+        positions,
+        input_ids: sequences
+            .iter()
+            .flat_map(|(inputs, _)| inputs.iter().map(widen))
+            .collect(),
+        target_ids: sequences
+            .iter()
+            .flat_map(|(_, targets)| targets.iter().map(widen))
+            .collect(),
+    })
+}
+
+/// Half-open chunk boundaries over the flattened positions of one dispatch.
+fn head_chunks(rows: usize) -> impl Iterator<Item = (usize, usize)> {
+    (0..rows)
+        .step_by(HEAD_CHUNK_POSITIONS)
+        .map(move |start| (start, (start + HEAD_CHUNK_POSITIONS).min(rows)))
+}
+
+/// The vector-Jacobian seed that resumes one backward pass from another's result.
+///
+/// `sum(value * cotangent)` differentiates to exactly `cotangent` at `value`: the
+/// reduction contributes a seed of one and the multiplication passes `cotangent`
+/// through scaled by it, and multiplication by one is exact in IEEE-754. That is
+/// what lets a step be split into stages without perturbing the gradient. burn
+/// seeds `backward()` with ones over the root's shape and never requires a scalar
+/// root, but reducing here keeps that seed a single element rather than a tensor
+/// the size of `value`.
+fn vector_jacobian_seed<B: AutodiffBackend>(
+    value: Tensor<B, 3>,
+    cotangent: Tensor<B::InnerBackend, 3>,
+) -> Tensor<B, 1> {
+    (value * Tensor::from_inner(cotangent)).sum()
+}
+
+/// Gradient totals across the several backward passes one training step is split
+/// into.
+///
+/// Each pass differentiates a different stage, so a parameter absent from one
+/// contributes nothing to it, and a parameter that appears in several — the LM
+/// head, once per cross-entropy chunk — is summed on device rather than read back
+/// repeatedly.
+struct GradientAccumulator<B: AutodiffBackend> {
+    totals: BTreeMap<String, Tensor<B::InnerBackend, 2>>,
+}
+
+impl<B: AutodiffBackend> GradientAccumulator<B> {
+    fn new() -> Self {
+        Self {
+            totals: BTreeMap::new(),
+        }
+    }
+
+    fn absorb(&mut self, parameters: &BTreeMap<String, Tensor<B, 2>>, gradients: &B::Gradients) {
+        for (name, parameter) in parameters {
+            let Some(gradient) = parameter.grad(gradients) else {
+                continue;
+            };
+            let total = match self.totals.remove(name) {
+                Some(previous) => previous + gradient,
+                None => gradient,
+            };
+            self.totals.insert(name.clone(), total);
+        }
+    }
+
+    /// Read every gradient back in PARAM-001 order through a single host transfer.
+    ///
+    /// Concatenating first replaces one device synchronization per parameter with
+    /// one for the whole model, which at canonical scale is 111 stalls per
+    /// micro-batch turned into one.
+    fn read(mut self, dimensions: &GqaDimensions) -> Result<Vec<f32>> {
+        let layout = dimensions.parameter_layout();
+        let mut flattened = Vec::with_capacity(layout.len());
+        let mut expected = 0_usize;
+        for (name, shape) in &layout {
+            let gradient = self
+                .totals
+                .remove(name)
+                .ok_or_else(|| anyhow!("E1_GRAPH_GRADIENT_MISSING: {name}"))?;
+            let elements = shape.iter().product::<usize>();
+            ensure!(
+                gradient.dims().iter().product::<usize>() == elements,
+                "E1_GRAPH_GRADIENT_SHAPE_MISMATCH: {name}"
+            );
+            expected += elements;
+            flattened.push(gradient.reshape([elements]));
+        }
+        let values = Tensor::cat(flattened, 0)
+            .try_into_data()
+            .context("E1_GRAPH_GRADIENT_READ_FAILED")?
+            .to_vec::<f32>()
+            .context("E1_GRAPH_GRADIENT_DTYPE_INVALID")?;
+        ensure!(values.len() == expected, "E1_GRAPH_GRADIENT_SHAPE_MISMATCH");
+        Ok(values)
+    }
 }
 
 pub(crate) struct FullModelGraph<B: AutodiffBackend> {
@@ -115,16 +260,24 @@ impl<B: AutodiffBackend> FullModelGraph<B> {
             .ok_or_else(|| anyhow!("E1_GRAPH_PARAMETER_MISSING: {name}"))
     }
 
-    /// A forward-only clone whose parameters are detached. Evaluation must never
-    /// build an autodiff tape: retaining one grows device memory across held-out
-    /// spans and could not affect training state anyway.
-    pub fn detached(&self) -> Self {
+    /// A forward-only clone whose parameters carry no gradient requirement, so
+    /// running the graph through it builds no autodiff tape at all.
+    ///
+    /// `detach()` is not sufficient and was the earlier mistake here: burn's
+    /// `float_detach` deliberately re-applies the `require_grad` flag it found, so
+    /// a detached parameter still roots a tape and every intermediate is still
+    /// retained. Clearing the flag is what actually stops one forming. Evaluation
+    /// and the checkpoint pass both depend on that.
+    ///
+    /// Device buffers are shared with the original, so this is a handle clone
+    /// rather than a copy of the parameters.
+    pub fn untracked(&self) -> Self {
         Self {
             dimensions: self.dimensions,
             parameters: self
                 .parameters
                 .iter()
-                .map(|(name, tensor)| (name.clone(), tensor.clone().detach()))
+                .map(|(name, tensor)| (name.clone(), tensor.clone().set_require_grad(false)))
                 .collect(),
         }
     }
@@ -144,16 +297,21 @@ impl<B: AutodiffBackend> FullModelGraph<B> {
         Ok(bf16_store(input * inverse * scale))
     }
 
+    /// One GEMM over rows that are already flattened.
+    fn linear_rows(&self, input: Tensor<B, 2>, weight_name: &str) -> Result<Tensor<B, 2>> {
+        let weight = self.parameter(weight_name)?.clone();
+        Ok(bf16_store(input.matmul(weight.transpose())))
+    }
+
     /// One GEMM over the flattened batch. Folding `[B, L]` into a single row axis
     /// keeps this a single large matmul instead of one dispatch per sequence.
+    /// `bf16_store` is elementwise, so applying it to the flat rows is the same
+    /// value as applying it after the reshape.
     fn linear(&self, input: Tensor<B, 3>, weight_name: &str) -> Result<Tensor<B, 3>> {
         let [batch, positions, width] = input.dims();
-        let weight = self.parameter(weight_name)?.clone();
-        let [outputs, _] = weight.dims();
-        let projected = input
-            .reshape([batch * positions, width])
-            .matmul(weight.transpose());
-        Ok(bf16_store(projected.reshape([batch, positions, outputs])))
+        let projected = self.linear_rows(input.reshape([batch * positions, width]), weight_name)?;
+        let [_, outputs] = projected.dims();
+        Ok(projected.reshape([batch, positions, outputs]))
     }
 
     fn apply_rope(
@@ -193,128 +351,129 @@ impl<B: AutodiffBackend> FullModelGraph<B> {
             .reshape([batch, positions, width]))
     }
 
-    /// One complete forward pass over a single sequence, returning the summed
-    /// per-target loss divided by `normalizer` and, when requested, the BF16
-    /// logits bits.
-    fn forward_loss(
-        &self,
-        sequences: &[(&[u16], &[u16])],
-        constants: &GraphConstants<B>,
-        normalizer: f32,
-        capture_logits: bool,
-        device: &B::Device,
-    ) -> Result<(Tensor<B, 1>, Vec<u16>)> {
-        let batch = sequences.len();
-        ensure!(batch > 0, "E1_GRAPH_BATCH_EMPTY");
-        let positions = sequences[0].0.len();
-        ensure!(
-            positions > 0 && positions <= self.dimensions.max_context,
-            "E1_GRAPH_SEQUENCE_INVALID"
-        );
-        // Every sequence in one dispatch shares a length; the caller groups by
-        // length so the ragged final update stays exact instead of padded.
-        ensure!(
-            sequences
-                .iter()
-                .all(|(inputs, targets)| inputs.len() == positions && targets.len() == positions),
-            "E1_GRAPH_SEQUENCE_INVALID"
-        );
-        let input_ids = sequences
-            .iter()
-            .flat_map(|(inputs, _)| inputs.iter().copied())
-            .collect::<Vec<_>>();
-        let target_ids = sequences
-            .iter()
-            .flat_map(|(_, targets)| targets.iter().copied())
-            .collect::<Vec<_>>();
-
+    fn embed(&self, tokens: &BatchTokens, device: &B::Device) -> Result<Tensor<B, 3>> {
         let token_indices = Tensor::<B, 1, Int>::from_data(
-            TensorData::new(
-                input_ids
-                    .iter()
-                    .map(|token| i32::from(*token))
-                    .collect::<Vec<_>>(),
-                [batch * positions],
-            ),
+            TensorData::new(tokens.input_ids.clone(), [tokens.batch * tokens.positions]),
             device,
         );
-        let embeddings = self.parameter("tok_embeddings.weight")?.clone();
-        let width = self.dimensions.width;
-        let mut hidden = embeddings
+        Ok(self
+            .parameter("tok_embeddings.weight")?
+            .clone()
             .select(0, token_indices)
-            .reshape([batch, positions, width]);
+            .reshape([tokens.batch, tokens.positions, self.dimensions.width]))
+    }
 
+    /// The inclusive causal mask for one dispatch, broadcast across the batch and
+    /// the heads rather than sliced per sequence.
+    fn causal_mask(&self, positions: usize, constants: &GraphConstants<B>) -> Tensor<B, 3> {
+        constants
+            .causal_mask
+            .clone()
+            .slice([0..positions, 0..positions])
+            .reshape([1, positions, positions])
+    }
+
+    /// One pre-norm block: grouped-query attention with a residual, then SwiGLU
+    /// with a residual.
+    ///
+    /// Factored out so activation checkpointing can run it once untracked to
+    /// record its output boundary and once with a tape to differentiate it.
+    fn layer(
+        &self,
+        block: usize,
+        hidden: Tensor<B, 3>,
+        mask: &Tensor<B, 3>,
+        constants: &GraphConstants<B>,
+    ) -> Result<Tensor<B, 3>> {
+        let [batch, positions, width] = hidden.dims();
         let head_width = self.dimensions.head_width;
         let query_heads = self.dimensions.query_heads;
         let key_value_heads = self.dimensions.key_value_heads;
         let queries_per_kv = query_heads / key_value_heads;
         let scale = (head_width as f32).sqrt();
-        let mask = constants
-            .causal_mask
-            .clone()
-            .slice([0..positions, 0..positions])
-            .reshape([1, positions, positions]);
 
-        for block in 0..self.dimensions.layers {
-            let normalized =
-                self.rms_norm(hidden.clone(), &format!("blocks.{block}.attn_norm.weight"))?;
-            let query = self.apply_rope(
-                self.linear(normalized.clone(), &format!("blocks.{block}.attn.q.weight"))?,
-                &constants.query_rope,
-            )?;
-            let key = self.apply_rope(
-                self.linear(normalized.clone(), &format!("blocks.{block}.attn.k.weight"))?,
-                &constants.key_rope,
-            )?;
-            let value = self.linear(normalized, &format!("blocks.{block}.attn.v.weight"))?;
+        let normalized =
+            self.rms_norm(hidden.clone(), &format!("blocks.{block}.attn_norm.weight"))?;
+        let query = self.apply_rope(
+            self.linear(normalized.clone(), &format!("blocks.{block}.attn.q.weight"))?,
+            &constants.query_rope,
+        )?;
+        let key = self.apply_rope(
+            self.linear(normalized.clone(), &format!("blocks.{block}.attn.k.weight"))?,
+            &constants.key_rope,
+        )?;
+        let value = self.linear(normalized, &format!("blocks.{block}.attn.v.weight"))?;
 
-            // Fold heads into the batch axis so all heads run as one batched
-            // matmul, and expand each K/V head across its query group instead of
-            // re-slicing it per query head.
-            let folded = batch * query_heads;
-            let query = query
-                .reshape([batch, positions, query_heads, head_width])
+        // Fold heads into the batch axis so all heads run as one batched matmul,
+        // and expand each K/V head across its query group instead of re-slicing it
+        // per query head.
+        let folded = batch * query_heads;
+        let query = query
+            .reshape([batch, positions, query_heads, head_width])
+            .swap_dims(1, 2)
+            .reshape([folded, positions, head_width]);
+        let group = |projection: Tensor<B, 3>| {
+            projection
+                .reshape([batch, positions, key_value_heads, head_width])
                 .swap_dims(1, 2)
-                .reshape([folded, positions, head_width]);
-            let group = |projection: Tensor<B, 3>| {
-                projection
-                    .reshape([batch, positions, key_value_heads, head_width])
-                    .swap_dims(1, 2)
-                    .reshape([batch, key_value_heads, 1, positions, head_width])
-                    .repeat_dim(2, queries_per_kv)
-                    .reshape([folded, positions, head_width])
-            };
-            let key = group(key);
-            let value = group(value);
+                .reshape([batch, key_value_heads, 1, positions, head_width])
+                .repeat_dim(2, queries_per_kv)
+                .reshape([folded, positions, head_width])
+        };
+        let key = group(key);
+        let value = group(value);
 
-            let scores = query.matmul(key.swap_dims(1, 2)).div_scalar(scale) + mask.clone();
-            let probabilities = softmax(scores, 2);
-            let context = bf16_store(probabilities.matmul(value));
-            let attention = self.linear(
-                context
-                    .reshape([batch, query_heads, positions, head_width])
-                    .swap_dims(1, 2)
-                    .reshape([batch, positions, width]),
-                &format!("blocks.{block}.attn.o.weight"),
-            )?;
-            hidden = bf16_store(hidden + attention);
+        let scores = query.matmul(key.swap_dims(1, 2)).div_scalar(scale) + mask.clone();
+        let probabilities = softmax(scores, 2);
+        let context = bf16_store(probabilities.matmul(value));
+        let attention = self.linear(
+            context
+                .reshape([batch, query_heads, positions, head_width])
+                .swap_dims(1, 2)
+                .reshape([batch, positions, width]),
+            &format!("blocks.{block}.attn.o.weight"),
+        )?;
+        let hidden = bf16_store(hidden + attention);
 
-            let normalized =
-                self.rms_norm(hidden.clone(), &format!("blocks.{block}.ffn_norm.weight"))?;
-            let gate = self.linear(
-                normalized.clone(),
-                &format!("blocks.{block}.ffn.gate.weight"),
-            )?;
-            let up = self.linear(normalized, &format!("blocks.{block}.ffn.up.weight"))?;
-            let sigmoid = gate.clone().neg().exp().add_scalar(1.0).recip();
-            let activated = bf16_store(gate * sigmoid * up);
-            let projected = self.linear(activated, &format!("blocks.{block}.ffn.down.weight"))?;
-            hidden = bf16_store(hidden + projected);
+        let normalized =
+            self.rms_norm(hidden.clone(), &format!("blocks.{block}.ffn_norm.weight"))?;
+        let gate = self.linear(
+            normalized.clone(),
+            &format!("blocks.{block}.ffn.gate.weight"),
+        )?;
+        let up = self.linear(normalized, &format!("blocks.{block}.ffn.up.weight"))?;
+        let sigmoid = gate.clone().neg().exp().add_scalar(1.0).recip();
+        let activated = bf16_store(gate * sigmoid * up);
+        let projected = self.linear(activated, &format!("blocks.{block}.ffn.down.weight"))?;
+        Ok(bf16_store(hidden + projected))
+    }
+
+    /// Embedding through the final RMSNorm, as one continuous graph.
+    fn forward_body(
+        &self,
+        tokens: &BatchTokens,
+        constants: &GraphConstants<B>,
+        device: &B::Device,
+    ) -> Result<Tensor<B, 3>> {
+        let mask = self.causal_mask(tokens.positions, constants);
+        let mut hidden = self.embed(tokens, device)?;
+        for block in 0..self.dimensions.layers {
+            hidden = self.layer(block, hidden, &mask, constants)?;
         }
+        self.rms_norm(hidden, "final_norm.weight")
+    }
 
-        let normalized = self.rms_norm(hidden, "final_norm.weight")?;
-        let logits = self.linear(normalized, "lm_head.weight")?;
-
+    /// Summed cross-entropy over one chunk of flattened positions, divided by
+    /// `normalizer`, and optionally the chunk's BF16 logits bits.
+    fn head_chunk(
+        &self,
+        rows: Tensor<B, 2>,
+        targets: &[i32],
+        normalizer: f32,
+        capture_logits: bool,
+        device: &B::Device,
+    ) -> Result<(Tensor<B, 1>, Vec<u16>)> {
+        let logits = self.linear_rows(rows, "lm_head.weight")?;
         let logits_bits = if capture_logits {
             logits
                 .clone()
@@ -329,26 +488,116 @@ impl<B: AutodiffBackend> FullModelGraph<B> {
             Vec::new()
         };
 
-        let maxima = logits.clone().max_dim(2).detach();
-        let log_partition = (logits.clone() - maxima.clone()).exp().sum_dim(2).log() + maxima;
-        let target_indices = Tensor::<B, 3, Int>::from_data(
-            TensorData::new(
-                target_ids
-                    .iter()
-                    .map(|token| i32::from(*token))
-                    .collect::<Vec<_>>(),
-                [batch, positions, 1],
-            ),
+        let maxima = logits.clone().max_dim(1).detach();
+        let log_partition = (logits.clone() - maxima.clone()).exp().sum_dim(1).log() + maxima;
+        let target_indices = Tensor::<B, 2, Int>::from_data(
+            TensorData::new(targets.to_vec(), [targets.len(), 1]),
             device,
         );
-        let target_logits = logits.gather(2, target_indices);
-        let loss = (log_partition - target_logits).sum().div_scalar(normalizer);
-        Ok((loss, logits_bits))
+        let target_logits = logits.gather(1, target_indices);
+        Ok((
+            (log_partition - target_logits).sum().div_scalar(normalizer),
+            logits_bits,
+        ))
+    }
+
+    /// Forward-only summed cross-entropy over a whole dispatch.
+    fn head_loss(
+        &self,
+        hidden: Tensor<B, 3>,
+        tokens: &BatchTokens,
+        normalizer: f32,
+        device: &B::Device,
+    ) -> Result<Tensor<B, 1>> {
+        let width = self.dimensions.width;
+        let rows = tokens.batch * tokens.positions;
+        let hidden = hidden.reshape([rows, width]);
+        let mut losses = Vec::new();
+        for (start, end) in head_chunks(rows) {
+            let (loss, _) = self.head_chunk(
+                hidden.clone().slice([start..end, 0..width]),
+                &tokens.target_ids[start..end],
+                normalizer,
+                false,
+                device,
+            )?;
+            losses.push(loss);
+        }
+        Ok(Tensor::cat(losses, 0).sum())
+    }
+
+    /// Differentiate the cross-entropy head one chunk at a time.
+    ///
+    /// Each chunk is backwarded as soon as it is built, so the
+    /// `[.., vocabulary]` tape exists for one chunk rather than for the whole
+    /// dispatch. Returns the summed loss, any captured logits bits, and the
+    /// cotangent on the final normalized hidden state, which is what the body
+    /// backward is then resumed from.
+    fn chunked_head_backward(
+        &self,
+        hidden: Tensor<B::InnerBackend, 3>,
+        tokens: &BatchTokens,
+        normalizer: f32,
+        capture_logits: bool,
+        accumulator: &mut GradientAccumulator<B>,
+        device: &B::Device,
+    ) -> Result<(f32, Vec<u16>, Tensor<B::InnerBackend, 3>)> {
+        let width = self.dimensions.width;
+        let rows = tokens.batch * tokens.positions;
+        let hidden = hidden.reshape([rows, width]);
+        let mut losses = Vec::new();
+        let mut cotangents = Vec::new();
+        let mut logits_bits = Vec::new();
+        for (start, end) in head_chunks(rows) {
+            let chunk =
+                Tensor::from_inner(hidden.clone().slice([start..end, 0..width])).require_grad();
+            let (loss, bits) = self.head_chunk(
+                chunk.clone(),
+                &tokens.target_ids[start..end],
+                normalizer,
+                capture_logits,
+                device,
+            )?;
+            logits_bits.extend(bits);
+            losses.push(loss.clone().inner());
+            let gradients = loss.backward();
+            accumulator.absorb(&self.parameters, &gradients);
+            cotangents.push(
+                chunk
+                    .grad(&gradients)
+                    .ok_or_else(|| anyhow!("E1_GRAPH_GRADIENT_MISSING: lm_head input"))?,
+            );
+        }
+        // Chunk losses are summed on the host in dispatch order, which is fixed,
+        // so the total is deterministic. It is not bit-identical to one device
+        // reduction over every position, but nothing frozen compares it: the P9B
+        // fixture is a single chunk and so keeps the oracle's exact order.
+        let loss_f32 = Tensor::cat(losses, 0)
+            .try_into_data()
+            .context("E1_GRAPH_LOSS_READ_FAILED")?
+            .to_vec::<f32>()
+            .context("E1_GRAPH_LOSS_DTYPE_INVALID")?
+            .into_iter()
+            .sum();
+        Ok((
+            loss_f32,
+            logits_bits,
+            Tensor::cat(cotangents, 0).reshape([tokens.batch, tokens.positions, width]),
+        ))
     }
 
     /// Forward, loss, backward, and ordered FP32 gradient readback for one
-    /// sequence. `normalizer` is `1.0` for trainer sum-mode accumulation and the
+    /// dispatch. `normalizer` is `1.0` for trainer sum-mode accumulation and the
     /// valid-target count for the oracle-mean parity fixture.
+    ///
+    /// The step is staged rather than taken as one tape. Every layer is forwarded
+    /// untracked to record the hidden state at its boundary, the head is
+    /// differentiated in chunks, and each layer is then recomputed with a tape
+    /// only while its own gradient is taken. Retained state falls from every
+    /// intermediate of every layer to the layer boundaries plus one live layer,
+    /// at the cost of forwarding the body twice. The stages are joined by an
+    /// exact vector-Jacobian seed, so the result is the same gradient the single
+    /// tape produced.
     pub fn training_step(
         &self,
         sequences: &[(&[u16], &[u16])],
@@ -357,45 +606,76 @@ impl<B: AutodiffBackend> FullModelGraph<B> {
         capture_logits: bool,
         device: &B::Device,
     ) -> Result<FullGraphOutput> {
-        let (loss, logits_bits) =
-            self.forward_loss(sequences, constants, normalizer, capture_logits, device)?;
-        let gradients = loss.clone().backward();
-        let loss_f32 = loss
-            .try_into_data()
-            .context("E1_GRAPH_LOSS_READ_FAILED")?
-            .to_vec::<f32>()
-            .context("E1_GRAPH_LOSS_DTYPE_INVALID")?[0];
-        let mut gradient_f32 = Vec::new();
-        for (name, shape) in self.dimensions.parameter_layout() {
-            let elements = shape.iter().product::<usize>();
-            let gradient = self
-                .parameter(&name)?
-                .grad(&gradients)
-                .with_context(|| format!("E1_GRAPH_GRADIENT_MISSING: {name}"))?
-                .try_into_data()
-                .with_context(|| format!("E1_GRAPH_GRADIENT_READ_FAILED: {name}"))?
-                .to_vec::<f32>()
-                .with_context(|| format!("E1_GRAPH_GRADIENT_DTYPE_INVALID: {name}"))?;
-            ensure!(
-                gradient.len() == elements,
-                "E1_GRAPH_GRADIENT_SHAPE_MISMATCH: {name}"
-            );
-            gradient_f32.extend(gradient);
+        let tokens = flatten_sequences(sequences, self.dimensions.max_context)?;
+        let mask = self.causal_mask(tokens.positions, constants);
+        let untracked = self.untracked();
+
+        // Checkpoint pass: no tape, so nothing but the boundaries survives it.
+        let embedded = self.embed(&tokens, device)?;
+        let mut boundaries = Vec::with_capacity(self.dimensions.layers + 1);
+        boundaries.push(embedded.clone().inner());
+        for block in 0..self.dimensions.layers {
+            let input = Tensor::from_inner(boundaries[block].clone());
+            boundaries.push(untracked.layer(block, input, &mask, constants)?.inner());
         }
+        drop(untracked);
+
+        // The head is differentiated first: it produces the cotangent every
+        // earlier stage is resumed from.
+        let body_output = boundaries
+            .pop()
+            .ok_or_else(|| anyhow!("E1_GRAPH_CHECKPOINT_EMPTY"))?;
+        let body_output = Tensor::from_inner(body_output).require_grad();
+        let normalized = self.rms_norm(body_output.clone(), "final_norm.weight")?;
+        let mut accumulator = GradientAccumulator::<B>::new();
+        let (loss_f32, logits_bf16_bits, cotangent) = self.chunked_head_backward(
+            normalized.clone().inner(),
+            &tokens,
+            normalizer,
+            capture_logits,
+            &mut accumulator,
+            device,
+        )?;
+
+        let gradients = vector_jacobian_seed(normalized, cotangent).backward();
+        accumulator.absorb(&self.parameters, &gradients);
+        let mut cotangent = body_output
+            .grad(&gradients)
+            .ok_or_else(|| anyhow!("E1_GRAPH_GRADIENT_MISSING: final_norm.weight input"))?;
+
+        // Recompute and differentiate one layer at a time, in reverse.
+        for block in (0..self.dimensions.layers).rev() {
+            let input = boundaries
+                .pop()
+                .ok_or_else(|| anyhow!("E1_GRAPH_CHECKPOINT_EMPTY"))?;
+            let input = Tensor::from_inner(input).require_grad();
+            let output = self.layer(block, input.clone(), &mask, constants)?;
+            let gradients = vector_jacobian_seed(output, cotangent).backward();
+            accumulator.absorb(&self.parameters, &gradients);
+            cotangent = input
+                .grad(&gradients)
+                .ok_or_else(|| anyhow!("E1_GRAPH_GRADIENT_MISSING: blocks.{block} input"))?;
+        }
+
+        let gradients = vector_jacobian_seed(embedded, cotangent).backward();
+        accumulator.absorb(&self.parameters, &gradients);
+
         Ok(FullGraphOutput {
             loss_f32,
-            gradient_f32,
-            logits_bf16_bits: logits_bits,
+            gradient_f32: accumulator.read(&self.dimensions)?,
+            logits_bf16_bits,
         })
     }
 
-    /// Forward-only summed losses for a whole held-out set, read back once.
-    ///
-    /// The per-span losses stay on device and are concatenated for a single
-    /// host transfer: reading each span individually would force one full device
-    /// synchronization per span and dominate evaluation wall-clock.
     /// Forward-only summed losses over a held-out set, grouped into batched
     /// dispatches by sequence length and read back once.
+    ///
+    /// The per-dispatch losses stay on device and are concatenated for a single
+    /// host transfer: reading each one individually would force a full device
+    /// synchronization per dispatch and dominate evaluation wall-clock. Call this
+    /// on an [`untracked`](Self::untracked) graph — evaluation must never build a
+    /// tape, which would grow without bound across the held-out set and could not
+    /// affect training state anyway.
     pub fn validation_loss_sums(
         &self,
         spans: &[(Vec<u16>, Vec<u16>)],
@@ -410,8 +690,9 @@ impl<B: AutodiffBackend> FullModelGraph<B> {
         let mut losses = Vec::new();
         for group in group_by_length(spans) {
             for chunk in group.chunks(batch_sequences) {
-                let (loss, _) = self.forward_loss(chunk, constants, 1.0, false, device)?;
-                losses.push(loss);
+                let tokens = flatten_sequences(chunk, self.dimensions.max_context)?;
+                let hidden = self.forward_body(&tokens, constants, device)?;
+                losses.push(self.head_loss(hidden, &tokens, 1.0, device)?);
             }
         }
         Tensor::cat(losses, 0)

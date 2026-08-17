@@ -753,11 +753,61 @@ to `0.999999949415` cosine. Both remain far inside the frozen `PRECISION-002` bo
 the forward stays exact byte for byte, but the sensitivity of gradients to kernel shape is
 exactly why the amendment used a bound rather than byte equality.
 
-**Still required**: two-stage chunked cross-entropy, manual per-layer activation
-checkpointing for attention, and then true BF16 storage as a separately verified step.
-`burn` 0.21 offers no trainable flash attention and no downstream custom `Backward`, so the
-two-stage detach plus `(x * seed.detach()).backward()` vector-Jacobian product is the
+**Phase 4, bounding the materializations, has landed**, and it reverses the Phase 3
+finding above. One training step is now split into several backward passes joined by the
+exact `sum(value * cotangent)` vector-Jacobian seed: the cross-entropy head is
+differentiated `512` flattened positions at a time, so the `[.., 32,000]` logits no longer
+scale with sequence length or batch width, and every layer is forwarded once untracked to
+record its boundary and recomputed with a tape only while its own gradient is taken, so
+retained state falls to the layer boundaries plus one live layer. `burn` 0.21 offers no
+trainable flash attention and no downstream custom `Backward`, so this staging is the
 available mechanism.
+
+Two defects were found and fixed on the way:
+
+- `FullModelGraph::detached()` never worked. burn's `float_detach` deliberately
+  re-applies the `require_grad` flag it finds, so detaching a parameter leaves it rooting
+  a tape and evaluation retained one it could never use. `untracked()` clears the flag
+  instead, which is what actually prevents a tape forming.
+- Gradient readback issued one `try_into_data` per parameter, so every micro-batch paid
+  111 device synchronizations. The gradients are now concatenated on device and read back
+  once, in the same PARAM-001 order.
+
+Re-measured at canonical scale. The Phase 3 collapse is gone and batching now pays:
+
+| Sequences per dispatch | Peak device memory | Throughput | Projected wall clock |
+|---|---|---|---|
+| 1 | `9,552` MiB | `5,471` targets/s | `101.5` h |
+| 4 | `14,130` MiB | `10,481` targets/s | `53.0` h |
+| 8 | `18,734` MiB | `13,731` targets/s | `40.5` h |
+| 16 | `31,879` MiB | `16,221` targets/s | `34.2` h |
+
+At one sequence, memory fell from `13,361` to `9,552` MiB while throughput *rose* from
+`3,894` to `5,471` targets/s: the extra forward that checkpointing costs was more than
+repaid by the readback fix and by the reduced allocator pressure. At four sequences the
+comparison against Phase 3 is `14,130` MiB versus `30,582` and `10,481` targets/s versus
+`649` — sixteen times the throughput for half the memory. **The frozen P14 micro-batch of
+16 sequences now fits and runs**, which was E1B's stated goal, though at `31,879` MiB of
+`32,607` it leaves only `728` MiB of headroom; 8 sequences is the safer operating point for
+an unattended run and E5 owns that choice.
+
+The staging is numerically transparent, which is the load-bearing claim: the
+`PRECISION-002` conformance numbers are unchanged to the last digit
+(`3.190342e-4` / `0.999999949415`), and `logits_exact` and `loss_exact` still hold. The
+P9B fixture is two positions, so it stays a single head chunk and keeps the oracle's exact
+reduction order. `tests/e1_full_model_backend.rs` also gains a fused-versus-sequential
+gradient check; its `2.404930e-4` relative L2 is *not* a Phase 4 effect, since running the
+identical comparison against the pre-checkpointing graph gives `2.412581e-4`. It is what
+FP32 batching costs on gradients that carry this much cancellation.
+
+`evaluation_is_finite_and_leaves_training_state_unchanged` is no longer ignored: the
+mandatory `1,000,000`-target held-out evaluation now completes in `58` s.
+
+**Still required**: true BF16 storage as a separately verified step, contingent on first
+confirming that cubecl's BF16 matmul accumulates in FP32. At `34.2` hours against the
+`8`-hour SLA the run is still short by a factor of `4.3`, and tensor cores are the only
+remaining lever of that size — the graph is still FP32 throughout and so cannot reach
+them.
 
 ### E2 — Final-Run Launch Mode
 

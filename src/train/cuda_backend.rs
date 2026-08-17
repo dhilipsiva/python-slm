@@ -8,8 +8,8 @@
 //! per micro-batch as the `TrainerBackend` contract requires; the AdamW step is
 //! exact host FP32, and refreshed BF16 parameters are re-uploaded afterward.
 //! Determinism claims are backend-versus-itself (byte-identical repetition and
-//! resume); the frozen oracle-byte gradient gate is validated separately and is
-//! currently blocked by NVRTC FMA contraction in the pinned kernel compiler.
+//! resume); conformance against the P9B oracle is the separate `PRECISION-002`
+//! gate, which keeps the forward exact byte for byte and bounds the gradient.
 
 use crate::error::{ProductError, Result};
 use crate::model::accelerator::full_model::{FullModelGraph, GraphConstants, graph_constants};
@@ -202,7 +202,7 @@ impl TrainerBackend for CudaTrainerBackend {
             .collect::<Vec<_>>();
         let span_losses = self
             .graph
-            .detached()
+            .untracked()
             .validation_loss_sums(
                 &spans,
                 EVALUATION_BATCH_SEQUENCES,

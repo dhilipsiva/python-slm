@@ -315,6 +315,21 @@ mod hardware {
         }
     }
 
+    /// Relative L2 deviation between two gradient vectors.
+    fn relative_l2(left: &[f32], right: &[f32]) -> f64 {
+        assert_eq!(left.len(), right.len());
+        let mut difference = 0.0_f64;
+        let mut magnitude = 0.0_f64;
+        for (a, b) in left.iter().zip(right) {
+            difference += (f64::from(*a) - f64::from(*b)).powi(2);
+            magnitude += f64::from(*b).powi(2);
+        }
+        if magnitude == 0.0 {
+            return difference.sqrt();
+        }
+        (difference / magnitude).sqrt()
+    }
+
     /// Several sequences fused into one dispatch, which is the shape the frozen
     /// P14 micro-batch requires and the coordinator already requests.
     fn multi_sequence_batch(first_target: u64, sequences: u64) -> TrainingBatch {
@@ -410,6 +425,67 @@ mod hardware {
         assert_eq!(continued.device_rng_state, resumed_batch.device_rng_state);
     }
 
+    /// Fusing sequences into one dispatch must produce the gradient that
+    /// accumulating them one at a time produces. The two paths differ only in
+    /// kernel shape and reduction order, so this is what says the batched path is
+    /// the same computation rather than merely a working one.
+    #[test]
+    fn a_fused_dispatch_matches_per_sequence_accumulation() {
+        const SEQUENCES: u64 = 4;
+
+        let mut fused_backend = backend();
+        let fused = fused_backend
+            .accumulate(&multi_sequence_batch(0, SEQUENCES))
+            .unwrap();
+
+        // `multi_sequence_batch` lays its tokens out contiguously, so sequence i
+        // is exactly the single-sequence batch at cursor i * SPAN.
+        let mut sequential_backend = backend();
+        let mut sequential = vec![0.0_f32; fused.gradient_sums.len()];
+        let mut loss_sum = 0.0_f64;
+        for index in 0..SEQUENCES {
+            let step = sequential_backend.accumulate(&batch(index * SPAN)).unwrap();
+            loss_sum += step.loss_sum;
+            for (total, value) in sequential.iter_mut().zip(&step.gradient_sums) {
+                *total += value;
+            }
+        }
+
+        assert!(fused.loss_sum.is_finite());
+        let loss_deviation = (fused.loss_sum - loss_sum).abs() / loss_sum.abs();
+        assert!(
+            loss_deviation < 1e-6,
+            "fused loss {} vs accumulated {loss_sum} (relative {loss_deviation:.3e})",
+            fused.loss_sum
+        );
+
+        // FP32 reductions over different shapes cannot agree bit for bit, and the
+        // gap is not small: these gradients carry heavy cancellation, so the
+        // relative error is amplified well past the format's epsilon. The bound is
+        // measured rather than derived — the same comparison against the
+        // pre-checkpointing graph gives 2.412581e-4, so it is a property of
+        // batching in FP32 and not of how the backward is staged.
+        //
+        // Report per parameter as well as overall: rounding spreads across every
+        // tensor, whereas a batch-dimension defect would concentrate in a few.
+        let mut cursor = 0_usize;
+        for (name, shape) in GqaDimensions::oracle_fixture().parameter_layout() {
+            let elements = shape.iter().product::<usize>();
+            let span = cursor..cursor + elements;
+            eprintln!(
+                "  {name}: {:.6e}",
+                relative_l2(&fused.gradient_sums[span.clone()], &sequential[span])
+            );
+            cursor += elements;
+        }
+        let deviation = relative_l2(&fused.gradient_sums, &sequential);
+        eprintln!("fused-vs-sequential gradient relative L2: {deviation:.6e}");
+        assert!(
+            deviation < 1e-3,
+            "fused gradient deviates from per-sequence accumulation by {deviation:.6e}"
+        );
+    }
+
     /// The `PRECISION-002` conformance gate, executed on real hardware: the forward
     /// must equal the P9B oracle byte for byte, and gradients must fall inside the
     /// frozen provider-independent bound. See ADR 0001 for why gradient bit equality
@@ -443,12 +519,11 @@ mod hardware {
         );
     }
 
-    /// Evaluation over the mandatory 1,000,000 held-out targets needs roughly
-    /// 470,000 kernel launches while the graph is single-sequence, so it does not
-    /// finish inside a normal test budget. Unignore once E1B adds the batched
-    /// sequence dimension; the assertions below are the intended contract.
+    /// Evaluation over the mandatory 1,000,000 held-out targets, which batched
+    /// dispatch and an untracked graph make viable: it used to need roughly
+    /// 470,000 single-sequence launches while also retaining a tape it could
+    /// never use.
     #[test]
-    #[ignore = "single-sequence dispatch makes this exceed a normal test budget; see E1B in TODO.md"]
     fn evaluation_is_finite_and_leaves_training_state_unchanged() {
         let mut backend = backend();
         let before = backend.snapshot().unwrap();
