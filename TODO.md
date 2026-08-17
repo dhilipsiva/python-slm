@@ -921,6 +921,72 @@ Dependencies: P4–P9A implementation. Independent of E1/E2.
   `training_target_satisfied: true` at exactly `2,000,000,001` stored IDs.
 - Keep every generated corpus, token, and checkpoint artifact under ignored roots.
 
+**E3 is much larger than "run the pipeline", and the reasons are read from the code
+rather than estimated.** Three pieces are missing outright and three more do not
+survive production scale.
+
+Missing outright:
+
+- **No acquisition exists.** There is no HTTP client in `src/`. `curate` reads a
+  hand-authored `MaterializedSourceManifestV1` plus a `content_root` of plain bytes
+  (`src/data.rs:75-114`). This is implementation order, not a boundary: the
+  `AGENTS.md` Security section mandates the contract's HTTPS and redirect rules, and
+  `docs/rebuild-contract.md:109` marks HTTPS/checksums/credentials `REIMPLEMENT`,
+  "mandatory in production".
+- **No EvalPlus importer exists and no phase owns one.** `DECONTAM-001`
+  (`docs/rebuild-contract.md:159`) specifies the extraction completely and assigns it
+  to P6A, but the rebuilt Phase 6A is Adversarial Filter Cases. `README.md:139` states
+  the exclusion outright.
+- **The frozen EvalPlus digests are pinned nowhere.** `validate_benchmark_manifest`
+  (`src/corpus.rs:602-663`) checks that `asset_sha256` and `decoded_sha256` are
+  *shaped* like SHA-256 and never compares them to a known value, and nothing
+  cross-checks `records.len()`. A hand-written manifest with plausible hashes and one
+  trivial record passes every gate and yields a decontamination manifest that certifies
+  almost nothing. This is a live integrity hole independent of E3.
+
+Will not survive scale:
+
+- **Manifest ceilings.** `MAX_CONTROL_FILE_BYTES = 64 MiB`
+  (`src/data/source/io.rs:8`) is enforced on every `read_control_file` (`io.rs:206`),
+  including when `prepare-corpus` reads the whole P4 generation manifest
+  (`src/corpus.rs:382-387`). That manifest is one compact JSON line with one outcome
+  per document, and `SourceOutcomeV4` (`src/corpus.rs:146-167`) carries the ~1.1 KB
+  `governed_source_metadata` block, so an accepted outcome is roughly `2.4` KB —
+  about **28,000 documents per generation**. Reaching `2,000,000,001` train IDs needs
+  on the order of 7–8 GB of canonical train text and 1.5–3 million documents, which is
+  50–100 times over. Two further reads hit the same cap and are *not* fixed by
+  multi-generation input: `governed-corpus-manifest.json` read by `tokenize` (~123k
+  documents) and `tokenizer-sample-manifest.json` read twice (~140k).
+- **`assign_splits` is quadratic** (`src/corpus.rs:1254-1302`): every duplicate group
+  is iterated for every connected component. At ~10^6 of each it does not terminate,
+  and it is the most likely place a real run appears to hang.
+- **Everything is resident.** `prepare-corpus` holds every document's content, lexical
+  tokens, encoded tokens, a `BTreeSet` of 5-gram shingles, and a 256-component MinHash
+  signature at once (`src/corpus.rs:169-183`), roughly 15–30 times corpus bytes.
+  Tokenizer training is single-threaded and unresumable at ~24–40 GB resident
+  (`src/tokenizer.rs:542-685`).
+
+Two traps for whoever runs this: `training_target_satisfied: false` is **not an
+error** and exits 0 (`src/storage.rs:401-409`), so the field must be asserted out of
+the `tokenize` result rather than inferred from an exit code; and `shard_maximum_ids`
+is irreversible once published — `read_range` re-reads and re-hashes the *entire*
+backing shard on every sequence read (`src/storage.rs:1110-1111`), so a 67M-ID shard
+means hashing 128 MiB per training read.
+
+Also note that an in-repo corpus silently breaks the quality gate for an unrelated
+reason: `git status -uall` over ~20-30k untracked files exceeds the 2 MiB
+`CAPTURE_LIMIT_BYTES` (`xtask/src/quality_gate.rs:14`) and aborts with the misleading
+`QUALITY_CAPTURE_LIMIT_EXCEEDED`. Keep generated corpora under the ignored roots.
+
+**Landed so far.** `.gitignore` now matches the artifacts the pipeline actually
+writes. Its extension rules previously matched none of them: token shards are
+`shards/<split>-<seq>.u16le` (`src/storage.rs:820`) and checkpoint tensors are
+`model/parameters.bf16` and `optimizer/*.f32` (`src/train/full_state.rs:28-36`), so
+neither `*.bin` nor `*.safetensors` covered them and protection rested entirely on the
+root-anchored `/data/` and `/checkpoints/` directory rules. Interrupted-stage partial
+directories are ignored too. `CLAUDE.md` now records that acquisition is
+contract-required rather than forbidden, which nothing in it previously said.
+
 ### E4 — Hardware Diagnostics on the Qualified Tuple
 
 - [ ] E4 diagnostics

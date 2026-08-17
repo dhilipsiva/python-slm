@@ -1,9 +1,25 @@
 /target/
 /.cache/
 /data/
-*.bin
+/corpus/
 /checkpoints/
+
+# Generated artifact names, as the pipeline actually writes them. The extension
+# rules below used to match nothing this repository produces: token shards are
+# `shards/<split>-<seq>.u16le` (src/storage.rs) and checkpoint tensors are
+# `model/parameters.bf16` and `optimizer/*.f32` (src/train/full_state.rs), so
+# neither `*.bin` nor `*.safetensors` covered them and protection rested entirely
+# on the root-anchored directory rules above.
+*.u16le
+*.bf16
+*.f32
+*.bin
 *.parquet
 *.safetensors
 *.mpk
 
+# An interrupted stage leaves its partial generation beside the destination, and
+# a dot-prefixed directory is not ignored by default.
+.*.p4-partial-*
+.*.p8-partial-*
+.*.partial-*
