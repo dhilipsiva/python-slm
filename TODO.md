@@ -912,10 +912,10 @@ already requires.
 
 Dependencies: P4–P9A implementation. Independent of E1/E2.
 
-- Acquire authorized, license-clean Python source; the product consumes only
-  already-authorized local bytes, so acquisition tooling or a manual governed
-  materialization step is required, plus the hash-bound `evalplus-v0.3.1`
-  protection manifest.
+- Acquire authorized, license-clean Python source, plus the hash-bound
+  `evalplus-v0.3.1` protection manifest. *(Written before `fetch` and
+  `import-benchmark` existed; both now do. See "What is left" at the end of this
+  section.)*
 - Run `curate`, `prepare-corpus`, `train-tokenizer`, `tokenize`, and `plan-spans`
   on the real inputs until an installed P8 generation reports
   `training_target_satisfied: true` at exactly `2,000,000,001` stored IDs.
@@ -1094,7 +1094,8 @@ independent blockers, in the order they bite:
 
 Roughly `61` source generations would be needed for a production corpus, which
 Phase 4 now supports. The other two blockers are unaddressed and each is a real
-piece of work.
+piece of work. *(That count assumed the `1.5`–`3` million documents estimated
+before the corpus was sized; the settled figure is in "What is left" below.)*
 
 **`prepare-corpus` residency is down from `42.7x` to `13.8x`**, peak `1,250.6` to
 `402.9` MiB on the same corpus, for about five percent more wall clock. Both
@@ -1266,6 +1267,81 @@ neither `*.bin` nor `*.safetensors` covered them and protection rested entirely 
 root-anchored `/data/` and `/checkpoints/` directory rules. Interrupted-stage partial
 directories are ignored too. `CLAUDE.md` now records that acquisition is
 contract-required rather than forbidden, which nothing in it previously said.
+
+#### What is left
+
+Every finding the exploration above opened is now closed, and each fix is
+verified the same way: the proof corpus republishes generation digest
+`6efbf0bc077c8ffc31a75c34cf125852142c996760cc41c5cc9cdbcd66aaaf4b` with all
+`1,157` files agreeing by path and SHA-256.
+
+| Finding | Status |
+|---|---|
+| No acquisition exists | Closed — `fetch`, governed HTTPS with bounded redirects and streaming |
+| No EvalPlus importer | Closed — `import-benchmark`, `DECONTAM-001` transcribed |
+| EvalPlus digests unpinned | Closed — four frozen digests compared, `BENCHMARK_ASSET_DIGEST_MISMATCH` |
+| Source-generation manifest ceiling | Closed — multi-generation input |
+| Governed and sample manifest ceilings | Closed — index plus hash-bound parts |
+| `prepare-corpus` residency | Closed — `403.7` → `91.6` MiB, linear in document count |
+| Canonical-JSON scan | Closed — `61.0` → `16.2` s, anchored Aho-Corasick |
+| `assign_splits` quadratic | Closed — linear; and it was never going to hang |
+
+Two more things had to be fixed that the exploration never predicted, and both
+were found by executing rather than by reading: `materialize-source` had to be
+written before an authorized tree could be enumerated at all, and a latent P5
+defect was silently discarding every Python file that began with whitespace.
+
+**One scale question is still unmeasured, and it is the last code risk.**
+`train-tokenizer` measured `6.2` s at `318` MiB peak on the proof run's `8.78` MB
+sample. The sample cap is `2,000,000,000` bytes. If residency there is linear in
+the sample the way `prepare-corpus`'s was in the corpus, the cap implies tens of
+gigabytes, which is the `24`–`40` GB the exploration estimated and nothing since
+has checked. The stage is also single-threaded and unresumable, so a failure near
+the end of a multi-hour training loses all of it. **Measure it on a sample one or
+two orders larger before committing to a full run** — the same one-stage probe
+used for `prepare-corpus` answers it in an afternoon, and it is much cheaper to
+learn there than eight hours into acquisition.
+
+**What actually blocks E3 is not code any more: it is the corpus.** The frozen
+target needs roughly `2,000,000,001` stored train IDs. `SOURCE-001`
+(`docs/rebuild-contract.md:152`) makes that Stack v2 metadata plus authorized
+Software Heritage content, which means real credentials. Those are the operator's
+to supply and pass only through named environment variables, never a config file
+or a log. The tooling for it is built and tested; what it lacks is an
+authorization to use.
+
+Working projections for that run. Each basis says what it rests on, because they
+are not equally solid: the two corpus-size rows inherit an estimate, the rest
+extrapolate measurements taken on this host.
+
+| Quantity | Projection | Basis |
+|---|---|---|
+| Accepted canonical text | `~24.5` GB | *estimate* — rests on a bytes-per-ID figure the proof run itself says is overfit; the first real corpus re-measures it, and everything below inherits it |
+| Documents | `~1.45` million | the row above at a `~16.9` KiB mean accepted document |
+| Enumerated documents needed | `~2.8` million | measured yield: `52` percent of an enumerated tree reaches the token corpus |
+| Source generations | `~50`, more in practice | `1.45` million accepted at a measured `28,929` per generation, before the rejected outcomes each manifest also carries |
+| `prepare-corpus` peak memory | `~38` GiB | measured `43.8` MiB fixed plus `27.5` KiB per document, linear over three points |
+| `prepare-corpus` wall clock | `~3.9` hours | measured `16.0` s for `29.3` MiB, single-threaded |
+| `train-tokenizer` peak memory | **unmeasured** | `318` MiB at `8.78` MB is the only point; see above |
+| Token shards on disk | `~4` GB | exact: `2,000,000,001` IDs at `2` bytes |
+
+Three traps that still apply to whoever runs it. `training_target_satisfied:
+false` is **not an error** and exits `0` (`src/storage.rs:401-409`), so assert the
+field out of the `tokenize` result rather than inferring it from an exit code.
+`shard_maximum_ids` is irreversible once published, and `read_range` re-reads and
+re-hashes the *entire* backing shard on every sequence read
+(`src/storage.rs:1110-1111`), so a 67M-ID shard means hashing `128` MiB per
+training read — pick it small. And keep the corpus out of the repository: `git
+status -uall` over tens of thousands of untracked files exceeds the `2` MiB
+`CAPTURE_LIMIT_BYTES` (`xtask/src/quality_gate.rs:14`) and aborts the quality gate
+with the misleading `QUALITY_CAPTURE_LIMIT_EXCEEDED`.
+
+**The honest position on the checkbox.** Nothing known now says the frozen target
+is unreachable on this host — the memory blocker that did say so is gone, and the
+remaining projections fit. But E3 stays unchecked until an installed P8 generation
+actually reports `training_target_satisfied: true` at exactly `2,000,000,001`
+stored IDs, and reaching that needs a governed corpus this repository cannot
+acquire on its own.
 
 ### E4 — Hardware Diagnostics on the Qualified Tuple
 
