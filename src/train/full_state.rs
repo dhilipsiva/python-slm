@@ -341,6 +341,15 @@ impl FullModelState {
         self.consumed_batches
     }
 
+    /// The current RNG witness chain states.
+    ///
+    /// A launching coordinator seeds `DeterministicTrainer` from these rather than
+    /// inventing values, so the trainer's witness and the backend's chain agree
+    /// from the first batch and a resume can be compared against either.
+    pub fn rng_states(&self) -> (Vec<u8>, Vec<u8>) {
+        (self.host_rng_state.clone(), self.device_rng_state.clone())
+    }
+
     /// Advance both deterministic RNG witness chains for one consumed batch and
     /// return the post-batch states. The deterministic graph consumes no
     /// randomness; the chains witness exact batch order and are resumable.

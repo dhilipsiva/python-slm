@@ -35,6 +35,10 @@ cargo run --locked --bin python-slm -- curate --config <absolute-path>
 cargo run --locked --bin python-slm -- train-tokenizer --config <absolute-path>
 cargo run --locked --bin python-slm -- tokenize --config <absolute-path>
 cargo run --locked --bin python-slm -- prepare-corpus | plan-spans | model-oracle | bench | train | evaluate-quality | plan-scale-up
+
+# `train` has three modes: no argument inspects, --verify-final-checkpoint reloads,
+# and --launch <absolute-path> is the explicit E2 execution mode that actually trains.
+cargo run --release --locked --features cuda --bin python-slm -- train --config <abs> --launch <abs>
 ```
 
 Config paths passed to the CLI must be absolute. Configs are versioned, closed schemas that reject unknown fields; there are no hidden defaults or legacy fallbacks.
@@ -43,7 +47,7 @@ Config paths passed to the CLI must be absolute. Configs are versioned, closed s
 
 **Workspace**: root crate `rust-llm-pretrain` (produces the single `python-slm` binary from `src/main.rs`) plus `xtask/` (orchestration, phase-receipt verification, quality gate — the *only* normative automation entry point; shell scripts never are).
 
-**Phase-driven structure**: the rebuild proceeds through numbered phases (P0–P19) defined in `TODO.md`. Each phase's integration suite lives at `tests/pN_*.rs` (e.g. `tests/p12_trainer.rs`), and commits are scoped like `train: implement checkpoints and exact resume`. Data pipeline: P4 curation (`src/data/`, license/provenance/removal policy) → P5 tree-sitter parsing (`src/parser/`) → P6/P6A privacy + adversarial filters → P7 byte-BPE tokenizer (`src/tokenizer.rs`) → P8 token materialization (`src/corpus.rs`, `src/storage.rs`) → P9A dedup/decontamination/split → P9B CPU model oracle (`src/model/`) → P10 CUDA backend (`src/backend.rs`) → P11 loading/transfers → P12 trainer/checkpoints (`src/train/`) → P16/P16A final run + quality evaluation → P17 host portability (`src/platform.rs`) → P18 accelerator provider adapters (`src/backend/`, `src/model/accelerator/`). After P19 comes the post-phase execution track in `TODO.md` (E1–E6), which is what stands between the implementation and an actual training run; E1's full-model backend lives in `src/train/full_state.rs`, `src/model/accelerator/full_model.rs`, and `src/train/cuda_backend.rs`.
+**Phase-driven structure**: the rebuild proceeds through numbered phases (P0–P19) defined in `TODO.md`. Each phase's integration suite lives at `tests/pN_*.rs` (e.g. `tests/p12_trainer.rs`), and commits are scoped like `train: implement checkpoints and exact resume`. Data pipeline: P4 curation (`src/data/`, license/provenance/removal policy) → P5 tree-sitter parsing (`src/parser/`) → P6/P6A privacy + adversarial filters → P7 byte-BPE tokenizer (`src/tokenizer.rs`) → P8 token materialization (`src/corpus.rs`, `src/storage.rs`) → P9A dedup/decontamination/split → P9B CPU model oracle (`src/model/`) → P10 CUDA backend (`src/backend.rs`) → P11 loading/transfers → P12 trainer/checkpoints (`src/train/`) → P16/P16A final run + quality evaluation → P17 host portability (`src/platform.rs`) → P18 accelerator provider adapters (`src/backend/`, `src/model/accelerator/`). After P19 comes the post-phase execution track in `TODO.md` (E1–E6), which is what stands between the implementation and an actual training run; E1's full-model backend lives in `src/train/full_state.rs`, `src/model/accelerator/full_model.rs`, and `src/train/cuda_backend.rs`, and E2's launch mode in `src/train/launch.rs`.
 
 **Prototype-first gating**: P1–P16 target only `prototype-windows-5090-v1` (Windows x86_64 MSVC + RTX 5090/CUDA) behind provider-neutral interfaces. Any deferred platform/provider selection must fail with the typed code `DEFERRED_POST_P16` *before* reading config or mutating state — never fall back or fake success. Unimplemented subcommands fail with `PHASE_NOT_IMPLEMENTED`.
 

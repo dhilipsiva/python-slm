@@ -854,16 +854,57 @@ the `TrainerBackend` contract requires.
 
 ### E2 — Final-Run Launch Mode
 
-- [ ] E2 implementation
+- [x] E2 implementation
 
 Dependencies: E1, E1A, and E1B.
 
-- Extend `train` with an explicit execution mode that wires verified P8/P9A
-  artifacts through the P11 loader and transfer ring into `execute_to_completion`
-  on the E1 backend under the suspend-inclusive monotonic SLA clock.
-- Preserve the existing no-argument inspection result and
-  `--verify-final-checkpoint` behavior unchanged; interruption and resume must
-  remain byte-identical through the P12 checkpoint contract.
+`train --config <defaults> --launch <launch>` is the explicit execution mode, in
+`src/train/launch.rs`. The other two forms are unchanged and verified so: the
+no-argument inspection result is byte-identical, including its
+`implementation_sha256`, and `--verify-final-checkpoint` still reloads. The two
+optional arguments are mutually exclusive at the parser, because one reads a
+directory and the other trains for tens of hours.
+
+- **The launch configuration is its own closed schema**,
+  `python-slm-final-run-launch-v1`. The frozen
+  `prototype-windows-5090-v1.defaults.json` is byte-pinned in two places and
+  `validate()` demands byte equality with `canonical()`, so it can never carry a
+  path or a device ordinal; everything an execution needs beyond it lives in the
+  launch file. It must set `confirm_full_run`, so the execution mode is
+  unreachable by a stray flag.
+- **A suspend-inclusive monotonic clock** now backs the SLA measurement
+  (`platform::suspend_inclusive_now_ns`). `Instant` is `QueryPerformanceCounter`
+  on Windows and `CLOCK_MONOTONIC` on Linux, and both stop while the host is
+  asleep, so an overnight run that suspended for six hours would report six hours
+  short against a wall-clock deadline. Windows `QueryInterruptTime` is the biased
+  count and Linux `CLOCK_BOOTTIME` is monotonic plus suspend; other hosts fail
+  closed rather than substituting a clock that under-reports. A test compares the
+  clock against `Instant` over a short interval, which is what catches the
+  100-nanosecond unit conversion being wrong in either direction.
+- **`CorpusBatchSource`** turns the P11 span stream into the coordinator's exact
+  `(first_target, valid_targets)` windows. Spans are never split: the frozen
+  accounting makes every window a whole number of spans, including the ragged
+  final update of eighteen full spans plus one 1,024-target span, so a window that
+  cannot be filled exactly fails closed instead of being padded. Resume
+  fast-forwards to the exact cursor and rejects one that falls inside a span,
+  which a checkpoint published at a completed-update boundary never can.
+- **The result reports rather than claims.** `completion_sla` carries the measured
+  `MET` or `EXCEEDED`, elapsed time and completion are `OBSERVED_UNVERIFIED`, and
+  final loss stays `UNVERIFIED`. Nothing here decides admission; E5 owns that.
+
+One honest deviation to carry into E5. The frozen defaults specify
+`loader.transfer_memory: "cuda-page-locked"`, and `CudaPinnedTransfer` implements
+exactly that, but the P12 `TrainerBackend::accumulate` contract takes a host-side
+`TrainingBatch` and the E1 graph uploads the tokens itself when it builds its index
+tensors. Routing spans through the pinned ring as well would perform a device copy
+that nothing ever reads. The launch path therefore uses a host staging ring that
+preserves what the ring genuinely provides on this lane — bounded in-flight
+ownership and prefetch that overlaps span I/O with compute — and the result object
+carries this as an explicit limitation. The pinned path can only pay once a backend
+consumes device pointers directly, which is a P12-contract change and out of scope
+here. The cost of the deviation is nil either way: spans are 4 KB, so the whole run
+moves about 4 GB of tokens against the 33 TB of gradient readback the same contract
+already requires.
 
 ### E3 — Governed Production Corpus
 

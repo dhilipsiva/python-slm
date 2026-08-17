@@ -59,11 +59,17 @@ enum Command {
         stability_plan: Option<PathBuf>,
     },
     /// Run canonical training. Implemented by the training phases.
+    ///
+    /// With neither optional argument this inspects the implementation boundary
+    /// and executes nothing. `--launch` is the explicit E2 execution mode and is
+    /// the only form that trains.
     Train {
         #[arg(long)]
         config: PathBuf,
-        #[arg(long)]
+        #[arg(long, conflicts_with = "launch")]
         verify_final_checkpoint: Option<PathBuf>,
+        #[arg(long, conflicts_with = "verify_final_checkpoint")]
+        launch: Option<PathBuf>,
     },
     /// Inspect the automated P16A quality-evaluation implementation boundary.
     EvaluateQuality {
@@ -135,7 +141,13 @@ pub fn run(args: impl IntoIterator<Item = OsString>) -> Result<Value> {
         Command::Train {
             config,
             verify_final_checkpoint,
-        } => crate::train::final_run::final_training(&config, verify_final_checkpoint.as_deref()),
+            launch,
+        } => match launch {
+            Some(launch) => crate::train::launch::launch_final_run(&config, &launch),
+            None => {
+                crate::train::final_run::final_training(&config, verify_final_checkpoint.as_deref())
+            }
+        },
         Command::EvaluateQuality { config } => crate::train::quality::quality_evaluation(&config),
         Command::PlanScaleUp { config } => crate::scale_up::plan_scale_up(&config),
     }
@@ -195,10 +207,66 @@ mod tests {
             Command::Train {
                 config,
                 verify_final_checkpoint: Some(generation),
+                launch: None,
             } if config.as_path() == std::path::Path::new("defaults.json")
                 && generation.as_path() == std::path::Path::new(
                     "checkpoints/generations/00000000002000000000"
                 )
+        ));
+    }
+
+    /// The execution mode is reachable only by naming a launch configuration, and
+    /// it is mutually exclusive with the reload check: one executes for tens of
+    /// hours and the other reads a directory, so they must never be conflatable.
+    #[test]
+    fn train_launch_is_the_explicit_e2_execution_mode() {
+        let arguments = Arguments::try_parse_from([
+            "python-slm",
+            "train",
+            "--config",
+            "defaults.json",
+            "--launch",
+            "launch.json",
+        ])
+        .unwrap();
+        assert!(matches!(
+            arguments.command,
+            Command::Train {
+                config,
+                verify_final_checkpoint: None,
+                launch: Some(launch),
+            } if config.as_path() == std::path::Path::new("defaults.json")
+                && launch.as_path() == std::path::Path::new("launch.json")
+        ));
+
+        assert!(
+            Arguments::try_parse_from([
+                "python-slm",
+                "train",
+                "--config",
+                "defaults.json",
+                "--launch",
+                "launch.json",
+                "--verify-final-checkpoint",
+                "generations/00000000002000000000",
+            ])
+            .is_err()
+        );
+    }
+
+    /// The no-argument form must keep inspecting rather than executing.
+    #[test]
+    fn train_without_arguments_stays_an_inspection_boundary() {
+        let arguments =
+            Arguments::try_parse_from(["python-slm", "train", "--config", "defaults.json"])
+                .unwrap();
+        assert!(matches!(
+            arguments.command,
+            Command::Train {
+                verify_final_checkpoint: None,
+                launch: None,
+                ..
+            }
         ));
     }
 

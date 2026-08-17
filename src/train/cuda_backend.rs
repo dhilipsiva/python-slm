@@ -98,6 +98,12 @@ impl CudaTrainerBackend {
         self.state.dimensions().parameter_count()
     }
 
+    /// The backend's RNG witness chain states, so a launching coordinator can seed
+    /// the trainer from the backend rather than from invented values.
+    pub fn rng_states(&self) -> (Vec<u8>, Vec<u8>) {
+        self.state.rng_states()
+    }
+
     fn reload_graph(&mut self) -> Result<()> {
         self.graph = FullModelGraph::<Gpu>::load(
             *self.state.dimensions(),

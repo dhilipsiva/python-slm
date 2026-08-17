@@ -5,6 +5,76 @@ use std::path::Path;
 pub const HOST_DATA_ADAPTER_SCHEMA: &str = "python-slm-host-data-adapter-v1";
 pub const PORTABLE_ARTIFACT_SEMANTICS: &str = "portable-byte-identical-v1";
 pub const NATIVE_FILESYSTEM_SEMANTICS: &str = "contained-create-new-native-v1";
+pub const SUSPEND_INCLUSIVE_CLOCK: &str = "suspend-inclusive-monotonic-v1";
+
+/// A monotonic nanosecond count that keeps running across system suspend.
+///
+/// The completion SLA is a wall-clock deadline, so time the host spends asleep is
+/// time the run spent not finishing and has to count against it. The obvious
+/// clocks all get this wrong in the same direction: `std::time::Instant` is
+/// `QueryPerformanceCounter` on Windows and `CLOCK_MONOTONIC` on Linux, and both
+/// stop while the machine is suspended, so an overnight run that slept for six
+/// hours would report an elapsed time six hours short. `SystemTime` counts the
+/// sleep but is not monotonic and moves under clock adjustment.
+///
+/// Windows `QueryInterruptTime` is the *biased* interrupt-time count, meaning it
+/// includes sleep, and Linux `CLOCK_BOOTTIME` is `CLOCK_MONOTONIC` plus suspend.
+/// Both are monotonic. Hosts without an implementation fail closed rather than
+/// silently substituting a clock that under-reports.
+pub fn suspend_inclusive_now_ns() -> Result<u64> {
+    #[cfg(target_os = "windows")]
+    {
+        let mut interrupt_time = 0_u64;
+        // SAFETY: the out-pointer refers to initialized writable stack storage and
+        // the call has no other preconditions.
+        unsafe {
+            windows_sys::Win32::System::WindowsProgramming::QueryInterruptTime(&mut interrupt_time);
+        }
+        // The interrupt-time count is in 100-nanosecond units.
+        interrupt_time.checked_mul(100).ok_or_else(|| {
+            ProductError::internal(
+                "SLA_CLOCK_OVERFLOW",
+                "the suspend-inclusive interrupt time overflowed nanoseconds",
+            )
+        })
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let mut instant = libc::timespec {
+            tv_sec: 0,
+            tv_nsec: 0,
+        };
+        // SAFETY: the out-pointer refers to initialized writable stack storage.
+        if unsafe { libc::clock_gettime(libc::CLOCK_BOOTTIME, &mut instant) } != 0 {
+            return Err(ProductError::internal(
+                "SLA_CLOCK_UNAVAILABLE",
+                "CLOCK_BOOTTIME could not be read",
+            ));
+        }
+        let seconds = u64::try_from(instant.tv_sec).map_err(|_| {
+            ProductError::internal(
+                "SLA_CLOCK_INVALID",
+                "CLOCK_BOOTTIME returned a negative time",
+            )
+        })?;
+        seconds
+            .checked_mul(1_000_000_000)
+            .and_then(|nanoseconds| nanoseconds.checked_add(instant.tv_nsec as u64))
+            .ok_or_else(|| {
+                ProductError::internal(
+                    "SLA_CLOCK_OVERFLOW",
+                    "CLOCK_BOOTTIME overflowed nanoseconds",
+                )
+            })
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
+    {
+        Err(ProductError::gate(
+            "DEFERRED_POST_P16",
+            "no suspend-inclusive monotonic clock is implemented for this host",
+        ))
+    }
+}
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "kebab-case")]

@@ -384,7 +384,39 @@ cargo run --locked --offline --bin python-slm -- train --config $config `
 That mode revalidates the complete P12 manifest, seal, artifact inventory, backend bytes, exact
 2,000,000,000-target cursor, and 30,518-update count. It still does not prove execution
 provenance, hardware qualification, elapsed time, the completion SLA, or final model quality.
-A real full CUDA run remains optional and was not run by the automated P16 implementation gate.
+
+## Launching the run
+
+E2 adds the third, explicit form of `train`, and it is the only one that executes:
+
+```powershell
+cargo run --release --locked --offline --features cuda --bin python-slm -- train `
+  --config $config --launch C:\absolute\launch.json
+```
+
+The launch file is its own closed schema, `python-slm-final-run-launch-v1`, because the
+frozen defaults file is byte-pinned and cannot carry a path or a device ordinal:
+
+```json
+{
+  "schema": "python-slm-final-run-launch-v1",
+  "profile": "prototype-windows-5090-v1",
+  "token_generation_root": "C:\\absolute\\tokens\\generations\\0001",
+  "checkpoint_root": "C:\\absolute\\checkpoints",
+  "resume_from_generation": null,
+  "device_ordinal": 0,
+  "confirm_full_run": true
+}
+```
+
+`confirm_full_run` must be set, so the execution mode is unreachable by a stray flag, and
+`--launch` and `--verify-final-checkpoint` are mutually exclusive at the parser. The run is
+measured on a suspend-inclusive monotonic clock — `QueryInterruptTime` on Windows,
+`CLOCK_BOOTTIME` on Linux — so time the host spends asleep counts against the wall-clock
+deadline rather than disappearing from it. The result reports the measured elapsed time and
+whether it fell inside the frozen limit; it does not decide admission, and it does not claim
+hardware qualification or model quality. A real full CUDA run remains optional and has not
+been performed.
 
 ## Automated quality evaluation
 

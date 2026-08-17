@@ -12,6 +12,7 @@ pub const IMPLEMENTATION_PHASE: &str = "P12";
 
 pub mod checkpoint;
 pub mod final_run;
+pub mod launch;
 pub mod profile;
 pub mod quality;
 pub mod stability;
@@ -26,6 +27,12 @@ pub use final_run::{
     FinalCheckpointReloadResultV1, FinalRunCheckpointPolicyV1, FinalRunClaimStatusV1,
     FinalRunExecution, FinalTrainingImplementationResultV1, build_implementation_result,
     execute_to_completion, verify_final_checkpoint,
+};
+pub use launch::{
+    CorpusBatchSource, EXECUTION_SURFACE as LAUNCH_EXECUTION_SURFACE, FinalRunLaunchResultV1,
+    FinalRunLaunchV1, HostStagedTransfer, LAUNCH_CONFIG_SCHEMA, LAUNCH_RESULT_SCHEMA, SlaClock,
+    SlaObservationV1, execute_launched_run, launch_final_run, launched_identity,
+    parse_launch_configuration, read_validation_set, resume_cursor,
 };
 pub use profile::{
     ACTUAL_ELAPSED_LIMIT_NS, ADMISSION_SECONDS, COMPLETION_SLA_SECONDS, DEFAULT_CONFIG_BYTES,
