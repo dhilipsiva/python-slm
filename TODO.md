@@ -579,14 +579,29 @@ Dependencies: P16A implementation. P17 and P18 are independent.
 
 ## Final-Run Execution Track (owner requested 2026-08-16)
 
-The P1–P19 implementation phases are complete, but no real training run has occurred:
-there is no full-model accelerator training backend, no launch path, no governed
-production corpus, and no hardware-execution evidence. This track closes those gaps in
-dependency order. Simplified-mode rules continue to apply: ordinary automated checks
-only, no receipts or approvals, and every unexecuted or unmeasured fact remains
-`UNVERIFIED`. The fixed `25,920`-second admission ceiling and `28,800`-second
-completion SLA are never retuned after measurement; a failed projection blocks the
-run instead of moving a threshold.
+The P1–P19 implementation phases are complete, but no real training run has occurred.
+This track closes that gap in dependency order. Simplified-mode rules continue to
+apply: ordinary automated checks only, no receipts or approvals, and every unexecuted
+or unmeasured fact remains `UNVERIFIED`. The fixed `25,920`-second admission ceiling
+and `28,800`-second completion SLA are never retuned after measurement; a failed
+projection blocks the run instead of moving a threshold.
+
+**Where this stands.** Every piece of code the run needs is now built, measured, and
+gated. What is left is two things this repository cannot do for itself, and they are
+independent of each other:
+
+| | State | Blocked on |
+|---|---|---|
+| E1, E1A, E1B, E2 | Complete, hardware-verified | — |
+| **E3** corpus | Pipeline built and measured end to end | **Dataset terms and Software Heritage credentials — the operator's to obtain** |
+| E4 diagnostics | Not run | Physical RTX 5090 session, or a `windows-cuda.yml` dispatch |
+| **E5** admission | Not run | E3 and E4 — and it starts from a measured `4.3x` SLA miss |
+| E6 execution | Unreachable | E5 admitting the run |
+
+Two blocking facts to carry, both measured rather than estimated. **The run does not
+meet the SLA on current evidence**: `34.2` hours projected against `28,800` seconds,
+which E5 must either close or record as a refusal. And **E3 cannot finish without an
+authorization** no amount of further engineering supplies.
 
 ### E1 — Full-Model Accelerator Training Backend
 
@@ -632,47 +647,25 @@ longer ignored and now runs on the hardware lane.
 
 Dependencies: E1 implementation.
 
-Executing the frozen P10 parity fixture on real hardware for the first time shows
-that device gradients do **not** equal the P9B oracle's canonical IEEE-754 bytes,
-while the forward BF16 logits and the FP32 loss match it exactly. Observed
-relative gradient deviation is roughly `1e-5` to `1e-4`. Replacing
-`powf_scalar(2.0)` with explicit multiplication in RMSNorm, so the squaring
-derivative no longer travels through a generic power rule, did not close the gap.
+**Why the bound exists, so it is never mistaken for a tolerance added to make a
+test pass.** Device gradients do not equal the P9B oracle's canonical IEEE-754
+bytes, while the forward BF16 logits and FP32 loss match exactly.
+`tests/e1a_numerical_probe.rs` isolated the cause on hardware rather than
+hypothesizing it: contraction and reduction order are *exonerated* — device
+summation and `matmul` reproduce host left-to-right accumulation exactly — and
+vendor transcendentals are the sole cause, differing by one ULP on `exp`, `sin`,
+`cos` and `ln` while `sqrt` and `recip` stay bit-identical, which is what IEEE-754
+requires of each. The deviation profile matches: error tracks how many
+transcendentals separate a parameter from the loss.
 
-The root cause is now measured, not hypothesized. `tests/e1a_numerical_probe.rs`
-isolates each candidate mechanism on the RTX 5090:
+No repository setting changes a vendor libm, and Rust's own transcendentals are
+not bit-stable across platform libm implementations either, so **this is
+irreducible** and byte equality on gradients was never achievable. The forward
+stays exact because every frozen BF16 storage point absorbs the difference;
+gradients are raw FP32 and expose it.
 
-- **Contraction and reduction order are exonerated.** Elementwise multiplication
-  matches the host on 64 of 64 operands, and device summation *and* `matmul`
-  reproduce host left-to-right accumulation exactly at widths 2, 4, 8, and 64.
-  The earlier suspicion that NVRTC fused multiply-add or tree reduction caused the
-  divergence was wrong.
-- **Transcendental implementations are the sole cause.** Against Rust's host libm,
-  the device differs by one ULP on `exp` (11 of 42 operands), `sin` (5 of 42),
-  `cos` (2 of 42), and `ln` (1 of 25). `sqrt` and `recip` are bit-identical, which
-  is expected: IEEE-754 requires those to be correctly rounded, and `exp`, `ln`,
-  `sin`, and `cos` are not.
-
-Because every other primitive in the graph is bit-exact, the transcendentals are
-the cause by elimination. The deviation profile matches that mechanism: worst
-relative error tracks how many transcendental operations separate a parameter from
-the loss, peaking at `2.418e-4` for `blocks.0.attn.q.weight`, whose gradient passes
-back through both RoPE `sin`/`cos` and the softmax `exp`, and falling to `1.083e-7`
-for `lm_head.weight` next to the loss. Aggregate deviation is a relative L2 of
-`5.714e-6` and a cosine similarity of `0.999999999984`. The forward stays exact
-because every frozen BF16 storage point quantizes to eight mantissa bits and
-absorbs the difference; gradients are raw FP32 and expose it.
-
-No repository-level setting changes a vendor libm, and Rust's own transcendentals
-are not guaranteed bit-stable across platform libm implementations either, so the
-cross-host oracle check below is part of the same question. This is irreducible.
-
-The requirement is `PRECISION-001` in `docs/decision-ledger-v2.md`, not `MODEL-001`
-as previously recorded here; `MODEL-001` governs only model shape and its reopen
-trigger would wrongly route this into P19. Resolution follows `PRECISION-001`'s own
-reopen trigger. Do not weaken, tolerance, or delete the gate ahead of that
-amendment. `tests/e1_full_model_backend.rs` keeps the gate as an explicitly ignored
-test so it remains visible and runnable rather than quietly absent.
+Do not weaken, widen, or delete the gate. It is frozen policy, and the current
+margin against it is reported per operating shape in E1B below.
 
 ### E1B — Batched, Memory-Efficient Attention and Loss
 
@@ -680,100 +673,8 @@ test so it remains visible and runnable rather than quietly absent.
 
 Dependencies: E1 implementation.
 
-Measured first, on the prototype RTX 5090 at canonical scale with one sequence per
-dispatch (`tests/e1b_canonical_scale_probe.rs`):
-
-| Quantity | Measurement |
-|---|---|
-| Peak device memory attributable to the process | `16,318` MiB for a single 2,048-target sequence |
-| Steady-state time per sequence | `0.7743` s |
-| Throughput | `2,645` targets/s against the `69,444` targets/s the SLA requires |
-| Projected full-run wall clock | `210` hours against the `8`-hour completion SLA |
-| First dispatch, including kernel compilation | `172` s, one-time but charged to the SLA clock |
-
-Both gaps are far larger than the earlier estimates: one sequence already consumes half
-the device, and throughput is short by a factor of roughly 26. The graph is also nowhere
-near compute-bound — it sustains about `2.1` TFLOP/s, a low single-digit percentage of the
-device's FP32 capability — so the gap is dominated by materialization, launch overhead from
-the 144 per-head loop iterations, and the straight-through storage helper's extra tensors,
-not by arithmetic. That is encouraging for the fix and disqualifying for the current shape.
-
-The current graph is single-sequence and materializes everything:
-
-- it has no batch dimension, so the frozen P14 micro-batch of 16 sequences cannot
-  be expressed and every sequence costs a separate dispatch chain. One 1,000,000
-  target evaluation at fixture scale needs roughly 470,000 kernel launches and
-  does not finish inside a normal test budget;
-- it retains the full `[L, V]` logit matrix, about 262 MB per 2,048-target
-  sequence at canonical scale;
-- it retains full `L x L` attention scores for every head and layer, about 2.4 GB
-  per sequence at canonical scale.
-
-Together these make the canonical model unable to fit the 32 GB device at the
-frozen micro-batch. Implement the batched sequence dimension, the chunked or
-fused cross-entropy the contract requires instead of a retained `[B, L, V]`
-tensor, and causal GQA that neither materializes complete score matrices nor
-repeats K/V. Re-verify determinism, snapshot and restore, and continuation after
-the change; the frozen semantics may not move.
-
-**Landed so far.** `burn-autodiff`'s `BalancedCheckpointing` now backs the training
-backend and all three provider parity adapters, and the CUDA backend returns pages to
-the allocator after each optimizer update. Recomputation reruns the same kernels on the
-same inputs, so it is bit-identical: the `PRECISION-002` conformance numbers are
-unchanged to the last digit (`5.713872e-6` / `0.999999999984`), and the determinism and
-resume gates pass untouched. Re-measured effect: peak memory `16,318` to `13,601` MiB, a
-17 percent reduction, for a 7 percent slowdown to `2,453` targets/s. That is the expected
-recompute trade and confirms the remaining gap is structural, not a tuning matter.
-
-**Phase 3, batching, has landed.** The graph is now `[B, L, ...]` throughout. Heads fold
-into the batch axis so all of them run as one batched matmul instead of twelve per layer,
-each K/V head is expanded across its query group rather than re-sliced per query head, and
-the causal mask and RoPE tables broadcast instead of being sliced per sequence.
-`TrainingBatch` carries `sequence_lengths`, so a micro-batch states its own boundaries;
-sequences of equal length are grouped into one dispatch, which keeps the ragged final
-update exact rather than padded. The fixture runs through the batched path at one
-sequence, so the conformance gate still covers the code production uses.
-
-Measured at one sequence per dispatch: `13,361` MiB and `3,894` targets/s, a 59 percent
-throughput gain over the pre-batching `2,453`, bringing the projection from `226.5` to
-`142.7` hours. That gain comes from batching the heads, not from batching sequences.
-
-**Batching sequences does not pay until the materializations are bounded, and the
-measurement is emphatic.** At four sequences per dispatch the run reaches `30,582` MiB
-attributable and a `32,158` MiB peak, essentially the whole 32 GB device, and throughput
-*collapses* to `649` targets/s, six times worse than a single sequence, for a `855.9`-hour
-projection. Under that memory pressure the allocator thrashes and the arithmetic stops
-mattering. The frozen micro-batch of 16 is therefore unreachable by batching alone, and
-this settles the order of the remaining work: Phase 4 must land before any batch wider than
-one sequence is worth measuring again.
-
-One honest consequence: batched kernels reduce in a different order, so gradient
-conformance moved from `5.714e-6` to `3.190342e-4` relative L2 and from `0.999999999984`
-to `0.999999949415` cosine. Both remain far inside the frozen `PRECISION-002` bound, and
-the forward stays exact byte for byte, but the sensitivity of gradients to kernel shape is
-exactly why the amendment used a bound rather than byte equality.
-
-**Phase 4, bounding the materializations, has landed**, and it reverses the Phase 3
-finding above. One training step is now split into several backward passes joined by the
-exact `sum(value * cotangent)` vector-Jacobian seed: the cross-entropy head is
-differentiated `512` flattened positions at a time, so the `[.., 32,000]` logits no longer
-scale with sequence length or batch width, and every layer is forwarded once untracked to
-record its boundary and recomputed with a tape only while its own gradient is taken, so
-retained state falls to the layer boundaries plus one live layer. `burn` 0.21 offers no
-trainable flash attention and no downstream custom `Backward`, so this staging is the
-available mechanism.
-
-Two defects were found and fixed on the way:
-
-- `FullModelGraph::detached()` never worked. burn's `float_detach` deliberately
-  re-applies the `require_grad` flag it finds, so detaching a parameter leaves it rooting
-  a tape and evaluation retained one it could never use. `untracked()` clears the flag
-  instead, which is what actually prevents a tape forming.
-- Gradient readback issued one `try_into_data` per parameter, so every micro-batch paid
-  111 device synchronizations. The gradients are now concatenated on device and read back
-  once, in the same PARAM-001 order.
-
-Re-measured at canonical scale. The Phase 3 collapse is gone and batching now pays:
+**The operating table E5 chooses from.** Measured on the prototype RTX 5090 at
+canonical scale (`tests/e1b_canonical_scale_probe.rs`):
 
 | Sequences per dispatch | Peak device memory | Throughput | Projected wall clock |
 |---|---|---|---|
@@ -782,75 +683,61 @@ Re-measured at canonical scale. The Phase 3 collapse is gone and batching now pa
 | 8 | `18,734` MiB | `13,731` targets/s | `40.5` h |
 | 16 | `31,879` MiB | `16,221` targets/s | `34.2` h |
 
-At one sequence, memory fell from `13,361` to `9,552` MiB while throughput *rose* from
-`3,894` to `5,471` targets/s: the extra forward that checkpointing costs was more than
-repaid by the readback fix and by the reduced allocator pressure. At four sequences the
-comparison against Phase 3 is `14,130` MiB versus `30,582` and `10,481` targets/s versus
-`649` — sixteen times the throughput for half the memory. **The frozen P14 micro-batch of
-16 sequences now fits and runs**, which was E1B's stated goal, though at `31,879` MiB of
-`32,607` it leaves only `728` MiB of headroom; 8 sequences is the safer operating point for
-an unattended run and E5 owns that choice.
+The frozen P14 micro-batch of 16 fits and runs, which was E1B's goal, but at
+`31,879` MiB of `32,607` it leaves `728` MiB of headroom. **8 sequences is the
+safer operating point for an unattended run, and E5 owns that choice.**
 
-The staging is numerically transparent, which is the load-bearing claim: the
-`PRECISION-002` conformance numbers are unchanged to the last digit
-(`3.190342e-4` / `0.999999949415`), and `logits_exact` and `loss_exact` still hold. The
-P9B fixture is two positions, so it stays a single head chunk and keeps the oracle's exact
-reduction order. `tests/e1_full_model_backend.rs` also gains a fused-versus-sequential
-gradient check; its `2.404930e-4` relative L2 is *not* a Phase 4 effect, since running the
-identical comparison against the pre-checkpointing graph gives `2.412581e-4`. It is what
-FP32 batching costs on gradients that carry this much cancellation.
+**E1B is complete and the run does not meet the SLA.** `34.2` hours against the
+`28,800`-second completion SLA is short by a factor of `4.3`. That constant is
+frozen and not retunable after measurement, so this is a blocking input to E5's
+admission projection rather than something E1B could resolve. Where the time
+goes, for whoever attacks it: the graph sustains roughly `19` TFLOP/s while
+isolated FP32 matmul on the same shapes reaches `72`–`79`, so matmul is about a
+quarter of the wall clock and the rest is elementwise traffic, launch overhead,
+and the `541` MB per-micro-batch gradient readback the `TrainerBackend` contract
+requires.
 
-`evaluation_is_finite_and_leaves_training_state_unchanged` is no longer ignored: the
-mandatory `1,000,000`-target held-out evaluation now completes in `58` s.
+**The conformance gate runs at production batch widths**, not just at the
+single-sequence fixture, because batch width demonstrably moves the gradient.
+`logits_exact` and `loss_exact` hold at every width, and gradient deviation is
+flat at `3.747215e-4`, `3.747288e-4` and `3.747141e-4` for 4, 8 and 16 sequences
+against the `0.03` bound.
 
-**Phase 5, true BF16 storage, was implemented, measured, and deliberately not kept.**
-Its precondition holds: `MatmulElems::from_globals` promotes the accumulator to FP32
-whenever the output is BF16 or FP16 (`cubek-matmul-0.2.0/src/definition/spec.rs:276`), so
-`sensitive_accumulation: "fp32"` survives BF16 storage. Isolated BF16 matmul is `2.14x`
-to `2.88x` faster than FP32 on this device at the graph's own shapes
-(`tests/e1b_canonical_scale_probe.rs::probe_bf16_versus_f32_matmul_throughput`). The
-whole-model result did not follow:
+**True BF16 storage was measured and deliberately rejected — do not retry it
+without new information.** Its precondition holds and isolated BF16 matmul is
+`2.14x`–`2.88x` faster, but the whole-model result was equal throughput
+(`16,500` vs `16,221` targets/s) for `11.6x` worse gradient conformance and
+`150x` worse batch-shape sensitivity, the latter reaching `3.586e-2` — larger
+than the `0.03` bound itself. The reason it gains so little is structural: the
+frozen semantics place *no* storage point on the attention scores, their softmax,
+or the loss, which are exactly the memory- and time-dominant tensors, so BF16
+reaches only the linear projections while its boundary casts give much of that
+back. Owner decision 2026-08-17: keep the FP32 substrate. The probe is retained so
+the finding stays reproducible.
 
-| Substrate | Best operating point | Peak memory | Throughput | Projection | Conformance | Batch-shape sensitivity |
-|---|---|---|---|---|---|---|
-| FP32 straight-through | 16 sequences | `31,879` MiB | `16,221` targets/s | `34.2` h | `3.190342e-4` | `2.405e-4` |
-| True BF16 storage | 8 sequences | `17,900` MiB | `16,500` targets/s | `33.7` h | `3.713047e-3` | `3.586e-2` |
+<details>
+<summary>Superseded measurements from the pre-batching and pre-checkpointing graph</summary>
 
-Equal throughput. The reason BF16 gains so little is structural rather than
-incidental: the frozen semantics deliberately place *no* storage point on the attention
-scores, their softmax, or the loss, and those are exactly the memory- and
-time-dominant tensors, so BF16 can only reach the linear projections while the widening
-casts it forces at every boundary give much of that back. Measured against expectation,
-peak memory fell only 4 percent at eight sequences and *rose* at sixteen, where
-throughput collapsed to `5,571`–`5,981` targets/s across two runs.
+Kept because they make the final numbers legible as a result rather than an
+assertion, and because they record a dead end worth not repeating.
 
-Against that, BF16 costs `11.6x` on gradient conformance and `150x` on batch-shape
-sensitivity, the latter reaching `3.586e-2` — larger than the `0.03` conformance bound
-itself. The forward stayed exact byte for byte, and the frozen gate still passed at
-`3.713047e-3`, so this was a trade rather than a failure. **Owner decision on
-2026-08-17: revert to the FP32 substrate.** Equal speed does not buy a `11.6x`
-determinism regression, and neither substrate changes the SLA verdict. The probe is kept
-so the finding stays reproducible.
+| Graph, at one sequence per dispatch | Peak memory | Throughput | Projection |
+|---|---|---|---|
+| Original, unbatched and fully materializing | `16,318` MiB | `2,645` targets/s | `210` h |
+| Activation checkpointing only | `13,601` MiB | `2,453` targets/s | `226.5` h |
+| Heads batched, sequences not | `13,361` MiB | `3,894` targets/s | `142.7` h |
 
-**The conformance gate now runs at production batch widths.** The fixture executed only
-at one sequence, while training runs at eight or sixteen, and batch width demonstrably
-moves the gradient — so the gate did not cover the shape that ships.
-`run_burn_cubecl_cuda_batched_model_parity` replicates the closed fixture across a batch
-and scales the normalizer, which leaves the loss and gradients at their single-sequence
-values, making the frozen oracle bytes a gate on the batched path. It also fails closed
-if the copies are not bit-identical to each other. Measured: `logits_exact` and
-`loss_exact` hold at every width, and gradient deviation is flat at `3.747215e-4`,
-`3.747288e-4`, and `3.747141e-4` for 4, 8, and 16 sequences against the `0.03` bound.
+**Batching sequences did not pay until the materializations were bounded**, and
+the measurement was emphatic: at four sequences the pre-checkpointing graph
+reached a `32,158` MiB peak and throughput *collapsed* to `649` targets/s — six
+times worse than a single sequence, because under that memory pressure the
+allocator thrashes and the arithmetic stops mattering. That is why bounding the
+materializations had to land before any batch wider than one sequence was worth
+measuring again, and why the final table shows `10,481` targets/s at that same
+width. First dispatch also costs `172` s of kernel compilation, one-time but
+charged to the SLA clock.
 
-**E1B is complete, and the run does not meet the SLA.** The frozen configuration is
-runnable, bounded, and gated at its production shape, but `34.2` hours against the
-`28,800`-second completion SLA is short by a factor of `4.3`. That constant is frozen and
-is not retunable after measurement, so this is a blocking input to E5's admission
-projection rather than something E1B can resolve. The remaining levers are outside this
-item: the graph sustains roughly `19` TFLOP/s while isolated FP32 matmul on the same
-shapes reaches `72`–`79`, so matmul is about a quarter of the wall clock and the rest is
-elementwise traffic, launch overhead, and the `541` MB per-micro-batch gradient readback
-the `TrainerBackend` contract requires.
+</details>
 
 ### E2 — Final-Run Launch Mode
 
@@ -913,423 +800,36 @@ already requires.
 Dependencies: P4–P9A implementation. Independent of E1/E2.
 
 - Acquire authorized, license-clean Python source, plus the hash-bound
-  `evalplus-v0.3.1` protection manifest. *(Written before `fetch` and
-  `import-benchmark` existed; both now do. See "What is left" at the end of this
-  section.)*
+  `evalplus-v0.3.1` protection manifest.
 - Run `curate`, `prepare-corpus`, `train-tokenizer`, `tokenize`, and `plan-spans`
   on the real inputs until an installed P8 generation reports
   `training_target_satisfied: true` at exactly `2,000,000,001` stored IDs.
 - Keep every generated corpus, token, and checkpoint artifact under ignored roots.
 
-**E3 is much larger than "run the pipeline", and the reasons are read from the code
-rather than estimated.** Three pieces are missing outright and three more do not
-survive production scale.
+E3 turned out to be much larger than "run the pipeline": exploration found three
+pieces missing outright and three more that would not survive production scale,
+and executing the chain found two further defects that reading it had not. All
+eight are now closed and every stage is measured. What follows is only what
+remains.
 
-Missing outright:
+#### The pipeline is built and measured
 
-- **No acquisition exists.** There is no HTTP client in `src/`. `curate` reads a
-  hand-authored `MaterializedSourceManifestV1` plus a `content_root` of plain bytes
-  (`src/data.rs:75-114`). This is implementation order, not a boundary: the
-  `AGENTS.md` Security section mandates the contract's HTTPS and redirect rules, and
-  `docs/rebuild-contract.md:109` marks HTTPS/checksums/credentials `REIMPLEMENT`,
-  "mandatory in production".
-- **No EvalPlus importer exists and no phase owns one.** `DECONTAM-001`
-  (`docs/rebuild-contract.md:159`) specifies the extraction completely and assigns it
-  to P6A, but the rebuilt Phase 6A is Adversarial Filter Cases. `README.md:139` states
-  the exclusion outright.
-- **The frozen EvalPlus digests are pinned nowhere.** `validate_benchmark_manifest`
-  (`src/corpus.rs:602-663`) checks that `asset_sha256` and `decoded_sha256` are
-  *shaped* like SHA-256 and never compares them to a known value, and nothing
-  cross-checks `records.len()`. A hand-written manifest with plausible hashes and one
-  trivial record passes every gate and yields a decontamination manifest that certifies
-  almost nothing. This is a live integrity hole independent of E3.
-
-Will not survive scale:
-
-- **Manifest ceilings.** `MAX_CONTROL_FILE_BYTES = 64 MiB`
-  (`src/data/source/io.rs:8`) is enforced on every `read_control_file` (`io.rs:206`),
-  including when `prepare-corpus` reads the whole P4 generation manifest
-  (`src/corpus.rs:382-387`). That manifest is one compact JSON line with one outcome
-  per document, and `SourceOutcomeV4` (`src/corpus.rs:146-167`) carries the ~1.1 KB
-  `governed_source_metadata` block, so an accepted outcome is roughly `2.4` KB —
-  about **28,000 documents per generation**. Reaching `2,000,000,001` train IDs needs
-  on the order of 7–8 GB of canonical train text and 1.5–3 million documents, which is
-  50–100 times over. Two further reads hit the same cap and are *not* fixed by
-  multi-generation input: `governed-corpus-manifest.json` read by `tokenize` (~123k
-  documents) and `tokenizer-sample-manifest.json` read twice (~140k).
-- **`assign_splits` is quadratic** (`src/corpus.rs:1254-1302`): every duplicate group
-  is iterated for every connected component. At ~10^6 of each it does not terminate,
-  and it is the most likely place a real run appears to hang.
-- **Everything is resident.** `prepare-corpus` holds every document's content, lexical
-  tokens, encoded tokens, a `BTreeSet` of 5-gram shingles, and a 256-component MinHash
-  signature at once (`src/corpus.rs:169-183`), roughly 15–30 times corpus bytes.
-  Tokenizer training is single-threaded and unresumable at ~24–40 GB resident
-  (`src/tokenizer.rs:542-685`).
-
-Two traps for whoever runs this: `training_target_satisfied: false` is **not an
-error** and exits 0 (`src/storage.rs:401-409`), so the field must be asserted out of
-the `tokenize` result rather than inferred from an exit code; and `shard_maximum_ids`
-is irreversible once published — `read_range` re-reads and re-hashes the *entire*
-backing shard on every sequence read (`src/storage.rs:1110-1111`), so a 67M-ID shard
-means hashing 128 MiB per training read.
-
-Also note that an in-repo corpus silently breaks the quality gate for an unrelated
-reason: `git status -uall` over ~20-30k untracked files exceeds the 2 MiB
-`CAPTURE_LIMIT_BYTES` (`xtask/src/quality_gate.rs:14`) and aborts with the misleading
-`QUALITY_CAPTURE_LIMIT_EXCEEDED`. Keep generated corpora under the ignored roots.
-
-**A latent P5 defect that E3 found by executing.** `parse_python` required the
-tree-sitter module node to start at byte 0 (`src/parser.rs:281`), but tree-sitter
-places leading whitespace *outside* that node as an extra. Any Python file
-beginning with a blank line or a space therefore parsed perfectly and was still
-reported `PYTHON_SYNTAX_REJECTED`, while a file beginning with a *comment* was
-accepted, because comments sit inside the module. The rule was rejecting on layout
-rather than on syntax, and P4 curation was silently discarding a large and
-arbitrary slice of real Python. It is corrected to the requirement it was plainly
-trying to express: everything outside the module node must be insignificant
-whitespace. Nothing meaningful can go unparsed, strictly more documents curate and
-none fewer, and the whole existing suite including P4 and P5 passes unchanged. It
-surfaced because a real EvalPlus prompt starts with two blank lines.
-
-**Two properties of the real assets that the contract's wording does not
-anticipate.** `DECONTAM-001` says "strict ... JSONL decoding", but the assets were
-produced by Python's `json` module and contain bare `NaN`, `Infinity` and
-`-Infinity`, which RFC 8259 forbids. They are recognized explicitly rather than
-tolerated loosely, and then refused a canonical form, because RFC 8785 cannot
-represent a non-finite value either. Separately, `base_input`/`plus_input` contain
-integers far beyond IEEE-754 double precision — one is 55 digits — and RFC 8785
-serializes numbers through ECMAScript `Number::toString`, i.e. as doubles. Emitting
-the nearest double would silently rewrite `6775685320645824322581483068371419745979053216268760300`
-into `6.775685320645824e+54`, which could never match a source document, so those
-values are counted and skipped rather than fabricated. `serde_json` cannot support
-either decision — it accepts duplicate keys silently and parses oversized integers
-straight into `f64`, destroying the evidence — which is why the importer carries its
-own strict reader.
-
-**Multi-generation corpus input has landed.** `CorpusPolicyConfigV1` now takes a
-non-empty `source_generations` list instead of one manifest and one root, so many
-P4 generations compose into a single corpus and each stays independently
-verifiable and under the 64 MiB bound rather than the bound being raised. Every
-capacity applies to the composed corpus. Identity uniqueness holds across the set,
-not merely within one generation, and naming a manifest or root twice is refused
-before anything is read. The composed identity is a domain-separated digest over
-the per-generation digests in configuration order, which keeps the single value
-that `tokenize` binds the sample manifest and tokenizer artifact to by equality.
-The load-bearing property is covered by test: a duplicate straddling two
-generations collapses to one representative exactly as it would inside one, since
-composing would otherwise silently admit the duplicates deduplication exists to
-remove.
-
-**This does not finish the ceiling problem.** `tokenize` still reads one
-`governed-corpus-manifest.json` and both stages still read one
-`tokenizer-sample-manifest.json`, all through the same 64 MiB bound, at roughly
-545 and 480 bytes per document — about 123,000 and 140,000 documents. Those are
-emitted by `prepare-corpus` rather than supplied, so they need streaming or
-splitting rather than a list, and the real per-document cost should be measured in
-Phase 5 before either is sized. *(Since fixed by splitting — see below.)*
-
-**The proof run executed the whole chain, and it settles the scale question.**
-`fetch` → `import-benchmark` → `materialize-source` → `curate` (three shards) →
-`prepare-corpus` → `train-tokenizer` → `tokenize` → `plan-spans` composed on real
-inputs for the first time. The measurement corpus is the local CPython 3.14
-standard library, 2,239 files, licensed `Python-2.0` which the frozen allowlist
-permits. It is a *measurement* corpus and nothing else: every artifact stayed in
-an ignored root, no model was produced, and its authorization record is a local
-operator assertion.
-
-`materialize-source` is new and was required to get here at all. `curate` consumes
-a manifest naming every document with its license, provenance, and expected
-SHA-256, which cannot be hand-written even at proof-run scale. It performs the
-mechanical half — enumerate, hash, order deterministically, shard — and leaves the
-governance half declared by the operator. It shards output because one generation
-manifest cannot hold a production corpus.
-
-Measured, replacing the estimates:
-
-| Quantity | Estimated | Measured |
-|---|---|---|
-| Bytes per source-generation outcome | `~2.4` KB | **`2,319.8`** → `28,929` documents per generation |
-| Bytes per governed-corpus document | `~545` | **`561.3`** → `119,550` documents |
-| Bytes per tokenizer-sample document | `~480` | **`463.2`** → `144,890` documents |
-| `prepare-corpus` residency | `15`–`30x` corpus bytes | **`42.7x`** (`1,250.6` MiB peak for `29.3` MiB accepted) |
-| `assign_splits` at proof scale | might not terminate | **completes**; `16` percent above linear at `1,780` documents |
-
-Per-stage wall clock at this scale: `materialize-source` `54.8` s for 2,206 files,
-`curate` `4.8`–`5.7` s per 800-document shard, `prepare-corpus` `57.7` s for 1,780
-accepted, `train-tokenizer` `6.2` s at `318` MiB peak, `tokenize` `2.9` s,
-`plan-spans` `0.5` s.
-
-Pipeline yield, which is new information and transfers better than any of the
-byte figures: **`80.7` percent** of enumerated documents survive `curate`, and
-**`64.6` percent** of those become dedup representatives, so about **`52` percent**
-of an enumerated tree reaches the token corpus. Scaling a corpus needs that factor
-of roughly two on top of everything else.
-
-The observed `7.655` bytes per stored ID does **not** transfer and should not be
-used for sizing: the tokenizer was trained on `8.78` MB of the same `9.0` MB it
-then encoded, so its compression is overfit to this corpus. A diverse corpus
-compresses less well, which means *fewer* raw bytes per token, not more.
-
-**E3 cannot reach `training_target_satisfied: true` on this host, and the gap is
-now quantified rather than estimated.** `tokenize` reported
-`training_prefix_ids: 1,136,321` against the required `2,000,000,001` and exited
-`0`, which is exactly why the field has to be asserted rather than inferred. Three
-independent blockers, in the order they bite:
-
-1. **`prepare-corpus` residency.** At `42.7x` measured, a production corpus needs
-   on the order of a terabyte of RAM against this host's `93.6` GB. Composing
-   generations does not help — the union is what is held resident.
-   *(Since fixed structurally — see below.)*
-2. **The two downstream manifest ceilings that Phase 4 did not fix.** A production
-   corpus implies roughly `917,000` representatives against `119,550` and
-   `144,890`, so both are six to eight times over. They are emitted rather than
-   supplied, so they need streaming or splitting. *(Since fixed — see below.)*
-3. **`assign_splits`.** It completes here, but a two-term fit over 580, 1,253 and
-   1,780 documents attributes the `16` percent superlinearity to a quadratic
-   coefficient which, extrapolated to `1.5` million documents, dominates by orders
-   of magnitude. That is an extrapolation across a thousandfold range and should
-   be treated as a direction, not a number — but it agrees with the code, which is
-   `O(components x duplicate_groups)`.
-   *(Since fixed, and the "orders of magnitude" was too strong — see below.)*
-
-Roughly `61` source generations would be needed for a production corpus, which
-Phase 4 now supports. The other two blockers are unaddressed and each is a real
-piece of work. *(That count assumed the `1.5`–`3` million documents estimated
-before the corpus was sized; the settled figure is in "What is left" below.)*
-
-**`prepare-corpus` residency is down from `42.7x` to `13.8x`**, peak `1,250.6` to
-`402.9` MiB on the same corpus, for about five percent more wall clock. Both
-changes are losslessly semantics-preserving and the evidence is that the published
-generation digest is byte-identical across all three runs
-(`b507dcad7f164d958e9e3577b3ef6c1a97a9bbf54ea942081615838af69cad60`).
-
-- **The lexical tokens were retained for a number.** `PreparedDocument` held a
-  `Vec<LexicalToken>` — a heap `String` kind and a heap `Vec<u8>` text per token,
-  across millions of tokens — and every later use needed only `.len()`, which the
-  one-to-one `encoded_tokens` already carries. Deleting the field alone took
-  `42.7x` to `30x`.
-- **The shingle set is derived, so it is no longer stored.** A shingle
-  concatenates five encoded tokens, so the set costs roughly five times the token
-  bytes and was the single largest structure, yet it is wholly a function of
-  `encoded_tokens` and is consulted only for the exact Jaccard of an LSH candidate
-  pair and once per document in decontamination. It is rebuilt for those cases
-  instead. The candidate set is ordered, so pairs sharing a left document are
-  contiguous and that side is built once. That took `30x` to `13.8x`.
-
-Deliberately not done: hashing shingles to fixed-width keys would cut the rebuild
-cost further but replaces `DEDUP-001`'s exact Jaccard with a probabilistic one,
-and flattening `encoded_tokens` into a buffer plus offsets is lossless but rewrites
-frozen span-matching code for perhaps a further `1.5x`. Neither changes the verdict
-below, so neither is worth its risk yet.
-
-**It is a real improvement and it still does not reach production.** The remaining
-dominant term is `encoded_tokens` at roughly half the residue. At `13.8x` a
-production corpus of about `24.5` GB accepted canonical text implies `338` GB
-against this host's `93.6` GB, where before it implied over a terabyte. Put the
-other way, the tractable corpus at `64` GB of working memory moved from about
-`1.5` GB of accepted text to about `4.6` GB — call it three times more corpus, not
-the sixty times the frozen target needs. Closing that needs the structural change
-rather than more constant factors: not holding the whole corpus resident at once,
-which means spilling shingles and signatures and running deduplication in blocked
-passes.
-
-**The two downstream manifest ceilings are gone.** `prepare-corpus` emits
-`governed-corpus-manifest.json` and `tokenizer-sample-manifest.json` as an index
-plus hash-bound parts of `50,000` documents each, instead of one line holding
-every document. At the measured `561.3` and `463.2` bytes per document that puts a
-part near `28` and `23` MB against the `64` MiB control-file bound, and the
-document count is no longer bounded at all. The ceilings were `119,550` and
-`144,890` against a production corpus of roughly `917,000` representatives.
-
-The filenames, the two configuration shapes, and all five `tokenize` binding
-equalities are unchanged, because the index keeps the header — the three digests
-that bind a corpus to its source generations, its splits, and its sample — and is
-itself the hash-bound file the configuration names. What moved is only where the
-documents live. A part is refused rather than published if it would not read back
-(`MAXIMUM_PART_BYTES`, `32` MiB), so a future change to the shard size cannot
-silently emit an unreadable artifact. On read, each part is verified against the
-index digest, and its schema, its ordinal, and its document count are checked, so
-a reordered, mislabelled, truncated, substituted, or absent part is rejected
-rather than accepted as a smaller corpus. Part paths are portable relative paths
-resolved against the index's own directory and cannot escape it.
-
-Verified by re-running the real chain over the sharded form: `train-tokenizer`
-reported the identical `selected_bytes: 8,780,188` across `1,148` documents and
-`tokenize` the identical `stored_ids: 1,177,713` and
-`training_prefix_ids: 1,136,321` across `1,149` documents, and the two tokenizer
-artifacts agree on all `31,740` merges. Only the embedded binding digests differ,
-which they must, since the index is a different artifact from the file it
-replaced.
-
-**`prepare-corpus` no longer holds the corpus, and residency no longer scales
-with corpus size at all.** Peak working set on the proof corpus falls from
-`403.7` MiB to `91.6` MiB — a further `4.4x` on top of the `42.7x` to `13.8x`
-already taken — for `3.2` percent more wall clock (`59.1` s to `61.0` s). Both
-runs were measured back to back on this host with the same inputs, and the
-evidence that the change is lossless is as strong as it gets: **the two runs
-publish the same generation digest**,
-`6efbf0bc077c8ffc31a75c34cf125852142c996760cc41c5cc9cdbcd66aaaf4b`, and all
-`1,157` published files agree by path and SHA-256.
-
-Three changes, none of which touches a frozen decision:
-
-- **The encoded tokens are one buffer plus offsets** rather than a `Vec<u8>` per
-  token. `DEDUP-001`'s encoding is self-delimiting — a `u64` kind length, the
-  kind, a `u64` text length, the text — so two token sequences are equal exactly
-  when their concatenations are, and a shingle is the concatenation of five
-  *consecutive* tokens with no separator, which in this layout is a contiguous
-  slice. The shingle set and the protected-span hash therefore read the bytes in
-  place instead of rebuilding them, and a covering test asserts the flat shingles
-  equal the per-token concatenation they replaced.
-- **Decontamination matching moved into the load pass.** Its per-document half
-  depends only on the protected set, never on other documents, so deciding it
-  while a document's tokens exist removes the only reason to produce every
-  document's tokens twice. What remains of the old pass is the cluster rule,
-  which needs one flag per document rather than any content.
-- **Neither the bytes nor the tokens are retained.** The bytes are re-read from
-  the hash-bound generation and re-verified on every read, so a file that changes
-  between passes fails the run instead of contributing stale bytes — strictly
-  more tamper-evident than pinning them in memory. The tokens are re-derived by
-  the same pinned parser for the only thing that still needs them, the exact
-  Jaccard of an LSH candidate pair, which the configuration already bounds.
-
-The result is that residency scales with the document *count*, not the corpus
-size. Three points confirm it is linear in that count: `581`, `1,262` and `1,780`
-documents at `59.4`, `77.8` and `91.6` MiB, whose successive slopes agree at
-`27.67` and `27.28` KiB per document over a fixed `43.8` MiB. A production corpus
-of roughly `1.45` million documents therefore implies about **`38` GiB against
-this host's `93.6` GB**, where the same corpus previously implied `338` GB. This
-host can hold it. Note that `27.5` KiB per document is peak working set, not live
-data — the structures account for roughly `5` KiB (a `2` KiB MinHash signature,
-about `2.9` KiB of LSH band index, and the identities) and the rest is retained
-heap arena, which is the conservative figure to plan against because it is what
-the host must actually supply.
-
-**The canonical-JSON check no longer costs anything measurable.** It had been
-`44.8` s of `prepare-corpus`'s `61.0` s — `73` percent — searching every document
-for each of `1,053` protected records with `content.windows(record).any(...)`, so
-it cost corpus bytes times record count with no prefilter. One anchored
-Aho-Corasick pass replaces it: **`61.0` s to `16.2` s** on the same corpus, which
-is exactly the `16.2` s measured with those records removed entirely. The check
-has gone from the dominant term to a free one, and the generation digest is
-unchanged.
-
-The records run from `2` bytes to `197,766`, so no fixed window or prefix hash
-separates them, but an automaton over them whole is not the answer either — built
-that way it measured `411.1` MiB peak against `91.6`, hundreds of megabytes of
-states bought for nothing. The automaton is built over a `64`-byte anchor of each
-record and every hit is then confirmed in full at its offset. That keeps peak at
-`91.6` MiB exactly, because `64` bytes separates `1,026` of the `1,053` records
-outright and the verification settles the rest. `Standard` match kind with an
-overlapping search is what preserves the old semantics — a record nested inside
-another's match still counts, which the leftmost kinds would drop — and a covering
-test checks the automaton against the record-at-a-time scan on the cases that
-could diverge: a shared anchor completed by only one record, a shared anchor
-completed by neither, a record nested in another's span, and a record shorter
-than the anchor.
-
-`aho-corasick 1.1` joins `flate2` and `ureq` as a data-lane dependency. It was
-already resolved in `Cargo.lock` through the accelerator tree, so naming it
-directly adds one edge and no version churn, and it is pure Rust behind the same
-boundary.
-
-Extrapolated linearly, a `24.5` GB corpus is now about `3.9` hours of
-`prepare-corpus` rather than `14.6`. The stage is single-threaded throughout,
-which is where any further time would come from.
-
-**`assign_splits` is linear, and the earlier characterization of it was too
-strong.** It asked, for each component, which duplicate groups touch it, which
-costs components times groups. It now asks the reverse: a group's members are all
-unioned with each other, so a group sits in exactly one component and its
-representative is filed there in the same pass that builds the components. The
-generation digest is unchanged and all `1,157` files still agree.
-
-The measurement corrects the record. At the worst case for the old form — every
-document its own repository and its own cluster, so components and groups are
-both the document count — it ran in `0.88` s at `20,000` documents and `3.46` s
-at `40,000`. That ratio of `3.93` confirms the term really was quadratic, but
-`0.19` s for the same input now is an `18.2x` improvement, not the orders of
-magnitude the estimate above claimed. Extrapolating the worst case to `1.42`
-million documents gives roughly `1.2` hours, and the proof corpus is nowhere near
-that shape: repository grouping collapsed its `1,757` clusters into `91`
-components, so its actual product was `5.0` percent of the worst case, or a few
-minutes at production scale. **`assign_splits` was never going to hang.** It was
-a real quadratic worth removing — cheaply, and provably without changing output —
-but the estimate that named it a top-three blocker was wrong, and the reason it
-was wrong is that it reasoned from the code without measuring the shape of the
-data the code runs on.
-
-**Landed so far.** `.gitignore` now matches the artifacts the pipeline actually
-writes. Its extension rules previously matched none of them: token shards are
-`shards/<split>-<seq>.u16le` (`src/storage.rs:820`) and checkpoint tensors are
-`model/parameters.bf16` and `optimizer/*.f32` (`src/train/full_state.rs:28-36`), so
-neither `*.bin` nor `*.safetensors` covered them and protection rested entirely on the
-root-anchored `/data/` and `/checkpoints/` directory rules. Interrupted-stage partial
-directories are ignored too. `CLAUDE.md` now records that acquisition is
-contract-required rather than forbidden, which nothing in it previously said.
-
-#### What is left
-
-Every finding the exploration above opened is now closed, and each fix is
-verified the same way: the proof corpus republishes generation digest
+Every stage now runs, and every fix was verified the same way: the proof corpus
+republishes generation digest
 `6efbf0bc077c8ffc31a75c34cf125852142c996760cc41c5cc9cdbcd66aaaf4b` with all
-`1,157` files agreeing by path and SHA-256.
+`1,157` files agreeing by path and SHA-256. That digest is the regression anchor —
+if a future change to `curate`, `prepare-corpus` or the adapters moves it, the
+change is not semantics-preserving.
 
-| Finding | Status |
-|---|---|
-| No acquisition exists | Closed — `fetch`, governed HTTPS with bounded redirects and streaming |
-| No EvalPlus importer | Closed — `import-benchmark`, `DECONTAM-001` transcribed |
-| EvalPlus digests unpinned | Closed — four frozen digests compared, `BENCHMARK_ASSET_DIGEST_MISMATCH` |
-| Source-generation manifest ceiling | Closed — multi-generation input |
-| Governed and sample manifest ceilings | Closed — index plus hash-bound parts |
-| `prepare-corpus` residency | Closed — `403.7` → `91.6` MiB, linear in document count |
-| Canonical-JSON scan | Closed — `61.0` → `16.2` s, anchored Aho-Corasick |
-| `assign_splits` quadratic | Closed — linear; and it was never going to hang |
-
-Two more things had to be fixed that the exploration never predicted, and both
-were found by executing rather than by reading: `materialize-source` had to be
-written before an authorized tree could be enumerated at all, and a latent P5
-defect was silently discarding every Python file that began with whitespace.
-
-**`train-tokenizer` at the sample cap is measured, and it fits.** It had one
-point — `6.2` s at `318` MiB on the proof run's `8.78` MB sample — against a
-`2,000,000,000`-byte cap, and the exploration's `24`–`40` GB guess had never been
-checked. A six-point sweep over local Python from `8` MB to `184.6` MB, a `23x`
-range, settles it:
-
-| Sample | Peak | Wall clock |
-|---|---|---|
-| `8.0` MB | `332.4` MiB | `5.0` s |
-| `16.0` MB | `515.0` MiB | `10.1` s |
-| `32.0` MB | `993.9` MiB | `19.7` s |
-| `64.0` MB | `1,610.7` MiB | `39.1` s |
-| `128.0` MB | `3,085.4` MiB | `78.3` s |
-| `184.6` MB | `4,351.3` MiB | `117.2` s |
-
-Both are strictly linear: `peak_MiB = 184.1 + 22.62 x sample_MB` at `R^2 =
-0.99921`, and `seconds = 0.63 x sample_MB` at `R^2 = 0.99935` — a flat `1.55`
-MB/s across the whole range. **At the `2,000,000,000`-byte cap that is `42.3` GiB
-and `20.0` minutes.** The memory lands at the top of the old estimate and inside
-this host's `93.6` GB, and it never coincides with `prepare-corpus`'s `38` GiB
-because the stages are separate processes run in sequence. Twenty minutes also
-makes "single-threaded and unresumable" a much smaller property than it sounded:
-losing a run costs twenty minutes, not an evening.
-
-Linearity is what the code says too, which is why the fit is believable rather
-than a coincidence of this corpus. `train_rules` (`src/tokenizer.rs:628`) builds
-`tokens`, `previous` and `next` as one `u32` per sample byte, and an `occurrences`
-map holding one `u32` per adjacent position; every structure is `O(sample bytes)`
-and none is `O(bytes^2)` or `O(bytes x vocabulary)`. There is a hard ceiling well
-above the cap: a sample over `u32::MAX - 1` bytes is refused outright with
-`TOKENIZER_SAMPLE_TOO_LARGE`.
-
-The probe drove the real `train-tokenizer` command over a hand-built sample
-manifest rather than the whole pipeline, because the manifest carries identities
-and byte counts and no license field — so measuring against arbitrary local
-Python asserts nothing governed, and no artifact left the ignored scratch root.
-Each run trained a full `32,000`-token vocabulary, and the `8` MB point
-reproduces the pipeline's known one (`332.4` MiB against `318` MiB at `8.78` MB),
-which is what says the harness is measuring the same thing.
+Two behaviours worth knowing before touching these stages, because both were
+expensive to find and neither is visible from the code alone. `prepare-corpus`
+residency scales with document *count*, not corpus size, at `43.8` MiB fixed plus
+`27.5` KiB per document — so holding anything per-document is the expensive
+mistake there. And `train-tokenizer` is strictly linear in sample bytes at
+`peak_MiB = 184.1 + 22.62 x sample_MB` (`R^2 = 0.99921`) and a flat `1.55` MB/s,
+measured over a `23x` range, which is why the `2,000,000,000`-byte cap projects to
+`42.3` GiB and `20.0` minutes rather than the `24`–`40` GB and unknown time
+originally feared.
 
 **What actually blocks E3 is not code any more: it is authorization.** The frozen
 target needs roughly `2,000,000,001` stored train IDs, and `SOURCE-001`
@@ -1434,6 +934,28 @@ Dependencies: E1–E4.
   seconds. Roughly `69,445` targets per second sustained is needed; if the
   measured projection misses, the run is blocked and the thresholds stay fixed.
 
+**E5 begins with a known negative result, not an open question.** E1B measured
+`16,221` targets/s at the frozen micro-batch of 16 — a `34.2`-hour projection
+against the `28,800`-second SLA, short by a factor of `4.3`. Both constants are
+frozen and not retunable after measurement, so on current evidence **admission
+fails** and E5's real work is either finding the missing factor or recording the
+refusal with the gap quantified.
+
+Two decisions E5 owns. The operating point: 16 sequences fits but leaves only
+`728` MiB of headroom on a 32 GB device, so `8` sequences at `13,731` targets/s is
+the safer choice for an unattended run and the throughput cost of that safety is
+`15` percent. And the pinned-transfer deviation E2 carries: the frozen defaults
+specify `cuda-page-locked`, the launch path uses a host staging ring instead, and
+that can only change once a backend consumes device pointers directly — a
+P12-contract change.
+
+Where the remaining time is, measured rather than guessed: the graph sustains
+roughly `19` TFLOP/s against `72`–`79` for isolated FP32 matmul on the same
+shapes, so matmul is about a quarter of the wall clock and the rest is elementwise
+traffic, launch overhead, and the `541` MB per-micro-batch gradient readback the
+`TrainerBackend` contract requires. `docs/adr/0000` and P19 exist for the case
+where the answer is that the frozen configuration cannot meet the frozen SLA.
+
 ### E6 — The 2,000,000,000-Target Run and Quality Evaluation
 
 - [ ] E6 execution
@@ -1447,3 +969,9 @@ Dependencies: E5.
   pack, then run `evaluate-quality` against the final checkpoint.
 - Manual approvals, receipts, and pointers remain `SKIPPED`; any claim not backed
   by the executed run remains `UNVERIFIED`.
+
+E6 is unreachable until E3 has a governed corpus and E5 admits the run, and on
+current measurements E5 does not. The launch mode itself is ready: `train
+--config <defaults> --launch <launch>` is the explicit execution mode, it demands
+`confirm_full_run`, and its SLA measurement uses a suspend-inclusive clock so an
+overnight run that suspends does not under-report against a wall-clock deadline.
