@@ -824,8 +824,13 @@ change is not semantics-preserving.
 Two behaviours worth knowing before touching these stages, because both were
 expensive to find and neither is visible from the code alone. `prepare-corpus`
 residency scales with document *count*, not corpus size, at `43.8` MiB fixed plus
-`27.5` KiB per document — so holding anything per-document is the expensive
-mistake there. And `train-tokenizer` is strictly linear in sample bytes at
+a per-document slope — so holding anything per-document is the expensive mistake
+there. The slope itself is a property of the corpus, not of the code: `27.5` KiB
+per document on `16.9` KiB documents, `16.45` KiB on the `3,517`-byte documents
+Stack v1 actually delivers. Re-measure it against the corpus in hand rather than
+carrying a number over from another one.
+
+And `train-tokenizer` is strictly linear in sample bytes at
 `peak_MiB = 184.1 + 22.62 x sample_MB` (`R^2 = 0.99921`) and a flat `1.55` MB/s,
 measured over a `23x` range, which is why the `2,000,000,000`-byte cap projects to
 `42.3` GiB and `20.0` minutes rather than the `24`–`40` GB and unknown time
@@ -856,24 +861,32 @@ duplicate — so a run that admits far fewer documents than expected says which
 rule did it instead of leaving one number to guess from.
 
 `parquet` and `arrow` are the first data-lane dependencies that genuinely widen
-the tree: 30 new packages. The codec set is pure Rust on purpose. `CLAUDE.md`
-permits exactly one piece of native code on the data lane, the pinned
-tree-sitter C parser, and Parquet's `zstd` feature would bring `zstd-sys` with
-it. That crate is already in `Cargo.lock` through `zip` in the accelerator tree,
-but that tree is feature-gated and never compiles into a CPU or data build, so
-enabling it here would have put C into the default build. Verified after the
-change: no `zstd-sys`, `zip`, `libz`, `lz4-sys`, `snappy-sys`, `brotli-sys` or
-`openssl` is reachable from the default build. A shard in an unsupported codec
-therefore fails with a typed error naming the codec rather than being silently
-unreadable — which is the honest failure, but it *is* a limitation to check
-against the real shards before a long run.
+the tree: 30 new packages. The codec set was pure Rust when it landed, on the
+reasoning that `CLAUDE.md` permitted exactly one piece of native code on the data
+lane and Parquet's `zstd` feature would bring `zstd-sys` with it. The real shards
+then turned out to be Zstandard, and `SCOPE-002` admitted that decoder as a third
+named boundary — so the constraint below is now history rather than current
+policy, and it is kept because the reasoning still applies to every codec nobody
+has approved. `zstd-sys` was already in `Cargo.lock` through `zip` in the
+accelerator tree, but that tree is feature-gated and never compiles into a CPU or
+data build, so enabling it was a real widening of the default build rather than a
+bookkeeping change. Everything else stayed out: no `zip`, `libz`, `lz4-sys`,
+`snappy-sys`, `brotli-sys` or `openssl` is reachable from the default build. A
+shard in a codec outside that set still fails with a typed error naming it rather
+than being silently unreadable, which is what turned the Zstandard discovery into
+a decision instead of a mystery.
 
-**What remains is the operator's, and only the operator's.** Accepting the
-HuggingFace dataset terms, obtaining Software Heritage bulk access, and supplying
-both tokens through named environment variables. The adapter is verified against
-Parquet fixtures and a loopback origin, never against the dataset, which is why
-the column mapping is declared in configuration rather than assumed: a schema
-revision is then an operator change instead of a code change.
+**What remained was the operator's, and it has since been supplied.** Accepting
+the HuggingFace dataset terms and providing a token through a named environment
+variable was the whole of it. Software Heritage bulk access — the other half of
+this sentence when it was written — turned out to be unobtainable on any useful
+timescale, and `SOURCE-002` replaced it with a content-bearing Parquet source
+that carries the code itself. The adapter is still verified against Parquet
+fixtures and a loopback origin rather than against the dataset, which is why the
+column mapping is declared in configuration rather than assumed: a schema
+revision is an operator change instead of a code change, and that is exactly what
+made the switch to a different dataset a config-and-adapter job rather than a
+redesign.
 
 #### Acquisition hardening, and what the first real contact established
 
