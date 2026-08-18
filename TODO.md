@@ -831,7 +831,7 @@ measured over a `23x` range, which is why the `2,000,000,000`-byte cap projects 
 `42.3` GiB and `20.0` minutes rather than the `24`–`40` GB and unknown time
 originally feared.
 
-**What actually blocks E3 is not code any more: it is authorization.** The frozen
+**What blocked E3 was authorization, and the alternate route removed it.** The frozen
 target needs roughly `2,000,000,001` stored train IDs, and `SOURCE-001`
 (`docs/rebuild-contract.md:152`) makes the source Stack v2 metadata plus
 authorized Software Heritage content.
@@ -983,6 +983,70 @@ their Arrow types, which turned a schema unknown into one run instead of one
 guess per attempt. And a rejected licence is now reported by value, bounded to
 `32` distinct examples, which is what turned "everything was rejected" into a
 correct allowlist immediately.
+
+**The source moved to content-bearing Parquet, and the chain got shorter.**
+`SOURCE-002` (`docs/decision-ledger-v5.md`, owner-approved 2026-08-18) adopts the
+Stack v1 deduplicated Python subset under `SOURCE-001`'s own trigger, both halves
+of which are satisfied: the Stack v2 content path needs a bulk agreement with
+Software Heritage and INRIA, an AWS account for a requester-pays bucket, and
+SigV4 signing the client does not implement — established by reading the
+dataset's own terms, not assumed — and the owner named the alternate. The Stack
+v2 adapter is retained rather than removed, because that access may yet exist.
+
+`materialize-stack-content` is the adapter, and it is *simpler* than the one it
+supplements: no retry, no backoff, no partitioning, no content encoding, because
+none of that is needed when the text is already in the row. Everything governed
+is unchanged — shards hash-bound before reading, the frozen allowlist, the frozen
+ceiling, create-new publication.
+
+Measured on `data-00000-of-00144.parquet`, `205` MB, read in `77.7` s at `202`
+MiB peak:
+
+| Quantity | Measured |
+|---|---|
+| Content rows | `90,016` |
+| **Admitted documents** | **`84,634`** (`94.0` percent) |
+| Rejected by licence | `5,367` |
+| Rejected as oversize | `1` |
+| Skipped for an unusable provenance path | `14` |
+| Rows whose content did not reproduce its declared identity | `22` (`0.026` percent) |
+| Python source extracted | `429` MB |
+
+Then through `curate`: `20,000` documents in, `17,654` parser-accepted, **`16,384`
+policy-accepted** (`81.9` percent), `83` quarantined. That end-to-end run is the
+requalification evidence `SOURCE-002` asks for, and it is what establishes the
+alternate ends at the same contract the primary route does.
+
+At roughly `69,300` curated documents per shard, the `1.45` million target needs
+about `21` shards of the `144` available — some `4.3` GB of download against the
+`13.0` GB the metadata-only route would have needed before a single blob was
+fetched.
+
+**Three findings the end-to-end check produced that fixtures had not.**
+
+The identity cross-check is a property of the shard, not an invariant. A
+content-bearing row carries *decoded* text, so reproducing the original blob's
+`sha1_git` depends on that decoding round-tripping; it does for `99.974` percent
+of rows here. `blob_identity_verified` is therefore an explicit operator
+declaration rather than an assumption, and the disagreement count is reported
+either way so the claim is never taken on trust. The chain does not rest on it:
+the shard's own digest is what binds its rows.
+
+Real repository paths are not all portable relative paths — `14` of `90,016`
+carry separators or segments that `curate` refuses as provenance. Rewriting one
+would falsify the provenance the manifest records, so the row is skipped and
+counted.
+
+**Both adapters emitted a manifest `curate` refuses**, and only running `curate`
+found it. `adapter_namespace` and `authorization.scheme` are pinned contract
+values (`stack-v2-swh-materialized-v1` and `materialized-source-authorization-v1`),
+and both adapters — including the Stack v2 one already committed and
+fixture-tested — used their own labels instead. A full acquisition would have
+completed and then been rejected at the first `curate` invocation. Both now emit
+the pinned namespace and validate the scheme before reading anything, and the
+fixtures assert the published manifest carries values `curate` accepts, because
+a test that only checks the adapter against itself cannot catch this class of
+error.
 
 Working projections for that run. Each basis says what it rests on, because they
 are not equally solid: the two corpus-size rows inherit an estimate, the rest

@@ -40,6 +40,12 @@ enum Command {
         #[arg(long)]
         config: PathBuf,
     },
+    /// Read governed content-bearing Parquet into sharded `curate` source
+    /// manifests: the `SOURCE-002` alternate, which needs no content fetch.
+    MaterializeStackContent {
+        #[arg(long)]
+        config: PathBuf,
+    },
     /// Import the pinned EvalPlus assets into a benchmark protection generation.
     ImportBenchmark {
         #[arg(long)]
@@ -155,6 +161,9 @@ pub fn run(args: impl IntoIterator<Item = OsString>) -> Result<Value> {
             }
         }
         Command::MaterializeSource { config } => crate::materialize::materialize_source(&config),
+        Command::MaterializeStackContent { config } => {
+            crate::stack::materialize_stack_content(&config)
+        }
         Command::MaterializeStackSource { config } => {
             crate::stack::materialize_stack_source(&config)
         }

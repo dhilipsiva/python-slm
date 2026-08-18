@@ -14,8 +14,9 @@ use parquet::arrow::ArrowWriter;
 use rust_llm_pretrain::backend::PROTOTYPE_PROFILE;
 use rust_llm_pretrain::data::SourceAuthorization;
 use rust_llm_pretrain::stack::{
-    StackColumnsV1, StackContentEncodingV1, StackLimitsV1, StackPartitionV1, StackSourceConfigV1,
-    materialize_stack_source,
+    StackColumnsV1, StackContentColumnsV1, StackContentEncodingV1, StackContentLimitsV1,
+    StackContentSourceConfigV1, StackLimitsV1, StackPartitionV1, StackSourceConfigV1,
+    materialize_stack_content, materialize_stack_source,
 };
 use rust_llm_pretrain::tokenizer::HashBoundInput;
 use sha2::{Digest, Sha256};
@@ -273,7 +274,7 @@ fn config(
         license_allowlist: vec!["MIT".to_owned(), "Apache-2.0".to_owned()],
         source_snapshot_id: "stack-v2-fixture".to_owned(),
         authorization: SourceAuthorization {
-            scheme: "operator-assertion".to_owned(),
+            scheme: "materialized-source-authorization-v1".to_owned(),
             authority_url: "https://example.invalid/authorization".to_owned(),
             authorization_id: "fixture-001".to_owned(),
         },
@@ -436,7 +437,10 @@ fn stack_metadata_and_content_become_a_governed_source_generation() {
         .collect::<Vec<_>>();
     assert!(licenses.contains(&"MIT"));
     assert!(licenses.contains(&"Apache-2.0 AND MIT"));
-    assert_eq!(manifest["adapter_namespace"], "stack-v2-software-heritage");
+    assert_eq!(
+        manifest["adapter_namespace"],
+        "stack-v2-swh-materialized-v1"
+    );
 
     // Create-new: a second run against the same root must refuse.
     assert!(materialize_stack_source(&config_path).is_err());
@@ -1275,5 +1279,297 @@ fn an_allowlist_the_curation_policy_refuses_is_rejected_up_front() {
         materialize_stack_source(&config_path).unwrap_err().code,
         "STACK_NO_DOCUMENTS",
         "the frozen set passes validation and fails later, on selection"
+    );
+}
+
+// --- The SOURCE-002 content-bearing adapter -------------------------------
+
+/// One content-bearing row, in the shape The Stack v1 uses.
+struct ContentRow {
+    blob_identity: String,
+    repository: &'static str,
+    path: &'static str,
+    revision: &'static str,
+    licenses: Vec<&'static str>,
+    content: Vec<u8>,
+}
+
+fn write_content_shard(path: &Path, rows: &[ContentRow]) -> String {
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("hexsha", DataType::Utf8, false),
+        Field::new("max_stars_repo_name", DataType::Utf8, false),
+        Field::new("max_stars_repo_path", DataType::Utf8, false),
+        Field::new("max_stars_repo_head_hexsha", DataType::Utf8, false),
+        Field::new(
+            "max_stars_repo_licenses",
+            DataType::List(Arc::new(Field::new("item", DataType::Utf8, true))),
+            false,
+        ),
+        Field::new("content", DataType::Utf8, false),
+    ]));
+    let licenses = {
+        let mut builder =
+            arrow_array::builder::ListBuilder::new(arrow_array::builder::StringBuilder::new());
+        for row in rows {
+            for license in &row.licenses {
+                builder.values().append_value(license);
+            }
+            builder.append(true);
+        }
+        builder.finish()
+    };
+    let batch = RecordBatch::try_new(
+        schema.clone(),
+        vec![
+            Arc::new(StringArray::from(
+                rows.iter()
+                    .map(|row| row.blob_identity.as_str())
+                    .collect::<Vec<_>>(),
+            )) as ArrayRef,
+            Arc::new(StringArray::from(
+                rows.iter().map(|row| row.repository).collect::<Vec<_>>(),
+            )),
+            Arc::new(StringArray::from(
+                rows.iter().map(|row| row.path).collect::<Vec<_>>(),
+            )),
+            Arc::new(StringArray::from(
+                rows.iter().map(|row| row.revision).collect::<Vec<_>>(),
+            )),
+            Arc::new(licenses),
+            Arc::new(StringArray::from(
+                rows.iter()
+                    .map(|row| String::from_utf8_lossy(&row.content).into_owned())
+                    .collect::<Vec<_>>(),
+            )),
+        ],
+    )
+    .expect("record batch");
+    let file = std::fs::File::create(path).expect("create shard");
+    let mut writer = ArrowWriter::try_new(file, schema, None).expect("writer");
+    writer.write(&batch).expect("write batch");
+    writer.close().expect("close writer");
+    hex::encode(Sha256::digest(std::fs::read(path).expect("read shard")))
+}
+
+fn content_config(
+    shard: &Path,
+    digest: String,
+    output_root: PathBuf,
+    verified: bool,
+) -> StackContentSourceConfigV1 {
+    StackContentSourceConfigV1 {
+        schema: "python-slm-stack-content-source-config-v1".to_owned(),
+        profile: PROTOTYPE_PROFILE.to_owned(),
+        content_shards: vec![HashBoundInput {
+            path: shard.to_path_buf(),
+            sha256: digest,
+        }],
+        columns: StackContentColumnsV1 {
+            content: "content".to_owned(),
+            blob_identity: "hexsha".to_owned(),
+            repository: "max_stars_repo_name".to_owned(),
+            path: "max_stars_repo_path".to_owned(),
+            revision: "max_stars_repo_head_hexsha".to_owned(),
+            detected_licenses: "max_stars_repo_licenses".to_owned(),
+        },
+        license_allowlist: vec!["MIT".to_owned(), "Apache-2.0".to_owned()],
+        blob_identity_verified: verified,
+        source_snapshot_id: "content-fixture".to_owned(),
+        authorization: SourceAuthorization {
+            scheme: "materialized-source-authorization-v1".to_owned(),
+            authority_url: "https://example.invalid/authorization".to_owned(),
+            authorization_id: "fixture-001".to_owned(),
+        },
+        required_removal_authorities: vec!["https://example.invalid/removals".to_owned()],
+        output_root,
+        documents_per_generation: 2,
+        limits: StackContentLimitsV1 {
+            maximum_documents: 100,
+            maximum_total_bytes: 10_000_000,
+        },
+    }
+}
+
+fn write_content_config(path: &Path, config: &StackContentSourceConfigV1) {
+    std::fs::write(path, serde_json::to_vec(config).expect("serialize")).expect("write config");
+}
+
+/// The whole content-bearing adapter over one shard: what each rule rejects, and
+/// that what survives is a generation `curate` would accept.
+#[test]
+fn content_rows_become_a_governed_source_generation() {
+    let temporary = tempfile::tempdir().unwrap();
+    let admitted_one = b"def alpha():\n    return 1\n".to_vec();
+    let admitted_two = b"def beta():\n    return 2\n".to_vec();
+    let refused_license = b"def gamma():\n    return 3\n".to_vec();
+    let unusable_path = b"def delta():\n    return 4\n".to_vec();
+    let oversize = vec![b'x'; 1_000_001];
+
+    let rows = vec![
+        ContentRow {
+            blob_identity: sha1_git(&admitted_one),
+            repository: "example/one",
+            path: "src/alpha.py",
+            revision: "rev-1",
+            licenses: vec!["MIT"],
+            content: admitted_one.clone(),
+        },
+        ContentRow {
+            blob_identity: sha1_git(&admitted_two),
+            repository: "example/two",
+            path: "src/beta.py",
+            revision: "rev-2",
+            licenses: vec!["MIT", "Apache-2.0"],
+            content: admitted_two.clone(),
+        },
+        ContentRow {
+            blob_identity: sha1_git(&refused_license),
+            repository: "example/three",
+            path: "src/gamma.py",
+            revision: "rev-3",
+            licenses: vec!["MIT", "GPL-3.0-only"],
+            content: refused_license.clone(),
+        },
+        // A repository path that cannot be recorded as portable provenance.
+        // Rewriting it would falsify what the manifest claims, so it is skipped.
+        ContentRow {
+            blob_identity: sha1_git(&unusable_path),
+            repository: "example/four",
+            path: "src\\windows\\delta.py",
+            revision: "rev-4",
+            licenses: vec!["MIT"],
+            content: unusable_path,
+        },
+        ContentRow {
+            blob_identity: sha1_git(&oversize),
+            repository: "example/five",
+            path: "src/huge.py",
+            revision: "rev-5",
+            licenses: vec!["MIT"],
+            content: oversize,
+        },
+        // The same content twice: admitted once.
+        ContentRow {
+            blob_identity: sha1_git(&admitted_one),
+            repository: "example/six",
+            path: "vendor/alpha.py",
+            revision: "rev-6",
+            licenses: vec!["MIT"],
+            content: admitted_one.clone(),
+        },
+    ];
+
+    let shard = temporary.path().join("content-00000.parquet");
+    let digest = write_content_shard(&shard, &rows);
+    let output_root = temporary.path().join("content-source");
+    let config_path = temporary.path().join("config.json");
+    write_content_config(
+        &config_path,
+        &content_config(&shard, digest, output_root.clone(), true),
+    );
+
+    let result = materialize_stack_content(&config_path).unwrap();
+    assert_eq!(result["status"], "STACK_CONTENT_MATERIALIZED");
+    assert_eq!(result["documents"], 2);
+    assert_eq!(result["content_rows"], 6);
+    assert_eq!(result["skipped_license"], 1);
+    assert_eq!(result["skipped_oversize"], 1);
+    assert_eq!(result["skipped_unusable_path"], 1);
+    assert_eq!(result["skipped_duplicate"], 1);
+    assert_eq!(result["identity_mismatches"], 0);
+
+    for body in [&admitted_one, &admitted_two] {
+        let relative = format!("documents/{}.py", sha1_git(body));
+        assert_eq!(&std::fs::read(output_root.join(&relative)).unwrap(), body);
+    }
+
+    // The manifest must be one `curate` accepts, which is the property that makes
+    // this an alternate rather than a parallel pipeline.
+    let manifest: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(output_root.join("source-manifest-00000.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        manifest["adapter_namespace"],
+        "stack-v2-swh-materialized-v1"
+    );
+    assert_eq!(
+        manifest["authorization"]["scheme"],
+        "materialized-source-authorization-v1"
+    );
+    assert_eq!(
+        manifest["schema"],
+        "python-slm-materialized-source-manifest-v1"
+    );
+}
+
+/// A content-bearing shard carries decoded text, so whether it reproduces the
+/// blob identity is a property of the shard, not something to assume. The
+/// operator declares which they have, and the disagreement count is reported
+/// either way so the claim is never taken on trust.
+#[test]
+fn a_declared_identity_is_enforced_and_an_undeclared_one_is_only_counted() {
+    let temporary = tempfile::tempdir().unwrap();
+    let content = b"def alpha():\n    return 1\n".to_vec();
+    let rows = vec![ContentRow {
+        blob_identity: sha1_git(b"something else entirely"),
+        repository: "example/one",
+        path: "src/alpha.py",
+        revision: "rev-1",
+        licenses: vec!["MIT"],
+        content: content.clone(),
+    }];
+    let shard = temporary.path().join("content-00000.parquet");
+    let digest = write_content_shard(&shard, &rows);
+
+    let strict_root = temporary.path().join("strict");
+    let strict_path = temporary.path().join("strict.json");
+    write_content_config(
+        &strict_path,
+        &content_config(&shard, digest.clone(), strict_root.clone(), true),
+    );
+    assert_eq!(
+        materialize_stack_content(&strict_path).unwrap_err().code,
+        "STACK_CONTENT_HASH_MISMATCH"
+    );
+    assert!(!strict_root.exists(), "nothing is published");
+
+    let lenient_root = temporary.path().join("lenient");
+    let lenient_path = temporary.path().join("lenient.json");
+    write_content_config(
+        &lenient_path,
+        &content_config(&shard, digest, lenient_root, false),
+    );
+    let result = materialize_stack_content(&lenient_path).unwrap();
+    assert_eq!(result["documents"], 1);
+    assert_eq!(
+        result["identity_mismatches"], 1,
+        "the disagreement is reported rather than hidden"
+    );
+}
+
+/// `curate` pins the authorization scheme as well as the namespace, and a
+/// mismatch there would otherwise surface only after a generation was published.
+#[test]
+fn a_content_config_with_the_wrong_authorization_scheme_is_refused() {
+    let temporary = tempfile::tempdir().unwrap();
+    let content = b"def alpha():\n    return 1\n".to_vec();
+    let rows = vec![ContentRow {
+        blob_identity: sha1_git(&content),
+        repository: "example/one",
+        path: "src/alpha.py",
+        revision: "rev-1",
+        licenses: vec!["MIT"],
+        content,
+    }];
+    let shard = temporary.path().join("content-00000.parquet");
+    let digest = write_content_shard(&shard, &rows);
+    let mut broken = content_config(&shard, digest, temporary.path().join("out"), true);
+    broken.authorization.scheme = "operator-assertion".to_owned();
+    let config_path = temporary.path().join("config.json");
+    write_content_config(&config_path, &broken);
+    assert_eq!(
+        materialize_stack_content(&config_path).unwrap_err().code,
+        "STACK_AUTHORIZATION_SCHEME_INVALID"
     );
 }

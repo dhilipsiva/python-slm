@@ -35,7 +35,11 @@ use std::path::{Path, PathBuf};
 pub const IMPLEMENTATION_PHASE: &str = "E3";
 pub const STACK_CONFIG_SCHEMA: &str = "python-slm-stack-v2-source-config-v1";
 pub const STACK_RESULT_SCHEMA: &str = "python-slm-stack-v2-source-result-v1";
-const ADAPTER_NAMESPACE: &str = "stack-v2-software-heritage";
+/// The namespace `curate` accepts. It is a frozen contract value shared by every
+/// materialized adapter, not a per-adapter label: emitting anything else produces
+/// a generation that `curate` refuses, which is a failure worth having before an
+/// acquisition rather than after one.
+use crate::data::ADAPTER_NAMESPACE;
 
 /// Rows decoded per Arrow batch. The shards are far larger than memory at
 /// production scale, so they are read in batches and every surviving row is
@@ -315,6 +319,17 @@ impl StackSourceConfigV1 {
                 "the snapshot identity and authorization record must be complete",
             ));
         }
+        // `curate` pins the authorization scheme as well as the namespace, so a
+        // mismatch here would only surface after the generation was published.
+        if self.authorization.scheme != crate::data::AUTHORIZATION_SCHEME {
+            return Err(ProductError::usage(
+                "STACK_AUTHORIZATION_SCHEME_INVALID",
+                format!(
+                    "the authorization scheme must be {}",
+                    crate::data::AUTHORIZATION_SCHEME
+                ),
+            ));
+        }
         if let Some(partition) = &self.blob_id_partition {
             partition.validate()?;
         }
@@ -387,6 +402,10 @@ struct FilterCounts {
     /// that admits far fewer documents than expected should say which rule did
     /// it *and* what it was looking at.
     rejected_licenses: BTreeSet<String>,
+    /// Rows whose content did not reproduce their declared blob identity.
+    identity_mismatches: u64,
+    /// Rows whose repository path could not be recorded as portable provenance.
+    skipped_unusable_path: u64,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -977,4 +996,513 @@ fn row_license(
         admitted.insert(license);
     }
     Ok(Some(admitted.into_iter().collect::<Vec<_>>().join(" AND ")))
+}
+
+// ---------------------------------------------------------------------------
+// The `SOURCE-002` content-bearing adapter.
+//
+// Same governance, one less indirection. The Stack v1 shards carry the source
+// text beside the metadata that describes it, so a document exists the moment a
+// row is read rather than after a network round trip. Everything that made the
+// Software Heritage route trustworthy is kept: shards are hash-bound before they
+// are read, the frozen licence allowlist decides admission, the frozen ceiling
+// applies to decoded bytes, and each row's content is verified against the blob
+// identity its own metadata declares — the check that keeps the chain from a
+// pinned shard to a published document unbroken.
+//
+// What is deliberately absent is everything the network forced: no retry, no
+// backoff, no partitioning, no content encoding. A shard is the unit of work,
+// and a failed shard is rerun.
+// ---------------------------------------------------------------------------
+
+pub const STACK_CONTENT_CONFIG_SCHEMA: &str = "python-slm-stack-content-source-config-v1";
+pub const STACK_CONTENT_RESULT_SCHEMA: &str = "python-slm-stack-content-source-result-v1";
+
+/// Where each field lives in a content-bearing shard.
+///
+/// Declared rather than assumed, for the same reason as the identifier-bearing
+/// mapping: this adapter is verified against fixtures, so binding the names in
+/// configuration keeps a schema revision an operator change. A name that is
+/// absent, or present with the wrong Arrow type, is a typed failure naming the
+/// column and listing what the shard does carry.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct StackContentColumnsV1 {
+    /// The source text itself.
+    pub content: String,
+    /// Git blob identity of the original file. Verified against the content, so
+    /// a shard that disagrees with itself is refused rather than published.
+    pub blob_identity: String,
+    pub repository: String,
+    pub path: String,
+    pub revision: String,
+    /// A list column; a row is admitted only if every licence it carries is
+    /// allowlisted.
+    pub detected_licenses: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct StackContentLimitsV1 {
+    pub maximum_documents: u64,
+    pub maximum_total_bytes: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct StackContentSourceConfigV1 {
+    pub schema: String,
+    pub profile: String,
+    /// Content-bearing shards, each already fetched and hash-bound. Verified by
+    /// streaming, because a Parquet shard exceeds the control-file bound.
+    pub content_shards: Vec<HashBoundInput>,
+    pub columns: StackContentColumnsV1,
+    /// Every licence a row carries must appear here, and every entry must be one
+    /// the frozen curation policy accepts.
+    pub license_allowlist: Vec<String>,
+    /// Whether the shard claims its content reproduces the blob identity it
+    /// declares. A content-bearing shard carries decoded text, so this holds
+    /// only when that decoding round-trips; the operator declares which they
+    /// have rather than the adapter guessing. Either way the count of rows that
+    /// disagree is reported, so the claim is never taken on trust.
+    pub blob_identity_verified: bool,
+    pub source_snapshot_id: String,
+    pub authorization: SourceAuthorization,
+    pub required_removal_authorities: Vec<String>,
+    pub output_root: PathBuf,
+    pub documents_per_generation: u64,
+    pub limits: StackContentLimitsV1,
+}
+
+impl StackContentSourceConfigV1 {
+    pub fn validate(&self) -> Result<()> {
+        if self.schema != STACK_CONTENT_CONFIG_SCHEMA {
+            return Err(ProductError::usage(
+                "STACK_CONFIG_INVALID",
+                "the configuration is not the closed content-bearing source schema",
+            ));
+        }
+        if self.profile != crate::backend::PROTOTYPE_PROFILE {
+            return Err(ProductError::gate(
+                "DEFERRED_POST_P16",
+                "only the prototype profile is implemented",
+            ));
+        }
+        if self.content_shards.is_empty() {
+            return Err(ProductError::usage(
+                "STACK_CONFIG_INVALID",
+                "at least one hash-bound content shard is required",
+            ));
+        }
+        let mut seen = BTreeSet::new();
+        for shard in &self.content_shards {
+            if !shard.path.is_absolute() || !is_sha256(&shard.sha256) {
+                return Err(ProductError::usage(
+                    "STACK_CONFIG_INVALID",
+                    "every content shard must be an absolute, hash-bound path",
+                ));
+            }
+            if !seen.insert(shard.path.clone()) {
+                return Err(ProductError::usage(
+                    "STACK_CONFIG_INVALID",
+                    "a content shard is named more than once",
+                ));
+            }
+        }
+        if !self.output_root.is_absolute() {
+            return Err(ProductError::usage(
+                "STACK_CONFIG_INVALID",
+                "the output root must be absolute",
+            ));
+        }
+        if self.license_allowlist.is_empty() {
+            return Err(ProductError::usage(
+                "STACK_CONFIG_INVALID",
+                "a non-empty licence allowlist is required",
+            ));
+        }
+        // Same reasoning as the identifier-bearing adapter: admitting a licence
+        // the frozen policy refuses means the document is decoded, verified and
+        // written before `curate` rejects it.
+        for license in &self.license_allowlist {
+            if !crate::data::policy::license_allowed(license) {
+                return Err(ProductError::usage(
+                    "STACK_LICENSE_NOT_PERMITTED",
+                    format!(
+                        "the allowlist names {license}, which the frozen curation policy refuses"
+                    ),
+                ));
+            }
+        }
+        if self.source_snapshot_id.is_empty()
+            || self.authorization.scheme.is_empty()
+            || self.authorization.authority_url.is_empty()
+            || self.authorization.authorization_id.is_empty()
+        {
+            return Err(ProductError::usage(
+                "STACK_CONFIG_INVALID",
+                "the snapshot identity and authorization record must be complete",
+            ));
+        }
+        // `curate` pins the authorization scheme as well as the namespace, so a
+        // mismatch here would only surface after the generation was published.
+        if self.authorization.scheme != crate::data::AUTHORIZATION_SCHEME {
+            return Err(ProductError::usage(
+                "STACK_AUTHORIZATION_SCHEME_INVALID",
+                format!(
+                    "the authorization scheme must be {}",
+                    crate::data::AUTHORIZATION_SCHEME
+                ),
+            ));
+        }
+        if self.required_removal_authorities.is_empty() {
+            return Err(ProductError::usage(
+                "STACK_CONFIG_INVALID",
+                "at least one removal authority is required",
+            ));
+        }
+        if self.documents_per_generation == 0
+            || self.limits.maximum_documents == 0
+            || self.limits.maximum_total_bytes == 0
+        {
+            return Err(ProductError::usage(
+                "STACK_CONFIG_INVALID",
+                "every explicit capacity must be positive",
+            ));
+        }
+        Ok(())
+    }
+
+    fn sha256(&self) -> Result<String> {
+        Ok(sha256(&compact_json_line(self, "STACK_SERIALIZE_FAILED")?))
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct StackContentSourceResultV1 {
+    pub schema: String,
+    pub status: String,
+    pub qualification_status: String,
+    pub profile: String,
+    pub configuration_sha256: String,
+    pub index_sha256: String,
+    pub generations: u64,
+    pub content_rows: u64,
+    pub documents: u64,
+    pub total_bytes: u64,
+    pub skipped_license: u64,
+    pub skipped_oversize: u64,
+    pub skipped_incomplete: u64,
+    pub skipped_duplicate: u64,
+    pub identity_mismatches: u64,
+    pub skipped_unusable_path: u64,
+    pub rejected_license_examples: Vec<String>,
+    pub output_created: bool,
+    pub receipts_written: bool,
+    pub limitations: Vec<String>,
+}
+
+/// One admitted row, held only until its generation is written.
+struct ContentDocument {
+    blob_identity: String,
+    repository: String,
+    path: String,
+    revision: String,
+    content: Vec<u8>,
+    licenses: String,
+}
+
+pub fn materialize_stack_content(config_path: &Path) -> Result<serde_json::Value> {
+    crate::platform::require_portable_data_host()?;
+    let config_bytes = read_control_file(config_path, None, "STACK_CONFIG_READ_FAILED")?;
+    let config: StackContentSourceConfigV1 = parse_closed(&config_bytes, "STACK_CONFIG_INVALID")?;
+    config.validate()?;
+    require_output_boundary(&config.output_root, &config.output_root)?;
+
+    let allowlist = config
+        .license_allowlist
+        .iter()
+        .map(String::as_str)
+        .collect::<BTreeSet<_>>();
+
+    let mut counts = FilterCounts::default();
+    let mut identities = BTreeSet::new();
+    let mut generation = PartialTree::create(&config.output_root)?;
+    let mut documents = Vec::new();
+    let mut manifests = Vec::new();
+    let mut total_bytes = 0_u64;
+
+    let shard_size = usize::try_from(config.documents_per_generation).map_err(|_| {
+        ProductError::usage(
+            "STACK_CONFIG_INVALID",
+            "the per-generation bound does not fit this host's address width",
+        )
+    })?;
+
+    for shard in &config.content_shards {
+        verify_shard_digest(&shard.path, &shard.sha256)?;
+        let file = std::fs::File::open(&shard.path).map_err(|_| {
+            ProductError::environment(
+                "STACK_METADATA_READ_FAILED",
+                "could not open a verified content shard",
+            )
+        })?;
+        let reader = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(file)
+            .map_err(|error| parquet_failure("STACK_METADATA_INVALID", error))?
+            .with_batch_size(BATCH_ROWS)
+            .build()
+            .map_err(|error| parquet_failure("STACK_METADATA_INVALID", error))?;
+
+        for batch in reader {
+            let batch = batch.map_err(|error| arrow_failure("STACK_METADATA_INVALID", error))?;
+            project_content_batch(
+                &batch,
+                &config,
+                &allowlist,
+                &mut counts,
+                &mut identities,
+                &mut documents,
+            )?;
+            // Written out as they accumulate, so a shard far larger than memory
+            // never becomes one: only the current generation is resident.
+            while documents.len() >= shard_size {
+                let rest = documents.split_off(shard_size);
+                write_content_generation(
+                    &config,
+                    &mut generation,
+                    &documents,
+                    &mut manifests,
+                    &mut total_bytes,
+                )?;
+                documents = rest;
+            }
+            if manifests.len() as u64 * config.documents_per_generation + documents.len() as u64
+                > config.limits.maximum_documents
+            {
+                return Err(ProductError::gate(
+                    "STACK_DOCUMENT_LIMIT_EXCEEDED",
+                    "the admitted rows exceed the configured document bound",
+                ));
+            }
+            if total_bytes > config.limits.maximum_total_bytes {
+                return Err(ProductError::gate(
+                    "STACK_TOTAL_BYTES_EXCEEDED",
+                    "the admitted content exceeds the configured total byte bound",
+                ));
+            }
+        }
+    }
+    if !documents.is_empty() {
+        write_content_generation(
+            &config,
+            &mut generation,
+            &documents,
+            &mut manifests,
+            &mut total_bytes,
+        )?;
+    }
+    if manifests.is_empty() {
+        return Err(ProductError::gate(
+            "STACK_NO_DOCUMENTS",
+            "no content row survived the licence and size filters",
+        ));
+    }
+
+    let index = StackIndexV1 {
+        schema: crate::materialize::MATERIALIZE_INDEX_SCHEMA.to_owned(),
+        profile: config.profile.clone(),
+        source_snapshot_id: config.source_snapshot_id.clone(),
+        generations: manifests,
+    };
+    let index_bytes = compact_json_line(&index, "STACK_SERIALIZE_FAILED")?;
+    generation.write("index.json", &index_bytes)?;
+    generation.publish()?;
+
+    let admitted = index
+        .generations
+        .iter()
+        .map(|reference| reference.documents)
+        .sum::<u64>();
+    let result = StackContentSourceResultV1 {
+        schema: STACK_CONTENT_RESULT_SCHEMA.to_owned(),
+        status: "STACK_CONTENT_MATERIALIZED".to_owned(),
+        qualification_status: "SKIPPED".to_owned(),
+        profile: config.profile.clone(),
+        configuration_sha256: config.sha256()?,
+        index_sha256: sha256(&index_bytes),
+        generations: index.generations.len() as u64,
+        content_rows: counts.rows,
+        documents: admitted,
+        total_bytes,
+        skipped_license: counts.skipped_license,
+        skipped_oversize: counts.skipped_oversize,
+        skipped_incomplete: counts.skipped_incomplete,
+        skipped_duplicate: counts.skipped_duplicate,
+        identity_mismatches: counts.identity_mismatches,
+        skipped_unusable_path: counts.skipped_unusable_path,
+        rejected_license_examples: counts.rejected_licenses.iter().cloned().collect(),
+        output_created: true,
+        receipts_written: false,
+        limitations: vec![
+            "licence-comes-from-the-shard-and-is-not-independently-reviewed".to_owned(),
+            "authorization-is-operator-declared-not-verified".to_owned(),
+            "content-identity-is-verified-but-provenance-metadata-is-not".to_owned(),
+        ],
+    };
+    serde_json::to_value(result).map_err(|_| {
+        ProductError::internal(
+            "STACK_RESULT_SERIALIZE_FAILED",
+            "could not serialize the closed content-bearing source result",
+        )
+    })
+}
+
+/// Writes one generation's documents and manifest into the partial tree.
+fn write_content_generation(
+    config: &StackContentSourceConfigV1,
+    generation: &mut PartialTree,
+    documents: &[ContentDocument],
+    manifests: &mut Vec<StackGenerationRef>,
+    total_bytes: &mut u64,
+) -> Result<()> {
+    let index = manifests.len();
+    let mut entries = Vec::with_capacity(documents.len());
+    let mut shard_bytes = 0_u64;
+    for document in documents {
+        let relative_path = format!("documents/{}.py", document.blob_identity);
+        require_portable_relative_path(&relative_path, "STACK_CONTENT_PATH_INVALID")?;
+        generation.write(&relative_path, &document.content)?;
+        shard_bytes = shard_bytes
+            .checked_add(document.content.len() as u64)
+            .ok_or_else(|| {
+                ProductError::gate("STACK_ACCOUNTING_OVERFLOW", "byte accounting overflowed")
+            })?;
+        entries.push(SourceDocument {
+            provider_record_id: document.blob_identity.clone(),
+            provider_repository_id: Some(document.repository.clone()),
+            stable_provenance_origin_namespace: config.source_snapshot_id.clone(),
+            relative_path,
+            expected_raw_sha256: sha256(&document.content),
+            expected_raw_bytes: document.content.len() as u64,
+            dialect: "python3".to_owned(),
+            license_expression: document.licenses.clone(),
+            provenance: Provenance {
+                origin_url: format!("https://github.com/{}", document.repository),
+                revision: document.revision.clone(),
+                source_path: document.path.clone(),
+            },
+        });
+    }
+    let manifest = MaterializedSourceManifestV1 {
+        schema: crate::data::SOURCE_MANIFEST_SCHEMA.to_owned(),
+        adapter_namespace: ADAPTER_NAMESPACE.to_owned(),
+        source_snapshot_id: config.source_snapshot_id.clone(),
+        authorization: config.authorization.clone(),
+        required_removal_authorities: config.required_removal_authorities.clone(),
+        documents: entries,
+    };
+    let bytes = compact_json_line(&manifest, "STACK_SERIALIZE_FAILED")?;
+    let relative_path = format!("source-manifest-{index:05}.json");
+    generation.write(&relative_path, &bytes)?;
+    manifests.push(StackGenerationRef {
+        relative_path,
+        sha256: sha256(&bytes),
+        documents: documents.len() as u64,
+        bytes: shard_bytes,
+    });
+    *total_bytes = total_bytes.checked_add(shard_bytes).ok_or_else(|| {
+        ProductError::gate("STACK_ACCOUNTING_OVERFLOW", "byte accounting overflowed")
+    })?;
+    Ok(())
+}
+
+fn project_content_batch(
+    batch: &arrow_array::RecordBatch,
+    config: &StackContentSourceConfigV1,
+    allowlist: &BTreeSet<&str>,
+    counts: &mut FilterCounts,
+    identities: &mut BTreeSet<String>,
+    documents: &mut Vec<ContentDocument>,
+) -> Result<()> {
+    use arrow_array::Array;
+    let columns = &config.columns;
+    let content = string_column(batch, &columns.content)?;
+    let identity = string_column(batch, &columns.blob_identity)?;
+    let repository = string_column(batch, &columns.repository)?;
+    let path = string_column(batch, &columns.path)?;
+    let revision = string_column(batch, &columns.revision)?;
+    let licenses = batch
+        .column_by_name(&columns.detected_licenses)
+        .and_then(|column| column.as_any().downcast_ref::<arrow_array::ListArray>())
+        .ok_or_else(|| missing_column(batch, &columns.detected_licenses))?;
+
+    for row in 0..batch.num_rows() {
+        counts.rows += 1;
+        if content.is_null(row)
+            || identity.is_null(row)
+            || repository.is_null(row)
+            || path.is_null(row)
+            || revision.is_null(row)
+            || licenses.is_null(row)
+        {
+            counts.skipped_incomplete += 1;
+            continue;
+        }
+        let blob_identity = identity.value(row);
+        if blob_identity.len() != 40 || !blob_identity.bytes().all(|byte| byte.is_ascii_hexdigit())
+        {
+            counts.skipped_incomplete += 1;
+            continue;
+        }
+        let Some(license_expression) = row_license(licenses, row, allowlist, counts)? else {
+            counts.skipped_license += 1;
+            continue;
+        };
+        // The repository path travels into provenance, where `curate` requires a
+        // portable contained relative path. Real repositories contain paths that
+        // are not — backslashes, dot segments, drive-like colons — and rewriting
+        // one would falsify the provenance it records, so the row is skipped and
+        // counted instead.
+        if require_portable_relative_path(path.value(row), "STACK_PROVENANCE_PATH_INVALID").is_err()
+        {
+            counts.skipped_unusable_path += 1;
+            continue;
+        }
+        let bytes = content.value(row).as_bytes().to_vec();
+        if bytes.is_empty() || bytes.len() as u64 > MAXIMUM_DOCUMENT_BYTES {
+            counts.skipped_oversize += 1;
+            continue;
+        }
+        // The chain from a pinned shard to a published document runs through
+        // this: the shard declares a blob identity, and recomputing it locally
+        // proves the text is the file that identity names rather than whatever
+        // the column happened to hold.
+        if sha1_git(&bytes) != blob_identity {
+            // When the shard claims its content round-trips, a disagreement is
+            // an integrity failure. When it does not, the chain runs through
+            // the shard digest instead and the disagreement is a fact to
+            // report rather than a reason to stop.
+            if config.blob_identity_verified {
+                return Err(ProductError::integrity(
+                    "STACK_CONTENT_HASH_MISMATCH",
+                    "a content row does not match the blob identity it declares",
+                ));
+            }
+            counts.identity_mismatches += 1;
+        }
+        if !identities.insert(blob_identity.to_owned()) {
+            counts.skipped_duplicate += 1;
+            continue;
+        }
+        documents.push(ContentDocument {
+            blob_identity: blob_identity.to_owned(),
+            repository: repository.value(row).to_owned(),
+            path: path.value(row).to_owned(),
+            revision: revision.value(row).to_owned(),
+            content: bytes,
+            licenses: license_expression,
+        });
+    }
+    Ok(())
 }
