@@ -1048,14 +1048,77 @@ fixtures assert the published manifest carries values `curate` accepts, because
 a test that only checks the adapter against itself cannot catch this class of
 error.
 
+#### The pilot run, and the last estimate becomes a measurement
+
+One shard driven through the whole chain — `materialize-stack-content` →
+`curate` → `prepare-corpus` → `train-tokenizer` → `tokenize` — on real
+permissively-licensed code with a tokenizer trained on that code.
+
+| Stage | Result | Wall clock | Peak |
+|---|---|---|---|
+| Content adapter | `90,016` rows → `84,633` documents, `429` MB | `78` s | `202` MiB |
+| `curate` (5 generations) | `68,963` policy-accepted (`81.5` percent) | `~400` s | — |
+| `prepare-corpus` | `52,890` representatives, `16,065` excluded | `213.5` s | `1,152` MiB |
+| `train-tokenizer` | `182.5` MB sample, `51,813` documents, `32,000` merges | `125.6` s | `4,802` MiB |
+| `tokenize` | `35,358,525` stored IDs, `34,696,920` train | `36.2` s | — |
+
+**`5.26` bytes per stored ID, `5.36` per training ID.** That is the figure every
+size projection rested on, and until now it was inherited from a corpus whose
+tokenizer had been trained on the same `9` MB it then encoded. The proof run's
+`7.655` is superseded, and the direction is the one predicted when it was
+flagged: a diverse corpus compresses *better* per byte, so a byte buys more
+tokens and the corpus needed is smaller.
+
+Re-derived from measurement rather than estimate:
+
+| Quantity | Estimated | **Measured** |
+|---|---|---|
+| Representative text for `2,000,000,001` train IDs | `~24.5` GB | **`10.0` GB** |
+| Representative documents | `~1.45` million | **`3.05` million** |
+| Mean representative document | `~16.9` KiB | **`3,517` bytes** |
+| Shards to fetch, of `144` | — | **`~58`**, about `11.8` GB |
+
+The document count rose while the byte count fell, because Stack v1 documents are
+five times smaller than the CPython standard library's. Both numbers moved, and
+only measuring them together would have caught that.
+
+`prepare-corpus` residency measured `16.45` KiB per input document here against
+the `27.5` KiB the earlier model gave — the model was built on `16.9` KiB
+documents and this corpus's are `3.5` KiB, so residency tracks document count
+*for a given size distribution* rather than count alone. At the full corpus that
+is roughly `62` GiB against this host's `93.6` GB: it fits, with less headroom
+than the earlier figure implied. The `train-tokenizer` model needed no such
+correction — it predicted `4,312` MiB and `115` s against `4,802` MiB and `125.6`
+s measured, within `11` and `9` percent on data it had never seen.
+
+`training_target_satisfied: false` at `34,696,920` of `2,000,000,001`, which is
+`1.7` percent and exactly what one shard of fifty-eight should give.
+
+**Windows Defender deletes corpus files after they are written.** Two documents
+of `84,633` — from `TAO/Firewall/EXPLOITS` and `Empire/persistence/osx` — were
+quarantined between the adapter writing them and `curate` reading them, and the
+detection log names them by full path. It also raced the `.acquire-partial`
+tree mid-write. The rate is `0.0024` percent, which sounds negligible and is not:
+each loss fails the entire `curate` invocation for its generation of `20,000`
+documents, so two lost documents cost two of five generations. Extrapolated, the
+full corpus would lose roughly `34` files spread unpredictably across `58`
+shards. An exclusion for the corpus root fixes it, and the pipeline behaved
+correctly throughout — a file present at write and absent at read is precisely
+what the verification exists to catch.
+
+Two more real-data findings, both now skipped and counted rather than fatal:
+`14` rows per shard carry repository paths that are not portable relative paths,
+and `1` carries a repository identity the governed rule refuses. Rewriting either
+would falsify what the manifest records.
+
 Working projections for that run. Each basis says what it rests on, because they
 are not equally solid: the two corpus-size rows inherit an estimate, the rest
 extrapolate measurements taken on this host. Nothing here is now unmeasured.
 
 | Quantity | Projection | Basis |
 |---|---|---|
-| Accepted canonical text | `~24.5` GB | *estimate* — rests on a bytes-per-ID figure the proof run itself says is overfit; the first real corpus re-measures it, and everything below inherits it |
-| Documents | `~1.45` million | the row above at a `~16.9` KiB mean accepted document |
+| Representative canonical text | `10.0` GB | **measured**: `5.36` bytes per training ID on real licensed code with a tokenizer trained on it |
+| Representative documents | `3.05` million | measured `3,517`-byte mean representative |
 | Enumerated documents needed | `~2.8` million | measured yield: `52` percent of an enumerated tree reaches the token corpus |
 | Source generations | `~50`, more in practice | `1.45` million accepted at a measured `28,929` per generation, before the rejected outcomes each manifest also carries |
 | `prepare-corpus` peak memory | `~38` GiB | measured `43.8` MiB fixed plus `27.5` KiB per document, linear over three points |

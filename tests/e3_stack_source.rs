@@ -1430,6 +1430,23 @@ fn content_rows_become_a_governed_source_generation() {
             licenses: vec!["MIT", "GPL-3.0-only"],
             content: refused_license.clone(),
         },
+        // An empty repository identity, which the governed rule refuses and
+        // real datasets do contain.
+        ContentRow {
+            blob_identity: sha1_git(
+                b"def epsilon():
+    return 5
+",
+            ),
+            repository: "",
+            path: "src/epsilon.py",
+            revision: "rev-7",
+            licenses: vec!["MIT"],
+            content: b"def epsilon():
+    return 5
+"
+            .to_vec(),
+        },
         // A repository path that cannot be recorded as portable provenance.
         // Rewriting it would falsify what the manifest claims, so it is skipped.
         ContentRow {
@@ -1471,10 +1488,11 @@ fn content_rows_become_a_governed_source_generation() {
     let result = materialize_stack_content(&config_path).unwrap();
     assert_eq!(result["status"], "STACK_CONTENT_MATERIALIZED");
     assert_eq!(result["documents"], 2);
-    assert_eq!(result["content_rows"], 6);
+    assert_eq!(result["content_rows"], 7);
     assert_eq!(result["skipped_license"], 1);
     assert_eq!(result["skipped_oversize"], 1);
     assert_eq!(result["skipped_unusable_path"], 1);
+    assert_eq!(result["skipped_unusable_identity"], 1);
     assert_eq!(result["skipped_duplicate"], 1);
     assert_eq!(result["identity_mismatches"], 0);
 

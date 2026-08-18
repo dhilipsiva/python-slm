@@ -406,6 +406,8 @@ struct FilterCounts {
     identity_mismatches: u64,
     /// Rows whose repository path could not be recorded as portable provenance.
     skipped_unusable_path: u64,
+    /// Rows whose repository or revision identity the governed rule refuses.
+    skipped_unusable_identity: u64,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -1197,10 +1199,21 @@ pub struct StackContentSourceResultV1 {
     pub skipped_duplicate: u64,
     pub identity_mismatches: u64,
     pub skipped_unusable_path: u64,
+    pub skipped_unusable_identity: u64,
     pub rejected_license_examples: Vec<String>,
     pub output_created: bool,
     pub receipts_written: bool,
     pub limitations: Vec<String>,
+}
+
+/// The governed-identity rule `curate` applies: non-empty, bounded, and free of
+/// control characters. Checked here so a row that cannot be recorded is skipped
+/// rather than failing the run after the generation is published.
+fn usable_identity(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 4096
+        && !value.contains(' ')
+        && !value.chars().any(char::is_control)
 }
 
 /// One admitted row, held only until its generation is written.
@@ -1341,6 +1354,7 @@ pub fn materialize_stack_content(config_path: &Path) -> Result<serde_json::Value
         skipped_duplicate: counts.skipped_duplicate,
         identity_mismatches: counts.identity_mismatches,
         skipped_unusable_path: counts.skipped_unusable_path,
+        skipped_unusable_identity: counts.skipped_unusable_identity,
         rejected_license_examples: counts.rejected_licenses.iter().cloned().collect(),
         output_created: true,
         receipts_written: false,
@@ -1467,6 +1481,12 @@ fn project_content_batch(
         if require_portable_relative_path(path.value(row), "STACK_PROVENANCE_PATH_INVALID").is_err()
         {
             counts.skipped_unusable_path += 1;
+            continue;
+        }
+        // Repository and revision travel into the manifest as governed identities,
+        // and real datasets carry empty and control-bearing values for both.
+        if !usable_identity(repository.value(row)) || !usable_identity(revision.value(row)) {
+            counts.skipped_unusable_identity += 1;
             continue;
         }
         let bytes = content.value(row).as_bytes().to_vec();
