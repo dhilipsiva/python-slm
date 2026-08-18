@@ -308,6 +308,95 @@ pub(crate) struct FetchRequest<'a> {
     pub(crate) ceiling_bytes: u64,
 }
 
+/// Why a transfer failed, and therefore whether repeating it could help.
+///
+/// The distinction is the whole point: retrying a `403` or a `404` is noise that
+/// hides a configuration error behind a delay, while retrying a `429` or a reset
+/// connection is the difference between a run that finishes and one that does
+/// not. Nothing about the classification touches bytes — a retried transfer is
+/// verified against the same digest as a first-attempt one.
+pub(crate) enum FetchFailure {
+    Transient(ProductError),
+    Permanent(ProductError),
+}
+
+impl FetchFailure {
+    /// Deliberately an inherent method rather than a `From` impl: a second
+    /// conversion into `ProductError` makes the error type of every `?` in the
+    /// crate ambiguous, which surfaces as inference failures in code that has
+    /// nothing to do with acquisition.
+    fn into_error(self) -> ProductError {
+        match self {
+            FetchFailure::Transient(error) | FetchFailure::Permanent(error) => error,
+        }
+    }
+}
+
+/// A bounded, purely arithmetic backoff schedule.
+///
+/// No jitter and no randomness. This lane pins its RNG so that two runs of one
+/// configuration can be compared, and a retry schedule that varied per run would
+/// be one more thing to explain away when they differed. The schedule moves wall
+/// clock only.
+pub(crate) struct RetryPolicy {
+    pub(crate) attempts: u64,
+    pub(crate) initial_delay: Duration,
+    pub(crate) maximum_delay: Duration,
+}
+
+impl RetryPolicy {
+    /// The delay before the retry that follows attempt `index`, counting from
+    /// zero, doubling until it reaches the ceiling and staying there.
+    pub(crate) fn delay(&self, index: u32) -> Duration {
+        let factor = 1_u32.checked_shl(index.min(31)).unwrap_or(u32::MAX);
+        self.initial_delay
+            .checked_mul(factor)
+            .unwrap_or(self.maximum_delay)
+            .min(self.maximum_delay)
+    }
+}
+
+/// Stream one asset, retrying only the failures that repeating could fix.
+///
+/// Determinism is unaffected, and it is worth saying why rather than assuming
+/// it: every published byte is verified against the digest its metadata declared
+/// before it is written, so a transfer that needed three attempts produces the
+/// same artifact as one that needed none. Attempt counts and elapsed time reach
+/// the one-shot result object and are inputs to no hash.
+pub(crate) fn fetch_with_retry(
+    agent: &ureq::Agent,
+    request: FetchRequest<'_>,
+    maximum_redirects: u64,
+    allow_loopback_plain_http: bool,
+    policy: &RetryPolicy,
+) -> Result<(FetchedAsset, u64)> {
+    let mut retries = 0_u64;
+    loop {
+        let attempt = FetchRequest {
+            url: request.url,
+            credential_env: request.credential_env,
+            ceiling_bytes: request.ceiling_bytes,
+        };
+        match fetch_one_classified(agent, attempt, maximum_redirects, allow_loopback_plain_http) {
+            Ok(asset) => return Ok((asset, retries)),
+            Err(FetchFailure::Permanent(error)) => return Err(error),
+            Err(FetchFailure::Transient(error)) => {
+                if retries >= policy.attempts {
+                    return Err(ProductError::environment(
+                        "ACQUISITION_RETRIES_EXHAUSTED",
+                        format!(
+                            "the transfer still failed after {} retries; last failure {}: {}",
+                            policy.attempts, error.code, error.message
+                        ),
+                    ));
+                }
+                std::thread::sleep(policy.delay(retries as u32));
+                retries += 1;
+            }
+        }
+    }
+}
+
 /// Stream one asset, following redirects manually so every hop is re-validated
 /// against the HTTPS rule rather than trusted to the client's own policy.
 ///
@@ -320,21 +409,31 @@ pub(crate) fn fetch_one(
     maximum_redirects: u64,
     allow_loopback_plain_http: bool,
 ) -> Result<FetchedAsset> {
+    fetch_one_classified(agent, request, maximum_redirects, allow_loopback_plain_http)
+        .map_err(FetchFailure::into_error)
+}
+
+fn fetch_one_classified(
+    agent: &ureq::Agent,
+    request: FetchRequest<'_>,
+    maximum_redirects: u64,
+    allow_loopback_plain_http: bool,
+) -> std::result::Result<FetchedAsset, FetchFailure> {
     let asset = request;
     let credential = match &asset.credential_env {
         Some(variable) => {
             let token = std::env::var(variable).map_err(|_| {
                 // Name the variable, never its value.
-                ProductError::environment(
+                FetchFailure::Permanent(ProductError::environment(
                     "ACQUISITION_CREDENTIAL_MISSING",
                     format!("the environment variable {variable} is not set"),
-                )
+                ))
             })?;
             if token.trim().is_empty() {
-                return Err(ProductError::environment(
+                return Err(FetchFailure::Permanent(ProductError::environment(
                     "ACQUISITION_CREDENTIAL_MISSING",
                     format!("the environment variable {variable} is empty"),
-                ));
+                )));
             }
             Some(token)
         }
@@ -351,16 +450,24 @@ pub(crate) fn fetch_one(
         let response = match request.call() {
             Ok(response) => response,
             Err(ureq::Error::Status(status, _)) => {
-                return Err(ProductError::environment(
+                let error = ProductError::environment(
                     "ACQUISITION_HTTP_STATUS",
                     format!("the origin answered status {status}"),
-                ));
+                );
+                // Too Many Requests and the server-error class are the origin
+                // saying "not now"; every other status is it saying "not this",
+                // and repeating that only hides a configuration error in a delay.
+                return Err(if status == 429 || (500..600).contains(&status) {
+                    FetchFailure::Transient(error)
+                } else {
+                    FetchFailure::Permanent(error)
+                });
             }
             Err(ureq::Error::Transport(transport)) => {
-                return Err(ProductError::environment(
+                return Err(FetchFailure::Transient(ProductError::environment(
                     "ACQUISITION_TRANSPORT_FAILED",
                     format!("the transfer failed: {transport}"),
-                ));
+                )));
             }
         };
         let status = response.status();
@@ -368,21 +475,22 @@ pub(crate) fn fetch_one(
             break response;
         }
         let location = response.header("location").ok_or_else(|| {
-            ProductError::integrity(
+            FetchFailure::Permanent(ProductError::integrity(
                 "ACQUISITION_REDIRECT_INVALID",
                 "the origin returned a redirect without a location",
-            )
+            ))
         })?;
         if redirects_followed >= maximum_redirects {
-            return Err(ProductError::gate(
+            return Err(FetchFailure::Permanent(ProductError::gate(
                 "ACQUISITION_REDIRECT_LIMIT_EXCEEDED",
                 "the origin exceeded the configured redirect bound",
-            ));
+            )));
         }
         // A redirect to plain HTTP is exactly what the HTTPS rule exists to stop,
         // so every hop is re-validated here rather than delegated to the client's
         // own policy.
-        require_acquisition_url(location, allow_loopback_plain_http)?;
+        require_acquisition_url(location, allow_loopback_plain_http)
+            .map_err(FetchFailure::Permanent)?;
         url = location.to_owned();
         redirects_followed += 1;
     };
@@ -396,20 +504,20 @@ pub(crate) fn fetch_one(
     let mut chunk = vec![0_u8; STREAM_CHUNK_BYTES];
     loop {
         let read = reader.read(&mut chunk).map_err(|error| {
-            ProductError::environment(
+            FetchFailure::Transient(ProductError::environment(
                 "ACQUISITION_TRANSPORT_FAILED",
                 format!("the transfer failed while streaming: {error}"),
-            )
+            ))
         })?;
         if read == 0 {
             break;
         }
         bytes.extend_from_slice(&chunk[..read]);
         if bytes.len() as u64 > asset.ceiling_bytes {
-            return Err(ProductError::integrity(
+            return Err(FetchFailure::Permanent(ProductError::integrity(
                 "ACQUISITION_LENGTH_MISMATCH",
                 "the origin returned more bytes than the caller will accept",
-            ));
+            )));
         }
     }
     let sha256 = hex::encode(Sha256::digest(&bytes));
@@ -945,5 +1053,33 @@ mod tests {
             malformed.validate().unwrap_err().code,
             "ACQUISITION_CREDENTIAL_ENV_INVALID"
         );
+    }
+
+    /// The schedule is a pure function of the attempt index, with no clock and no
+    /// randomness, so two runs of one configuration wait the same way. It doubles
+    /// until it reaches the ceiling and then stays there rather than overflowing.
+    #[test]
+    fn the_backoff_schedule_doubles_and_then_holds_at_its_ceiling() {
+        let policy = RetryPolicy {
+            attempts: 8,
+            initial_delay: Duration::from_millis(100),
+            maximum_delay: Duration::from_millis(800),
+        };
+        let observed = (0..6).map(|index| policy.delay(index)).collect::<Vec<_>>();
+        assert_eq!(
+            observed,
+            vec![
+                Duration::from_millis(100),
+                Duration::from_millis(200),
+                Duration::from_millis(400),
+                Duration::from_millis(800),
+                Duration::from_millis(800),
+                Duration::from_millis(800),
+            ]
+        );
+        // A far-out index must clamp rather than overflow the shift or the
+        // multiplication.
+        assert_eq!(policy.delay(64), Duration::from_millis(800));
+        assert_eq!(policy.delay(u32::MAX), Duration::from_millis(800));
     }
 }

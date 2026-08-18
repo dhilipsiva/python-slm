@@ -58,6 +58,24 @@ the identifier-to-content step is a link in the hash chain, not a gap in it. Lic
 come per row, and a dual-licensed row is admitted only if every term it carries is
 allowlisted. Output is a sharded `MaterializedSourceManifestV1` plus content tree.
 
+Three things make a million-blob acquisition survivable rather than merely
+correct. Transient failures — a rate limit, a server error, a reset connection —
+are retried with a bounded, purely arithmetic backoff, while a `403` or `404` is
+not retried at all, because repeating it only hides a configuration error behind
+a delay. Retries move wall clock and nothing else: every published byte is still
+verified against the digest its metadata declared, so a blob that took three
+attempts produces the same artifact as one that took none. The work is split by
+`blob_id` prefix, one create-new generation per partition, so a failure costs one
+partition instead of the whole run; because the split is a function of the
+identifier, partitions cannot duplicate a document between them and their union
+is exactly what an unpartitioned run selects. A partition nothing landed in is a
+success that publishes nothing (`STACK_PARTITION_EMPTY`), so an operator loop
+never has to read a failure code as if it meant success. And because the bulk
+mirror and the archive API disagree about body framing, `content_encoding` is
+declared rather than sniffed: under `gzip` the body is inflated, bounded by the
+declared length, before the length, identifier and digest are checked, so all
+three describe the source file rather than its framing.
+
 `materialize-source` does the same job for an already-authorized local tree, where
 the operator declares one licence expression over the whole tree instead.
 

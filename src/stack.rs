@@ -71,6 +71,121 @@ pub struct StackColumnsV1 {
     pub detected_licenses: String,
 }
 
+/// How the origin encodes a blob body.
+///
+/// Declared, never sniffed. The bulk mirror and the archive API do not agree on
+/// this, and guessing from a magic number would mean a corpus whose contents
+/// depended on what a server happened to send. A body that disagrees with the
+/// declaration fails the identifier check, which is the correct outcome: the
+/// operator, not the transport, decides what is being read.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StackContentEncodingV1 {
+    Identity,
+    Gzip,
+}
+
+/// The transfer ceiling for a body that will be inflated afterwards.
+///
+/// Deflate cannot expand incompressible input by more than about five bytes per
+/// 64 KiB stored block, and a gzip member adds an 18-byte frame, so this bounds
+/// the compressed form of any blob of the declared length while still stopping a
+/// response that is wildly larger than it should be.
+fn compressed_ceiling(length_bytes: u64) -> u64 {
+    length_bytes
+        .saturating_add(length_bytes / 1000)
+        .saturating_add(64)
+}
+
+/// Inflate a gzip member, refusing to produce more than the metadata promised.
+///
+/// The cap is one byte above the declared length so an over-long stream is
+/// detected rather than absorbed — the same trick the transfer ceiling uses, and
+/// the reason a decompression bomb cannot turn a 1 MB declaration into an
+/// unbounded allocation.
+fn inflate(compressed: &[u8], declared_bytes: u64) -> Result<Vec<u8>> {
+    use std::io::Read;
+    let mut decoder =
+        flate2::read::GzDecoder::new(compressed).take(declared_bytes.saturating_add(1));
+    let mut inflated = Vec::new();
+    decoder.read_to_end(&mut inflated).map_err(|error| {
+        ProductError::integrity(
+            "STACK_CONTENT_DECODE_FAILED",
+            format!("a Software Heritage blob could not be inflated: {error}"),
+        )
+    })?;
+    Ok(inflated)
+}
+
+/// A deterministic slice of the blob space, so a long acquisition can be run in
+/// pieces that fail independently.
+///
+/// This is the resumability the contract asks for
+/// (`docs/rebuild-contract.md:113`), arranged so that it costs the create-new
+/// publication rule nothing. A partial generation is never resumed — it is
+/// discarded and its partition is rerun — and because the partition is a pure
+/// function of `blob_id`, every occurrence of a blob falls in exactly one
+/// partition. Two consequences follow without needing to be enforced: partitions
+/// cannot duplicate a document between them, and the union of all of them is the
+/// same set an unpartitioned run would select.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct StackPartitionV1 {
+    /// How many leading hex characters of the identifier select the partition.
+    pub prefix_length: u64,
+    /// The prefixes this invocation admits. Lowercase hex, each exactly
+    /// `prefix_length` long.
+    pub include: Vec<String>,
+}
+
+impl StackPartitionV1 {
+    fn validate(&self) -> Result<()> {
+        // A `sha1_git` is 40 hex characters, so a longer prefix could never match
+        // and a zero-length one would not partition anything.
+        if self.prefix_length == 0 || self.prefix_length > 40 {
+            return Err(ProductError::usage(
+                "STACK_PARTITION_INVALID",
+                "the partition prefix length must be between 1 and 40 characters",
+            ));
+        }
+        if self.include.is_empty() {
+            return Err(ProductError::usage(
+                "STACK_PARTITION_INVALID",
+                "a partition must admit at least one prefix",
+            ));
+        }
+        let mut seen = BTreeSet::new();
+        for prefix in &self.include {
+            if prefix.len() as u64 != self.prefix_length
+                || !prefix
+                    .bytes()
+                    .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+            {
+                return Err(ProductError::usage(
+                    "STACK_PARTITION_INVALID",
+                    "every partition prefix must be lowercase hex of the declared length",
+                ));
+            }
+            // A repeated prefix would not change what is selected, but it would
+            // mean the operator believes something about the split that is not
+            // true, so it is refused rather than deduplicated silently.
+            if !seen.insert(prefix.as_str()) {
+                return Err(ProductError::usage(
+                    "STACK_PARTITION_INVALID",
+                    "a partition prefix is listed more than once",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn contains(&self, blob_id: &str) -> bool {
+        blob_id
+            .get(..self.prefix_length as usize)
+            .is_some_and(|prefix| self.include.iter().any(|value| value == prefix))
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct StackLimitsV1 {
@@ -79,6 +194,11 @@ pub struct StackLimitsV1 {
     pub maximum_redirects: u64,
     pub connect_timeout_seconds: u64,
     pub read_timeout_seconds: u64,
+    /// Retries after the first attempt, for transient failures only. Zero is a
+    /// valid explicit choice; a production run over a million blobs is not.
+    pub retry_attempts: u64,
+    pub retry_initial_delay_milliseconds: u64,
+    pub retry_maximum_delay_milliseconds: u64,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -100,6 +220,8 @@ pub struct StackSourceConfigV1 {
     /// Plain HTTP against a literal loopback address, for the contract's local
     /// fixture exemption (`docs/rebuild-contract.md:110`) and nothing else.
     pub allow_loopback_plain_http: bool,
+    /// How the origin encodes a blob body. Declared, never sniffed.
+    pub content_encoding: StackContentEncodingV1,
     pub language: String,
     /// Every licence a row carries must appear here.
     pub license_allowlist: Vec<String>,
@@ -107,6 +229,9 @@ pub struct StackSourceConfigV1 {
     pub authorization: SourceAuthorization,
     pub required_removal_authorities: Vec<String>,
     pub output_root: PathBuf,
+    /// Absent means the whole selection; present means this invocation handles
+    /// one deterministic slice of it and another invocation handles the rest.
+    pub blob_id_partition: Option<StackPartitionV1>,
     pub documents_per_generation: u64,
     pub limits: StackLimitsV1,
 }
@@ -176,6 +301,9 @@ impl StackSourceConfigV1 {
                 "the snapshot identity and authorization record must be complete",
             ));
         }
+        if let Some(partition) = &self.blob_id_partition {
+            partition.validate()?;
+        }
         if self.required_removal_authorities.is_empty() {
             return Err(ProductError::usage(
                 "STACK_CONFIG_INVALID",
@@ -191,6 +319,18 @@ impl StackSourceConfigV1 {
             return Err(ProductError::usage(
                 "STACK_CONFIG_INVALID",
                 "every explicit capacity must be positive",
+            ));
+        }
+        // A backoff that starts at zero would retry instantly and turn a rate
+        // limit into a tight loop against the origin.
+        if self.limits.retry_attempts > 0
+            && (self.limits.retry_initial_delay_milliseconds == 0
+                || self.limits.retry_maximum_delay_milliseconds
+                    < self.limits.retry_initial_delay_milliseconds)
+        {
+            return Err(ProductError::usage(
+                "STACK_CONFIG_INVALID",
+                "the retry backoff must start above zero and not exceed its own ceiling",
             ));
         }
         Ok(())
@@ -221,6 +361,7 @@ struct FilterCounts {
     skipped_oversize: u64,
     skipped_incomplete: u64,
     skipped_duplicate: u64,
+    skipped_partition: u64,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -259,6 +400,8 @@ pub struct StackSourceResultV1 {
     pub skipped_oversize: u64,
     pub skipped_incomplete: u64,
     pub skipped_duplicate: u64,
+    pub skipped_partition: u64,
+    pub retries_performed: u64,
     pub output_created: bool,
     pub receipts_written: bool,
     pub limitations: Vec<String>,
@@ -291,6 +434,15 @@ pub fn materialize_stack_source(config_path: &Path) -> Result<serde_json::Value>
         )?;
     }
     if selected.is_empty() {
+        // An empty slice is a normal outcome once the work is partitioned: a
+        // sixteen-way split of any real shard set will have buckets nothing
+        // landed in. Reporting that as a failure would force the operator loop
+        // to treat one error code as success, which is exactly how a genuine
+        // misconfiguration gets missed. An unpartitioned run selecting nothing
+        // is still a failure, because there the filters really are wrong.
+        if config.blob_id_partition.is_some() {
+            return empty_partition_result(&config, counts);
+        }
         return Err(ProductError::gate(
             "STACK_NO_DOCUMENTS",
             "no metadata row survived the language, licence and size filters",
@@ -456,6 +608,15 @@ fn project_batch(
             counts.skipped_incomplete += 1;
             continue;
         }
+        // Filtered here, before any other rule, so a partitioned run does the
+        // same work per surviving row as an unpartitioned one and the counts
+        // below stay comparable between them.
+        if let Some(partition) = &config.blob_id_partition
+            && !partition.contains(blob_id)
+        {
+            counts.skipped_partition += 1;
+            continue;
+        }
         if language.value(row) != config.language {
             counts.skipped_language += 1;
             continue;
@@ -487,6 +648,46 @@ fn project_batch(
     Ok(())
 }
 
+/// A partition that nothing landed in: a success that publishes nothing.
+///
+/// Deliberately its own status rather than a materialized generation with zero
+/// documents. `curate` would reject an empty generation, and an operator sweeping
+/// a directory of outputs should find only generations that carry documents; an
+/// empty one would be a trap. `output_created: false` says plainly that there is
+/// nothing here to feed forward.
+fn empty_partition_result(
+    config: &StackSourceConfigV1,
+    counts: FilterCounts,
+) -> Result<serde_json::Value> {
+    let result = StackSourceResultV1 {
+        schema: STACK_RESULT_SCHEMA.to_owned(),
+        status: "STACK_PARTITION_EMPTY".to_owned(),
+        qualification_status: "SKIPPED".to_owned(),
+        profile: config.profile.clone(),
+        configuration_sha256: config.sha256()?,
+        index_sha256: String::new(),
+        generations: 0,
+        metadata_rows: counts.rows,
+        documents: 0,
+        total_bytes: 0,
+        skipped_language: counts.skipped_language,
+        skipped_license: counts.skipped_license,
+        skipped_oversize: counts.skipped_oversize,
+        skipped_incomplete: counts.skipped_incomplete,
+        skipped_duplicate: counts.skipped_duplicate,
+        skipped_partition: counts.skipped_partition,
+        retries_performed: 0,
+        output_created: false,
+        receipts_written: false,
+        limitations: vec!["partition-selected-no-rows-so-nothing-was-published".to_owned()],
+    };
+    serde_json::to_value(result).map_err(|_| {
+        ProductError::internal(
+            "STACK_RESULT_SERIALIZE_FAILED",
+            "could not serialize the closed Stack v2 source result",
+        )
+    })
+}
 /// Resolves every selected identifier to bytes, then publishes the content tree
 /// and the sharded source manifests `curate` consumes.
 ///
@@ -508,30 +709,54 @@ fn resolve_and_publish(
         ))
         .build();
 
+    let policy = crate::acquire::RetryPolicy {
+        attempts: config.limits.retry_attempts,
+        initial_delay: std::time::Duration::from_millis(
+            config.limits.retry_initial_delay_milliseconds,
+        ),
+        maximum_delay: std::time::Duration::from_millis(
+            config.limits.retry_maximum_delay_milliseconds,
+        ),
+    };
+
     let mut generation = PartialTree::create(&config.output_root)?;
     let mut documents = Vec::with_capacity(selected.len());
     let mut total_bytes = 0_u64;
+    let mut retries_performed = 0_u64;
     for row in &selected {
         let relative_path = format!("documents/{}.py", row.blob_id);
         require_portable_relative_path(&relative_path, "STACK_CONTENT_PATH_INVALID")?;
         let url = config
             .content_url_template
             .replace("{blob_id}", &row.blob_id);
-        let fetched = crate::acquire::fetch_one(
+        let (fetched, retries) = crate::acquire::fetch_with_retry(
             &agent,
             crate::acquire::FetchRequest {
                 url: &url,
                 credential_env: config.content_credential_env.as_deref(),
                 // The shard's declared length is the transfer ceiling, so a blob
                 // that disagrees with its metadata is stopped mid-stream rather
-                // than after it has all arrived.
-                ceiling_bytes: row.length_bytes,
+                // than after it has all arrived. A body that will be inflated is
+                // bounded by what its compressed form could plausibly be.
+                ceiling_bytes: match config.content_encoding {
+                    StackContentEncodingV1::Identity => row.length_bytes,
+                    StackContentEncodingV1::Gzip => compressed_ceiling(row.length_bytes),
+                },
             },
             config.limits.maximum_redirects,
             config.allow_loopback_plain_http,
+            &policy,
         )?;
+        retries_performed += retries;
         let _ = fetched.redirects_followed;
-        if fetched.bytes.len() as u64 != row.length_bytes {
+        // Decoding happens before every check, so length, identifier and the
+        // recorded digest all describe the bytes that reach the content tree
+        // rather than whatever framing carried them.
+        let content = match config.content_encoding {
+            StackContentEncodingV1::Identity => fetched.bytes,
+            StackContentEncodingV1::Gzip => inflate(&fetched.bytes, row.length_bytes)?,
+        };
+        if content.len() as u64 != row.length_bytes {
             return Err(ProductError::integrity(
                 "STACK_CONTENT_LENGTH_MISMATCH",
                 "a Software Heritage blob differs in length from its metadata row",
@@ -541,7 +766,7 @@ fn resolve_and_publish(
         // content-addressed by `sha1_git`, so recomputing it locally proves the
         // bytes are the ones the shard named rather than whatever the endpoint
         // chose to return.
-        let observed = sha1_git(&fetched.bytes);
+        let observed = sha1_git(&content);
         if observed != row.blob_id {
             return Err(ProductError::integrity(
                 "STACK_CONTENT_HASH_MISMATCH",
@@ -557,7 +782,7 @@ fn resolve_and_publish(
                 "the resolved content exceeds the configured total byte bound",
             ));
         }
-        generation.write(&relative_path, &fetched.bytes)?;
+        generation.write(&relative_path, &content)?;
         documents.push(SourceDocument {
             provider_record_id: row.blob_id.clone(),
             // The repository is what dedup and splitting group by, so it comes
@@ -565,7 +790,7 @@ fn resolve_and_publish(
             provider_repository_id: Some(row.repository.clone()),
             stable_provenance_origin_namespace: config.source_snapshot_id.clone(),
             relative_path: relative_path.clone(),
-            expected_raw_sha256: fetched.sha256.clone(),
+            expected_raw_sha256: sha256(&content),
             expected_raw_bytes: row.length_bytes,
             dialect: "python3".to_owned(),
             license_expression: row.license_expression.clone(),
@@ -633,6 +858,8 @@ fn resolve_and_publish(
         skipped_oversize: counts.skipped_oversize,
         skipped_incomplete: counts.skipped_incomplete,
         skipped_duplicate: counts.skipped_duplicate,
+        skipped_partition: counts.skipped_partition,
+        retries_performed,
         output_created: true,
         receipts_written: false,
         limitations: vec![
