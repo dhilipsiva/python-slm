@@ -3,7 +3,6 @@ use crate::model::canonical_plan;
 use clap::{Parser, Subcommand};
 use serde_json::Value;
 use std::ffi::OsString;
-use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
@@ -116,12 +115,10 @@ enum Command {
 }
 
 pub fn entry(args: impl IntoIterator<Item = OsString>) -> i32 {
-    let result = catch_unwind(AssertUnwindSafe(|| run(args))).unwrap_or_else(|_| {
-        Err(ProductError::internal(
-            "UNEXPECTED_PANIC",
-            "the product command panicked before producing a result",
-        ))
-    });
+    // Collected before the hand-off so the signature stays borrowing-friendly for
+    // callers while the worker thread gets something it can own.
+    let args: Vec<OsString> = args.into_iter().collect();
+    let result = crate::platform::run_on_command_stack(move || run(args));
     match result {
         Ok(value) => {
             println!(
@@ -379,13 +376,14 @@ mod tests {
         assert_eq!(error.exit_code(), 2);
     }
 
+    /// The panic boundary now sits on the worker thread that carries the parser's
+    /// stack, so a panic has to survive being caught there and joined back before
+    /// it can become a result object.
     #[test]
     fn panic_boundary_maps_to_the_internal_category() {
-        let result = catch_unwind(AssertUnwindSafe(|| panic!("synthetic")));
-        let error = result
-            .map(|_| ())
-            .map_err(|_| ProductError::internal("UNEXPECTED_PANIC", "synthetic"))
+        let error = crate::platform::run_on_command_stack(|| -> Result<()> { panic!("synthetic") })
             .unwrap_err();
+        assert_eq!(error.code, "UNEXPECTED_PANIC");
         assert_eq!(error.exit_code(), 1);
     }
 }

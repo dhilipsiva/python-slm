@@ -346,3 +346,47 @@ fn write_json<T: Serialize>(path: &Path, value: &T) -> Vec<u8> {
 fn sha256(bytes: &[u8]) -> String {
     hex::encode(Sha256::digest(bytes))
 }
+
+/// Nesting depth is an input-controlled recursion depth inside the pinned C
+/// grammar, where no Rust-side budget can intervene. On a default Windows main
+/// thread that runs out at roughly `1,900` levels — under the governed
+/// `MAXIMUM_CST_DEPTH` of `4,096` — so documents the depth policy admits used to
+/// abort the process rather than parse, and documents it rejects used to abort
+/// rather than be rejected. Both cost whole `curate` generations during the E3
+/// acquisition.
+///
+/// The point of this test is not that any particular document is accepted. It is
+/// that the outcome is a *result* at every depth the document ceiling permits:
+/// accepted below the limit, typed `PARSER_DEPTH_LIMIT_EXCEEDED` above it, and
+/// never an abort. It runs through `run_on_command_stack` because that boundary
+/// is where the product's stack comes from.
+#[test]
+fn nesting_depth_produces_a_rejection_rather_than_an_abort() {
+    use rust_llm_pretrain::parser::{CancellationToken, MAXIMUM_CST_DEPTH, parse_python};
+
+    let outcomes = rust_llm_pretrain::platform::run_on_command_stack(|| {
+        // The last case is the deepest a document can be: every level of nesting
+        // costs two of the ceiling's bytes, so this is the worst admissible input.
+        let deepest = rust_llm_pretrain::data::MAX_CANONICAL_BYTES / 2 - 1;
+        let mut outcomes = Vec::new();
+        for depth in [64_usize, 2_048, MAXIMUM_CST_DEPTH as usize + 1, deepest] {
+            let mut source = b"x = ".to_vec();
+            source.extend(std::iter::repeat_n(b'[', depth));
+            source.extend(std::iter::repeat_n(b']', depth));
+            source.push(b'\n');
+            let parsed = parse_python(&source, &CancellationToken::default())?;
+            outcomes.push((depth, parsed.result.reasons.clone()));
+        }
+        Ok(outcomes)
+    })
+    .expect("bounded nesting is a parser result, not a failure");
+
+    for (depth, reasons) in outcomes {
+        let too_deep = depth as u64 > MAXIMUM_CST_DEPTH;
+        assert_eq!(
+            reasons.contains(&"PARSER_DEPTH_LIMIT_EXCEEDED"),
+            too_deep,
+            "depth {depth} against the {MAXIMUM_CST_DEPTH} limit reported {reasons:?}"
+        );
+    }
+}

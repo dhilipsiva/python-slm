@@ -304,6 +304,64 @@ fn sync_parent_directory(path: &Path) -> Result<()> {
         })
 }
 
+/// Stack reserved for the thread that runs a product command.
+///
+/// The pinned Python grammar parses nested constructs by recursing in C, so the
+/// depth of a document's syntax tree is the depth of a native call chain that no
+/// Rust-side budget can interrupt. Windows gives a process's main thread one
+/// mebibyte, and that runs out at a nesting depth of roughly `1,900` — *below*
+/// [`crate::parser::MAXIMUM_CST_DEPTH`], the governed limit of `4,096`. So the
+/// depth policy was unreachable: a document nested between those two figures is
+/// one the policy admits, and the process aborted on it instead. An abort is not
+/// a rejection. It produces no result object, no typed code, and no partial-tree
+/// cleanup, and during the E3 acquisition it cost `24` whole generations of
+/// `20,000` documents each.
+///
+/// The size is derived rather than tuned. A document is at most
+/// [`crate::data::MAX_CANONICAL_BYTES`] = `1,000,000` bytes; every level of
+/// nesting costs at least two of them (an opener and its closer, or the `+a` of
+/// an operator chain), so no admissible document can nest deeper than `500,000`.
+/// Measured against this grammar in an unoptimized build, the costliest shape
+/// — bracket nesting — takes about `1,090` stack bytes per level, and operator
+/// chains about `546`; `500,000 * 1,090` is roughly `545` MB. One gibibyte
+/// therefore covers the worst document the ceiling permits, with margin, and
+/// bounds the parser by the same frozen constant that bounds the document.
+///
+/// Reserving it is free. Windows commits stack pages on demand, and four threads
+/// holding this reservation at once measured no change in either working set or
+/// private bytes.
+pub const COMMAND_STACK_BYTES: usize = 1 << 30;
+
+/// Run a product command on a stack sized by [`COMMAND_STACK_BYTES`].
+///
+/// This is the single boundary that provides that stack, so anything reaching
+/// the parser must arrive through it — including tests that mean to exercise
+/// deeply nested input. Panics are caught here rather than at the caller,
+/// because a panic on the worker thread has to be carried back across the join
+/// before it can become a result object.
+pub fn run_on_command_stack<T, F>(work: F) -> Result<T>
+where
+    F: FnOnce() -> Result<T> + Send + 'static,
+    T: Send + 'static,
+{
+    let worker = std::thread::Builder::new()
+        .stack_size(COMMAND_STACK_BYTES)
+        .spawn(move || std::panic::catch_unwind(std::panic::AssertUnwindSafe(work)))
+        .map_err(|_| {
+            ProductError::internal(
+                "COMMAND_STACK_UNAVAILABLE",
+                "the host refused a thread with the stack the parser requires",
+            )
+        })?;
+    match worker.join() {
+        Ok(Ok(result)) => result,
+        Ok(Err(_)) | Err(_) => Err(ProductError::internal(
+            "UNEXPECTED_PANIC",
+            "the product command panicked before producing a result",
+        )),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
