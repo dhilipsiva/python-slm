@@ -102,8 +102,10 @@ Zero Python forbids Python interpreters, executables, packages, modules, wheels,
 backends, code generators, embedded runtimes, and Python-launched subprocesses in build,
 data, training, qualification, verification, or receipts. Python-language source is input
 data only. Native code is limited to pinned, audited, feature-gated accelerator/native-ML
-boundaries and the pinned `tree-sitter-python 0.25.0` generated C parser/runtime used only
-through the Rust data-policy boundary. C/C++ may not own orchestration or unrelated data
+boundaries, the pinned `tree-sitter-python 0.25.0` generated C parser/runtime used only
+through the Rust data-policy boundary, and, under `SCOPE-002`
+(`docs/decision-ledger-v4.md`), the Parquet Zstandard decoder used only to decompress
+governed metadata shards through the Rust Parquet reader. C/C++ may not own orchestration or unrelated data
 transformation.
 
 The canonical model has exactly `135,285,504` parameters. The environment allocation

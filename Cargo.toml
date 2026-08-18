@@ -90,13 +90,13 @@ hex = "0.4"
 # the async runtime, the object store and every cloud transport: the shards
 # arrive as local hash-bound bytes from `fetch`, so this crate only decodes them.
 #
-# The codec set is pure Rust on purpose. `CLAUDE.md` permits exactly one piece of
-# native code on the data lane — the pinned tree-sitter C parser — and Parquet's
-# `zstd` feature would bring `zstd-sys` with it. That crate is already in
-# `Cargo.lock` via `zip` in the accelerator tree, but that tree is feature-gated
-# and never compiles into a CPU or data build; enabling it here would put C into
-# the default build. A shard in an unsupported codec therefore fails with a typed
-# error naming the codec rather than being silently unreadable.
+# The codec set was pure Rust until the real shards were measured: The Stack v2
+# metadata is Zstandard-compressed, HuggingFace's auto-converted branch is
+# byte-identical to it, and `parquet-rs` wires only the C-backed `zstd` crate.
+# `SCOPE-002` in `docs/decision-ledger-v4.md` is the owner-approved amendment that
+# admits that decoder as a third named native boundary, decode-only and reached
+# solely through this crate. Everything else here stays pure Rust, and a shard in
+# a codec outside this set still fails with a typed error naming it.
 parquet = { version = "56", default-features = false, features = [
     "arrow",
     "snap",
@@ -104,6 +104,7 @@ parquet = { version = "56", default-features = false, features = [
     "flate2-rust_backened",
     "lz4",
     "brotli",
+    "zstd",
 ] }
 arrow-array = { version = "56", default-features = false }
 arrow-schema = { version = "56", default-features = false }

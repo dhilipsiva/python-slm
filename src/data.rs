@@ -1,7 +1,7 @@
 //! Deterministic, zero-Python document source and policy boundary.
 
 mod governance;
-mod policy;
+pub(crate) mod policy;
 mod publication;
 mod sensitive;
 pub(crate) mod source;

@@ -291,6 +291,20 @@ impl StackSourceConfigV1 {
                 "a language and a non-empty licence allowlist are required",
             ));
         }
+        // Admitting a licence that `curate` will later refuse is not a harmless
+        // mismatch: the blob is transferred, verified and written before the
+        // rejection happens, so a wrong allowlist costs a full acquisition. The
+        // frozen P4 policy is the authority, and disagreeing with it fails here.
+        for license in &self.license_allowlist {
+            if !crate::data::policy::license_allowed(license) {
+                return Err(ProductError::usage(
+                    "STACK_LICENSE_NOT_PERMITTED",
+                    format!(
+                        "the allowlist names {license}, which the frozen curation policy refuses"
+                    ),
+                ));
+            }
+        }
         if self.source_snapshot_id.is_empty()
             || self.authorization.scheme.is_empty()
             || self.authorization.authority_url.is_empty()
@@ -353,6 +367,13 @@ struct SelectedRow {
     license_expression: String,
 }
 
+/// How many distinct rejected licence expressions to retain.
+///
+/// Bounded because the field exists to make an allowlist authorable, not to
+/// inventory the shard: a handful of examples answers "what does this data
+/// actually carry" while an unbounded set would grow with the corpus.
+const REJECTED_LICENSE_EXAMPLES: usize = 32;
+
 #[derive(Clone, Debug, Default)]
 struct FilterCounts {
     rows: u64,
@@ -362,6 +383,10 @@ struct FilterCounts {
     skipped_incomplete: u64,
     skipped_duplicate: u64,
     skipped_partition: u64,
+    /// Distinct licence expressions that failed the allowlist, bounded. A run
+    /// that admits far fewer documents than expected should say which rule did
+    /// it *and* what it was looking at.
+    rejected_licenses: BTreeSet<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -401,6 +426,7 @@ pub struct StackSourceResultV1 {
     pub skipped_incomplete: u64,
     pub skipped_duplicate: u64,
     pub skipped_partition: u64,
+    pub rejected_license_examples: Vec<String>,
     pub retries_performed: u64,
     pub output_created: bool,
     pub receipts_written: bool,
@@ -541,10 +567,24 @@ fn arrow_failure(code: &'static str, error: arrow_schema::ArrowError) -> Product
     )
 }
 
-fn missing_column(name: &str) -> ProductError {
+/// Names both the column the operator declared and the ones the shard actually
+/// carries, with their types.
+///
+/// The column mapping lives in configuration precisely so a schema revision is
+/// an operator change rather than a code change, and that is only true if the
+/// failure says what the alternatives are. Otherwise the operator is left
+/// guessing one name per run against a multi-gigabyte shard.
+fn missing_column(batch: &arrow_array::RecordBatch, name: &str) -> ProductError {
+    let available = batch
+        .schema()
+        .fields()
+        .iter()
+        .map(|field| format!("{}:{}", field.name(), field.data_type()))
+        .collect::<Vec<_>>()
+        .join(", ");
     ProductError::integrity(
         "STACK_METADATA_COLUMN_MISSING",
-        format!("the metadata shard has no usable string column named {name}"),
+        format!("the metadata shard has no usable column named {name}; it carries {available}"),
     )
 }
 
@@ -555,7 +595,7 @@ fn string_column<'a>(
     batch
         .column_by_name(name)
         .and_then(|column| column.as_any().downcast_ref::<arrow_array::StringArray>())
-        .ok_or_else(|| missing_column(name))
+        .ok_or_else(|| missing_column(batch, name))
 }
 
 /// Reads one batch, keeping only rows that clear every declared filter.
@@ -582,11 +622,11 @@ fn project_batch(
     let lengths = batch
         .column_by_name(&columns.length_bytes)
         .and_then(|column| column.as_any().downcast_ref::<arrow_array::Int64Array>())
-        .ok_or_else(|| missing_column(&columns.length_bytes))?;
+        .ok_or_else(|| missing_column(batch, &columns.length_bytes))?;
     let licenses = batch
         .column_by_name(&columns.detected_licenses)
         .and_then(|column| column.as_any().downcast_ref::<arrow_array::ListArray>())
-        .ok_or_else(|| missing_column(&columns.detected_licenses))?;
+        .ok_or_else(|| missing_column(batch, &columns.detected_licenses))?;
 
     for row in 0..batch.num_rows() {
         counts.rows += 1;
@@ -608,26 +648,29 @@ fn project_batch(
             counts.skipped_incomplete += 1;
             continue;
         }
-        // Filtered here, before any other rule, so a partitioned run does the
-        // same work per surviving row as an unpartitioned one and the counts
-        // below stay comparable between them.
-        if let Some(partition) = &config.blob_id_partition
-            && !partition.contains(blob_id)
-        {
-            counts.skipped_partition += 1;
-            continue;
-        }
         if language.value(row) != config.language {
             counts.skipped_language += 1;
             continue;
         }
-        let Some(license_expression) = row_license(licenses, row, allowlist)? else {
+        let Some(license_expression) = row_license(licenses, row, allowlist, counts)? else {
             counts.skipped_license += 1;
             continue;
         };
         let declared = lengths.value(row);
         if declared <= 0 || declared as u64 > MAXIMUM_DOCUMENT_BYTES {
             counts.skipped_oversize += 1;
+            continue;
+        }
+        // Filtered after eligibility and before deduplication. A partition
+        // decides which slice this invocation handles, not whether a row is
+        // admissible, so every partition reports the same language, licence and
+        // size statistics for the shard — which is what makes those counts
+        // comparable between runs, and what lets a deliberately empty partition
+        // report what a shard contains without transferring anything.
+        if let Some(partition) = &config.blob_id_partition
+            && !partition.contains(blob_id)
+        {
+            counts.skipped_partition += 1;
             continue;
         }
         // The same blob can appear under many repositories; the corpus wants it
@@ -676,6 +719,7 @@ fn empty_partition_result(
         skipped_incomplete: counts.skipped_incomplete,
         skipped_duplicate: counts.skipped_duplicate,
         skipped_partition: counts.skipped_partition,
+        rejected_license_examples: counts.rejected_licenses.iter().cloned().collect(),
         retries_performed: 0,
         output_created: false,
         receipts_written: false,
@@ -859,6 +903,7 @@ fn resolve_and_publish(
         skipped_incomplete: counts.skipped_incomplete,
         skipped_duplicate: counts.skipped_duplicate,
         skipped_partition: counts.skipped_partition,
+        rejected_license_examples: counts.rejected_licenses.iter().cloned().collect(),
         retries_performed,
         output_created: true,
         receipts_written: false,
@@ -887,6 +932,12 @@ fn sha1_git(bytes: &[u8]) -> String {
     hex::encode(sha1::Digest::finalize(hasher))
 }
 
+fn note_rejected_license(counts: &mut FilterCounts, license: &str) {
+    if counts.rejected_licenses.len() < REJECTED_LICENSE_EXAMPLES {
+        counts.rejected_licenses.insert(license.to_owned());
+    }
+}
+
 /// A row is admitted only when it declares at least one licence and *every*
 /// licence it declares is allowlisted. Dual-licensed rows therefore need both
 /// terms approved, which is the conservative reading and the one a licence
@@ -895,6 +946,7 @@ fn row_license(
     licenses: &arrow_array::ListArray,
     row: usize,
     allowlist: &BTreeSet<&str>,
+    counts: &mut FilterCounts,
 ) -> Result<Option<String>> {
     use arrow_array::Array;
     let values = licenses.value(row);
@@ -908,15 +960,18 @@ fn row_license(
             )
         })?;
     if values.is_empty() {
+        note_rejected_license(counts, "<empty>");
         return Ok(None);
     }
     let mut admitted = BTreeSet::new();
     for index in 0..values.len() {
         if values.is_null(index) {
+            note_rejected_license(counts, "<null>");
             return Ok(None);
         }
         let license = values.value(index);
         if !allowlist.contains(license) {
+            note_rejected_license(counts, license);
             return Ok(None);
         }
         admitted.insert(license);

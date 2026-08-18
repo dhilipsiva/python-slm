@@ -270,7 +270,7 @@ fn config(
         allow_loopback_plain_http: true,
         content_encoding: StackContentEncodingV1::Identity,
         language: "Python".to_owned(),
-        license_allowlist: vec!["mit".to_owned(), "apache-2.0".to_owned()],
+        license_allowlist: vec!["MIT".to_owned(), "Apache-2.0".to_owned()],
         source_snapshot_id: "stack-v2-fixture".to_owned(),
         authorization: SourceAuthorization {
             scheme: "operator-assertion".to_owned(),
@@ -322,7 +322,7 @@ fn stack_metadata_and_content_become_a_governed_source_generation() {
             revision: "rev-1",
             language: "Python",
             length_bytes: admitted_one.len() as i64,
-            licenses: vec!["mit"],
+            licenses: vec!["MIT"],
         },
         Row {
             blob_id: sha1_git(&admitted_two),
@@ -331,7 +331,7 @@ fn stack_metadata_and_content_become_a_governed_source_generation() {
             revision: "rev-2",
             language: "Python",
             length_bytes: admitted_two.len() as i64,
-            licenses: vec!["mit", "apache-2.0"],
+            licenses: vec!["MIT", "Apache-2.0"],
         },
         // Dual-licensed with one term outside the allowlist: the conservative
         // reading rejects it, and that is the rule being pinned here.
@@ -342,7 +342,7 @@ fn stack_metadata_and_content_become_a_governed_source_generation() {
             revision: "rev-3",
             language: "Python",
             length_bytes: rejected_license.len() as i64,
-            licenses: vec!["mit", "gpl-3.0"],
+            licenses: vec!["MIT", "GPL-3.0-only"],
         },
         Row {
             blob_id: sha1_git(&rejected_language),
@@ -351,7 +351,7 @@ fn stack_metadata_and_content_become_a_governed_source_generation() {
             revision: "rev-4",
             language: "Rust",
             length_bytes: rejected_language.len() as i64,
-            licenses: vec!["mit"],
+            licenses: vec!["MIT"],
         },
         // Above the frozen 1,000,000-byte document ceiling, so it must be
         // skipped from its declared length without ever being requested.
@@ -362,7 +362,7 @@ fn stack_metadata_and_content_become_a_governed_source_generation() {
             revision: "rev-5",
             language: "Python",
             length_bytes: 1_000_001,
-            licenses: vec!["mit"],
+            licenses: vec!["MIT"],
         },
         // The same blob under a second repository: transferred once, not twice.
         Row {
@@ -372,7 +372,7 @@ fn stack_metadata_and_content_become_a_governed_source_generation() {
             revision: "rev-6",
             language: "Python",
             length_bytes: admitted_one.len() as i64,
-            licenses: vec!["mit"],
+            licenses: vec!["MIT"],
         },
     ];
 
@@ -434,8 +434,8 @@ fn stack_metadata_and_content_become_a_governed_source_generation() {
         .iter()
         .map(|document| document["license_expression"].as_str().unwrap())
         .collect::<Vec<_>>();
-    assert!(licenses.contains(&"mit"));
-    assert!(licenses.contains(&"apache-2.0 AND mit"));
+    assert!(licenses.contains(&"MIT"));
+    assert!(licenses.contains(&"Apache-2.0 AND MIT"));
     assert_eq!(manifest["adapter_namespace"], "stack-v2-software-heritage");
 
     // Create-new: a second run against the same root must refuse.
@@ -461,7 +461,7 @@ fn content_that_does_not_match_its_identifier_is_refused() {
         revision: "rev-1",
         language: "Python",
         length_bytes: declared.len() as i64,
-        licenses: vec!["mit"],
+        licenses: vec!["MIT"],
     }];
     let shard = temporary.path().join("metadata-00000.parquet");
     let shard_digest = write_shard(&shard, &rows);
@@ -498,7 +498,7 @@ fn a_metadata_shard_that_does_not_match_its_digest_is_refused() {
         revision: "rev-1",
         language: "Python",
         length_bytes: content.len() as i64,
-        licenses: vec!["mit"],
+        licenses: vec!["MIT"],
     }];
     let shard = temporary.path().join("metadata-00000.parquet");
     write_shard(&shard, &rows);
@@ -532,7 +532,7 @@ fn a_missing_declared_column_names_itself() {
         revision: "rev-1",
         language: "Python",
         length_bytes: content.len() as i64,
-        licenses: vec!["mit"],
+        licenses: vec!["MIT"],
     }];
     let shard = temporary.path().join("metadata-00000.parquet");
     let shard_digest = write_shard(&shard, &rows);
@@ -564,7 +564,7 @@ fn a_missing_credential_variable_fails_before_transfer() {
         revision: "rev-1",
         language: "Python",
         length_bytes: content.len() as i64,
-        licenses: vec!["mit"],
+        licenses: vec!["MIT"],
     }];
     let shard = temporary.path().join("metadata-00000.parquet");
     let shard_digest = write_shard(&shard, &rows);
@@ -612,7 +612,7 @@ fn a_template_without_the_substitution_is_refused() {
             revision: "rev-1",
             language: "Python",
             length_bytes: 1,
-            licenses: vec!["mit"],
+            licenses: vec!["MIT"],
         }],
     );
     let mut broken = config(
@@ -638,7 +638,7 @@ fn single_row_fixture(temporary: &Path, content: &[u8]) -> (PathBuf, String) {
         revision: "rev-1",
         language: "Python",
         length_bytes: content.len() as i64,
-        licenses: vec!["mit"],
+        licenses: vec!["MIT"],
     }];
     let shard = temporary.join("metadata-00000.parquet");
     let digest = write_shard(&shard, &rows);
@@ -809,7 +809,7 @@ fn partitions_are_disjoint_and_their_union_matches_the_full_run() {
             revision: "rev-1",
             language: "Python",
             length_bytes: body.len() as i64,
-            licenses: vec!["mit"],
+            licenses: vec!["MIT"],
         })
         .collect::<Vec<_>>();
     let shard = temporary.path().join("metadata-00000.parquet");
@@ -882,7 +882,7 @@ fn a_failed_partition_leaves_published_partitions_intact() {
             revision: "rev-1",
             language: "Python",
             length_bytes: body.len() as i64,
-            licenses: vec!["mit"],
+            licenses: vec!["MIT"],
         })
         .collect::<Vec<_>>();
     let shard = temporary.path().join("metadata-00000.parquet");
@@ -1061,7 +1061,7 @@ fn gzip_content_is_decoded_before_verification() {
             revision: "rev-1",
             language: "Python",
             length_bytes: body.len() as i64,
-            licenses: vec!["mit"],
+            licenses: vec!["MIT"],
         })
         .collect::<Vec<_>>();
     let shard = temporary.path().join("metadata-00000.parquet");
@@ -1129,7 +1129,7 @@ fn gzip_that_inflates_past_its_declared_length_is_refused() {
         revision: "rev-1",
         language: "Python",
         length_bytes: declared.len() as i64,
-        licenses: vec!["mit"],
+        licenses: vec!["MIT"],
     }];
     let shard = temporary.path().join("metadata-00000.parquet");
     let digest = write_shard(&shard, &rows);
@@ -1215,5 +1215,65 @@ fn gzip_bodies_are_not_sniffed_under_an_identity_declaration() {
         ),
         "unexpected code {}",
         error.code
+    );
+}
+
+/// An allowlist the frozen P4 policy refuses must fail at configuration time.
+///
+/// The cost of getting this wrong is not a wrong answer, it is a wasted
+/// acquisition: the blob is transferred, verified and written before `curate`
+/// rejects its licence, so a permissive-looking identifier the policy does not
+/// share would be discovered only after hours of transfer.
+#[test]
+fn an_allowlist_the_curation_policy_refuses_is_rejected_up_front() {
+    let temporary = tempfile::tempdir().unwrap();
+    let content = b"def alpha():\n    return 1\n".to_vec();
+    let (shard, digest) = single_row_fixture(temporary.path(), &content);
+    for refused in ["GPL-3.0-only", "CC0-1.0", "Unlicense", "mit"] {
+        let mut settings = config(
+            &shard,
+            digest.clone(),
+            "https://example.invalid/content/{blob_id}".to_owned(),
+            temporary.path().join("stack-source"),
+        );
+        settings.license_allowlist = vec!["MIT".to_owned(), refused.to_owned()];
+        let config_path = temporary.path().join("config.json");
+        write_config(&config_path, &settings);
+        let error = materialize_stack_source(&config_path).unwrap_err();
+        assert_eq!(
+            error.code, "STACK_LICENSE_NOT_PERMITTED",
+            "{refused} must be refused at configuration time"
+        );
+        assert!(error.message.contains(refused), "the identifier is named");
+    }
+    // The frozen permissive set itself must pass.
+    let mut permitted = config(
+        &shard,
+        digest,
+        "https://example.invalid/content/{blob_id}".to_owned(),
+        temporary.path().join("stack-permitted"),
+    );
+    permitted.license_allowlist = [
+        "0BSD",
+        "Apache-2.0",
+        "BSD-2-Clause",
+        "BSD-3-Clause",
+        "BSL-1.0",
+        "ISC",
+        "MIT",
+        "MIT-0",
+        "Python-2.0",
+        "Zlib",
+    ]
+    .iter()
+    .map(|value| (*value).to_owned())
+    .collect();
+    permitted.language = "Rust".to_owned(); // selects nothing, so no transfer is attempted
+    let config_path = temporary.path().join("config-permitted.json");
+    write_config(&config_path, &permitted);
+    assert_eq!(
+        materialize_stack_source(&config_path).unwrap_err().code,
+        "STACK_NO_DOCUMENTS",
+        "the frozen set passes validation and fails later, on selection"
     );
 }

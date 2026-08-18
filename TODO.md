@@ -925,15 +925,64 @@ over *its* representative per cluster instead of letting `DEDUP-001` choose by
 provenance and comment ratio. Small, but control given up for a benefit that does
 not exist.
 
-**Blocked on an authorization, and the failure is precise rather than vague.**
-The token authenticates and the metadata API answers, but the file download
-returns `403`. The cause is token *scope*, not a bad token: a fine-grained token
-grants access only to the entities listed on it, and a token scoped to its own
-user has no read permission for the `bigcode` organization. Clearing it needs the
-dataset terms accepted and either the token's "read access to contents of all
-public gated repos" permission or a classic read token. Worth recording because
-the symptom — public metadata working while content is refused — looks like a
-gating problem and is actually a scope problem.
+**The `403` was terms acceptance, not token scope.** The token authenticates and
+the metadata API answers while file downloads return `403`, which looks like a
+token-permission problem and is not one: accepting the dataset terms cleared it
+with the token's scopes byte-identical to before, still fine-grained and still
+scoped to its own user. Recorded because the first diagnosis here was the wrong
+one — the symptom points at scope and the cause was acceptance — and because the
+adapter's refusal to retry a `403` is what kept that diagnosis cheap instead of
+burying it under five identical failures.
+
+**The metadata is Zstandard, and reading it required an amendment.** The real
+shard fails to decode as shipped: `Disabled feature at compile time: zstd`.
+HuggingFace's auto-converted branch is byte-identical to the main branch, so no
+supported-codec copy of the same data exists, and `parquet-rs` wires only the
+C-backed `zstd` crate with no pure-Rust backend in any published version. The
+owner approved `SCOPE-002` (`docs/decision-ledger-v4.md`) on 2026-08-18, which
+supersedes `SCOPE-001` and admits the Zstandard decoder as a third named native
+boundary — decode-only, reached solely through the Parquet reader, with every
+byte it produces still subject to the same digest verification as any other
+input. The data lane already compiled C for the Tree-sitter parser, so this is a
+second pinned C dependency rather than a new class of requirement. The span seed
+is unaffected: it reads the frozen-decision range of the immutable
+`docs/rebuild-contract.md`, not a ledger.
+
+**What one real shard contains.** `train-00000-of-00009.parquet`, `1.55` GB,
+fetched at `4.9` MB/s and read in `5.9` s at `37` MiB peak — the batched reader
+never holds the shard.
+
+| Quantity | Measured |
+|---|---|
+| Metadata rows | `8,550,924` |
+| Rejected by licence | `6,421,647` (`75.1` percent) |
+| Rejected as oversize | `521` |
+| Rejected by language or incomplete identity | `0` |
+| **Eligible before deduplication** | **`2,128,756`** (`24.9` percent) |
+
+At the measured downstream yield — `80.7` percent surviving `curate` and `64.6`
+percent becoming representatives — one shard is worth roughly `1.11` million
+representatives against the `1.45` million the target needs, so **two shards
+comfortably exceed it** and the remaining seven are never transferred. That is
+the fact that settles the source question: preferring the deduplicated variant to
+save `5` GB would have been optimizing a download that does not happen.
+
+**The licence allowlist was already frozen, and the adapter now enforces that.**
+`PERMISSIVE_LICENSES` (`src/data/policy.rs:19`) fixes the permitted set to
+`0BSD`, `Apache-2.0`, `BSD-2-Clause`, `BSD-3-Clause`, `BSL-1.0`, `ISC`, `MIT`,
+`MIT-0`, `Python-2.0`, `Zlib`, and the shard carries canonical SPDX casing, so a
+lowercase allowlist matches nothing — the first probe rejected all `8,550,924`
+rows for exactly that reason. Configuring an allowlist the frozen policy refuses
+is now `STACK_LICENSE_NOT_PERMITTED` at validation time, because the cost of that
+mistake is not a wrong answer but a wasted acquisition: the blob is transferred,
+verified and written before `curate` rejects its licence.
+
+Two diagnostics were added for the same reason, both after guessing proved
+expensive. A missing column now names the columns the shard *does* carry with
+their Arrow types, which turned a schema unknown into one run instead of one
+guess per attempt. And a rejected licence is now reported by value, bounded to
+`32` distinct examples, which is what turned "everything was rejected" into a
+correct allowlist immediately.
 
 Working projections for that run. Each basis says what it rests on, because they
 are not equally solid: the two corpus-size rows inherit an estimate, the rest
