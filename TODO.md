@@ -875,6 +875,66 @@ Parquet fixtures and a loopback origin, never against the dataset, which is why
 the column mapping is declared in configuration rather than assumed: a schema
 revision is then an operator change instead of a code change.
 
+#### Acquisition hardening, and what the first real contact established
+
+The adapter was correct and operationally unusable before this: no retry, and a
+create-new tree is discarded on any error, so one `429` at blob N threw away N-1
+completed transfers. Over roughly `1.45` million fetches that is not a run that
+finishes, and `docs/rebuild-contract.md:113` had asked for retries and resumable
+generations all along. Three changes close it, all fixture-tested.
+
+Transient failures — transport errors, `429`, `5xx` — retry on a bounded, purely
+arithmetic backoff; every other status does not retry at all, because repeating a
+`403` only hides a configuration error behind a delay. Retrying cannot affect
+determinism: every published byte is still verified against the `sha1_git` its
+metadata declared, so a blob that needed three attempts yields the same artifact
+as one that needed none, and attempt counts are an input to no hash.
+
+Resumability is **partitioning, not checkpointing**, because a resumable partial
+tree is precisely the half-populated generation that create-new publication
+exists to prevent. The work splits by `blob_id` prefix, one generation per
+partition, and a failed partition is rerun. Since the split is a function of the
+identifier, partitions cannot duplicate a document and their union is exactly
+what an unpartitioned run selects — both asserted against a real sixteen-way
+split. A partition nothing landed in succeeds without publishing
+(`STACK_PARTITION_EMPTY`), so an operator loop never reads a failure code as
+success; an *unpartitioned* run selecting nothing still fails, because there the
+filters really are wrong.
+
+`content_encoding` is declared, never sniffed, because the bulk mirror and the
+archive API disagree about framing and guessing from a magic number would make
+the corpus depend on what a server happened to send.
+
+**First real contact with HuggingFace, and what it settled.** The governed path
+works against the live API: `discover` reports a digest without publishing, and
+`fetch` transfers only against that pinned digest.
+
+| Quantity | Measured |
+|---|---|
+| `bigcode/the-stack-v2` Python metadata | `9` shards, `13.0` GB total, about `1.55` GB each |
+| `bigcode/the-stack-v2-dedup` Python metadata | `6` shards, `8.02` GB |
+| Gating | `gated: auto` with a terms prompt |
+
+**Source choice: the plain `bigcode/the-stack-v2`.** The tempting argument for
+the deduplicated variant is that `8.02` GB beats `13.0` GB, and it is a red
+herring: shards are fetched one at a time until enough documents accumulate, and
+one shard holds far more rows than the roughly `1.45` million needed, so the
+difference is in shards that are never transferred. With that gone, the plain
+dataset is the literal `SOURCE-001` source, and upstream deduplication would hand
+over *its* representative per cluster instead of letting `DEDUP-001` choose by
+provenance and comment ratio. Small, but control given up for a benefit that does
+not exist.
+
+**Blocked on an authorization, and the failure is precise rather than vague.**
+The token authenticates and the metadata API answers, but the file download
+returns `403`. The cause is token *scope*, not a bad token: a fine-grained token
+grants access only to the entities listed on it, and a token scoped to its own
+user has no read permission for the `bigcode` organization. Clearing it needs the
+dataset terms accepted and either the token's "read access to contents of all
+public gated repos" permission or a classic read token. Worth recording because
+the symptom — public metadata working while content is refused — looks like a
+gating problem and is actually a scope problem.
+
 Working projections for that run. Each basis says what it rests on, because they
 are not equally solid: the two corpus-size rows inherit an estimate, the rest
 extrapolate measurements taken on this host. Nothing here is now unmeasured.
