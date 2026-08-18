@@ -593,7 +593,7 @@ independent of each other:
 | | State | Blocked on |
 |---|---|---|
 | E1, E1A, E1B, E2 | Complete, hardware-verified | — |
-| **E3** corpus | Pipeline built and measured end to end | **Dataset terms and Software Heritage credentials — the operator's to obtain** |
+| **E3** corpus | Corpus acquired and published: `3,500,856` representatives | `train-tokenizer`, `tokenize`, `plan-spans` — about an hour against artifacts on disk |
 | E4 diagnostics | Not run | Physical RTX 5090 session, or a `windows-cuda.yml` dispatch |
 | **E5** admission | Not run | E3 and E4 — and it starts from a measured `4.3x` SLA miss |
 | E6 execution | Unreachable | E5 admitting the run |
@@ -808,9 +808,10 @@ Dependencies: P4–P9A implementation. Independent of E1/E2.
 
 E3 turned out to be much larger than "run the pipeline": exploration found three
 pieces missing outright and three more that would not survive production scale,
-and executing the chain found two further defects that reading it had not. All
-eight are now closed and every stage is measured. What follows is only what
-remains.
+and executing the chain found three further defects that reading it had not — the
+last of them only after `4.8` million documents of real code had gone through it.
+All nine are closed, every stage is measured, and the corpus is published. What
+follows is only what remains.
 
 #### The pipeline is built and measured
 
@@ -1124,21 +1125,99 @@ Two more real-data findings, both now skipped and counted rather than fatal:
 and `1` carries a repository identity the governed rule refuses. Rewriting either
 would falsify what the manifest records.
 
-Working projections for that run. Each basis says what it rests on, because they
-are not equally solid: the two corpus-size rows inherit an estimate, the rest
-extrapolate measurements taken on this host. Nothing here is now unmeasured.
+#### The full acquisition, and the defect that only real code found
 
-| Quantity | Projection | Basis |
-|---|---|---|
-| Representative canonical text | `10.0` GB | **measured**: `5.36` bytes per training ID on real licensed code with a tokenizer trained on it |
-| Representative documents | `3.05` million | measured `3,517`-byte mean representative |
-| Enumerated documents needed | `~2.8` million | measured yield: `52` percent of an enumerated tree reaches the token corpus |
-| Source generations | `~50`, more in practice | `1.45` million accepted at a measured `28,929` per generation, before the rejected outcomes each manifest also carries |
-| `prepare-corpus` peak memory | `~38` GiB | measured `43.8` MiB fixed plus `27.5` KiB per document, linear over three points |
-| `prepare-corpus` wall clock | `~3.9` hours | measured `16.0` s for `29.3` MiB, single-threaded |
-| `train-tokenizer` peak memory | `~42.3` GiB | measured `184.1` MiB fixed plus `22.62` MiB per sample MB, linear over six points to `184.6` MB |
-| `train-tokenizer` wall clock | `~20` minutes | measured flat `1.55` MB/s over the same range |
-| Token shards on disk | `~4` GB | exact: `2,000,000,001` IDs at `2` bytes |
+`66` of the `144` `the-stack-dedup` Python shards, fetched over the governed
+HTTPS path one shard per invocation and curated one generation at a time.
+
+| Stage | Result |
+|---|---|
+| Fetched | `66` shards, `12.2` GB, no fetch or materialize failure |
+| Materialized | `5,589,328` documents |
+| `curate` | `330` generations, `4,546,453` policy-accepted (`81.3` percent) |
+| `prepare-corpus` | `3,500,856` representatives, `1,033,536` excluded, `11.3` GB |
+| Wall clock | `~7.2` h acquisition and curation, `5.85` h `prepare-corpus` |
+| `prepare-corpus` peak | `42.6` GiB of `93.6` GiB |
+
+**Nesting depth aborted the process instead of being rejected.** The governed
+limit `MAXIMUM_CST_DEPTH` is `4,096`, but the pinned grammar recurses in C, and a
+Windows main thread's one mebibyte runs out at roughly `1,900` levels. Every
+document nested between those two figures is one the policy *admits*, and the
+process died on it; documents past the limit died rather than being rejected by
+the limit that exists to reject them. Reading the code could not have found this
+— `traverse` is explicitly stack-based, so the recursion is entirely on the C
+side — and neither could the proof corpus. It took `4.8` million documents of
+real code, at about one crashing document per `200,000`, to produce `24` aborts.
+Each one destroyed a whole generation of `20,000` documents, `327,000` in total,
+and an abort leaves no result object, no typed code, and no partial-tree cleanup.
+
+The fix sizes the stack from the frozen document ceiling rather than tuning it: a
+document is at most `1,000,000` bytes, every level of nesting costs at least two
+of them, so nothing admissible nests deeper than `500,000`, and the costliest
+shape measures about `1,090` stack bytes per level. One gibibyte covers the worst
+case with margin and costs nothing — Windows commits stack pages on demand, and
+four threads holding that reservation moved neither working set nor private
+bytes. `platform::run_on_command_stack` is the single boundary that provides it.
+All `24` generations re-ran cleanly afterwards, and `8` further shards acquired
+after the fix curated `550,487` documents out of `677,497` with no aborts at all.
+
+**The residency model was measuring the wrong thing.** `16.45` KiB per accepted
+document reproduced the pilot's peak exactly and still projected `71` GiB against
+an actual `42.6`, because it folded two unrelated costs into one slope. The real
+shape is visible in the trace: `38.6` GiB loading `330` generation manifests
+(`6.6` million outcome records at about `5.95` KiB each), then a drop to `5.6`
+GiB once those manifests are released and the documents are projected, then a
+climb to the `42.6` GiB peak through shingling and dedup. Residency is dominated
+by *manifest outcomes*, which scale with documents **enumerated**, not documents
+accepted. The drop from `38.6` to `5.6` is the residency fix doing its job;
+without it that `38.6` would have stayed resident underneath everything after it.
+
+Full-scale dedup behaved as the single-shard pilot predicted, which is worth
+recording because it was not obvious that it would: `490,047` candidate pairs and
+`86,823` near-duplicate edges over `4.5` million documents, and **zero** exact
+duplicates, because the source is already deduplicated by content hash.
+Exclusion is almost entirely decontamination — `1,033,387` of `1,033,536` —
+against `2,843` protected `evalplus-v0.3.1` records.
+
+#### What is left, and what it needs
+
+Three commands against artifacts already on disk, roughly an hour in total. Each
+is independently resumable; an interruption costs the stage in flight and nothing
+before it.
+
+1. `train-tokenizer` over `corpus-full/tokenizer-sample-manifest.json`, which
+   selects up to the `2,000,000,000`-byte cap under a `10` MB per-repository cap.
+   Projected `~42.3` GiB and `~20` minutes.
+2. `tokenize` over `corpus-full/governed-corpus-manifest.json` with
+   `maximum_total_stored_ids` generous and `shard_maximum_ids` at `4,194,304`.
+3. `plan-spans` against the installed generation, which is also the check that
+   re-verifies it on read.
+
+
+Everything those commands need is under the ignored root `C:\python-slm-e3` on
+this host, which is where it has to stay — an in-repo corpus aborts the quality
+gate at its `2` MiB capture limit. `corpus-full\` is the published generation,
+`curated-*\` the `330` source generations it was built from, `content-*\` the
+materialized documents behind those, and `assets\` the fetched Parquet shards.
+The chain is driven by `finish-chain.ps1`, which derives every digest from the
+artifact actually produced rather than from a config written earlier, skips any
+stage whose output already exists, and exits non-zero rather than continuing if
+`training_target_satisfied` comes back false.
+
+One piece of housekeeping is outstanding: `24` orphaned `.curated-*.p4-partial-*`
+directories, about `1.2` GB, left by the stack-overflow aborts. A partial tree is
+normally removed by `PartialTree::drop` (`src/acquire.rs:604`), and an abort is
+precisely the case where that never runs — which is a fair description of why
+aborting instead of failing is worse than it sounds.
+
+Sizing, now measured end to end rather than projected. `3,500,856`
+representatives at the pilot's measured `656.0` training IDs per representative
+gives about `2.30` billion against the `2,000,000,001` target — a `15` percent
+overshoot, which is the safe direction because `tokenize` closes the train stream
+at exactly the target and ignores the rest. That margin was bought deliberately:
+`58` shards projected `2.01` billion, and a `0.5` percent margin is a coin flip
+that only resolves after a five-hour chain, so `8` more shards were acquired
+before committing to the run.
 
 Three traps that still apply to whoever runs it. `training_target_satisfied:
 false` is **not an error** and exits `0` (`src/storage.rs:401-409`), so assert the
@@ -1151,13 +1230,15 @@ status -uall` over tens of thousands of untracked files exceeds the `2` MiB
 `CAPTURE_LIMIT_BYTES` (`xtask/src/quality_gate.rs:14`) and aborts the quality gate
 with the misleading `QUALITY_CAPTURE_LIMIT_EXCEEDED`.
 
-**The honest position on the checkbox.** Nothing known now says the frozen target
-is unreachable on this host. The memory blocker that did say so is gone, every
-projection above is now measured rather than estimated, and the two heaviest
-stages peak at `38` and `42.3` GiB in sequence against `93.6` GB. But E3 stays
-unchecked until an installed P8 generation actually reports
-`training_target_satisfied: true` at exactly `2,000,000,001` stored IDs, and
-reaching that needs a governed corpus this repository cannot acquire on its own.
+**The honest position on the checkbox.** The corpus exists. `prepare-corpus`
+published generation
+`01a406801970c883e3709e3da81825f765c7a50c5b5b0cd00cfe2f50965c02f8` with
+`3,500,856` representatives, and every input it rests on is hash-bound and on
+disk. What blocked E3 for most of its life — authorization, then memory, then a
+parser that aborted on real code — is closed. But E3 stays unchecked until an
+installed P8 generation actually reports `training_target_satisfied: true` at
+exactly `2,000,000,001` stored IDs, and that is now a question of running the
+three commands above rather than of obtaining anything.
 
 ### E4 — Hardware Diagnostics on the Qualified Tuple
 
@@ -1219,8 +1300,13 @@ Dependencies: E5.
 - Manual approvals, receipts, and pointers remain `SKIPPED`; any claim not backed
   by the executed run remains `UNVERIFIED`.
 
-E6 is unreachable until E3 has a governed corpus and E5 admits the run, and on
-current measurements E5 does not. The launch mode itself is ready: `train
---config <defaults> --launch <launch>` is the explicit execution mode, it demands
-`confirm_full_run`, and its SLA measurement uses a suspend-inclusive clock so an
-overnight run that suspends does not under-report against a wall-clock deadline.
+E6 is unreachable until E3 turns its governed corpus into a token generation and
+E5 admits the run, and on current measurements E5 does not. The corpus half of
+that is done — `3,500,856` representatives published — so what stands between
+here and E6 is `train-tokenizer`, `tokenize`, and a calibration that currently
+misses.
+
+The launch mode itself is ready: `train --config <defaults> --launch <launch>` is
+the explicit execution mode, it demands `confirm_full_run`, and its SLA
+measurement uses a suspend-inclusive clock so an overnight run that suspends does
+not under-report against a wall-clock deadline.
