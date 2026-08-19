@@ -1097,8 +1097,15 @@ mod windows {
             .to_str()
             .and_then(|w| w.strip_prefix(r"\\?\"))
             .map_or_else(|| work.as_os_str().to_owned(), OsString::from);
+        // nvcc drives the host compiler through the CRT's system(), which finds
+        // the shell by reading COMSPEC. The audit never inherits that variable,
+        // deliberately, so it is set here to the same System32 image the forbidden
+        // -image set already binds and hashes — naming the one interpreter the
+        // owner permitted rather than leaving nvcc to search.
+        let comspec = system.join("cmd.exe");
         let mut out = BTreeMap::from([
             ("PATH".to_owned(), Some(path)),
+            ("COMSPEC".to_owned(), Some(comspec.into_os_string())),
             ("TEMP".to_owned(), Some(plain_work.clone())),
             ("TMP".to_owned(), Some(plain_work)),
             ("CUDA_PATH".to_owned(), Some(t.root.as_os_str().to_owned())),

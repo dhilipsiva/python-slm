@@ -2628,7 +2628,11 @@ mod windows {
         if forbidden_module(&module_name, command.policy) {
             state.forbidden_modules.insert(module_name.clone());
         }
-        if let Some(marker) = forbidden_identity_marker(&module, state) {
+        // cmd.exe appears on the module side too, because the audited process
+        // image is itself an observed module. Same allowance, same narrowness.
+        if let Some(marker) = forbidden_identity_marker(&module, state)
+            && !cuda_probe_shell_allowed(command.policy, &module_name)
+        {
             state
                 .forbidden_modules
                 .insert(format!("{module_name}:{marker}"));
@@ -2675,7 +2679,13 @@ mod windows {
         if forbidden_process(&leaf, command.policy) {
             state.forbidden_processes.insert(leaf.clone());
         }
-        if let Some(marker) = forbidden_identity_marker(&file, state) {
+        // The same allowance, applied to the identity match. `cmd.exe` is caught
+        // twice — once by name and once by the SHA-256 of the System32 image the
+        // audit pins — and tolerating only the first would leave the second to
+        // fail the run with a less obvious message.
+        if let Some(marker) = forbidden_identity_marker(&file, state)
+            && !cuda_probe_shell_allowed(command.policy, &leaf)
+        {
             state.forbidden_processes.insert(format!("{leaf}:{marker}"));
         }
         for marker in &file.forbidden_content_markers {
@@ -3131,7 +3141,36 @@ mod windows {
         Ok(state.forbidden_processes.is_empty() && state.forbidden_modules.is_empty())
     }
 
+    /// Whether the native command interpreter is tolerated for this policy.
+    ///
+    /// `nvcc` cannot compile without one. Its own `--dryrun` plan pipes `cl.exe`
+    /// output through a shell redirect and reaches `cicc` through a `%CICC_PATH%`
+    /// expansion, and neither is something a process can do for itself. So the
+    /// CUDA probe either tolerates `cmd.exe` or cannot compile, and the owner
+    /// chose to tolerate it on 2026-08-19.
+    ///
+    /// The allowance is as narrow as the requirement. It applies only under
+    /// [`ProcessPolicy::CudaProbe`], only to `cmd.exe`, and only to the System32
+    /// image the audit already binds and hashes — a `cmd.exe` from anywhere else
+    /// still fails path classification, and `powershell`, `pwsh`, `wsl`, `bash`,
+    /// `sh` and every Python launcher stay forbidden here as everywhere else. The
+    /// shell is still job-contained, still audited, and still terminated with the
+    /// tree. What the audit proves is correspondingly weaker: not that no shell
+    /// ran, but that none ran except the one pinned interpreter nvcc drives.
+    ///
+    /// Nothing in `AGENTS.md` or `CLAUDE.md` forbade this; the zero-Python rule is
+    /// about Python and `AGENTS.md:59` is about shell scripts as entry points.
+    /// This audit was stricter than the written contract, and the product never
+    /// invokes `nvcc` at all — it compiles kernels through cubecl in-process — so
+    /// the allowance reaches a diagnostic and not the execution path.
+    fn cuda_probe_shell_allowed(policy: ProcessPolicy, leaf: &str) -> bool {
+        policy == ProcessPolicy::CudaProbe && leaf.eq_ignore_ascii_case("cmd.exe")
+    }
+
     fn forbidden_process(leaf: &str, policy: ProcessPolicy) -> bool {
+        if cuda_probe_shell_allowed(policy, leaf) {
+            return false;
+        }
         let lower = leaf.to_ascii_lowercase();
         let stem = lower.strip_suffix(".exe").unwrap_or(&lower);
         super::forbidden_python_process_name(leaf)
@@ -3327,7 +3366,14 @@ mod windows {
         inherited_environment_key_allowed(key)
             || matches!(
                 key,
-                "INCLUDE"
+                // Never inherited — a child is not told where the shell is by
+                // accident. It may be set deliberately, which is what the CUDA
+                // probe does now that the owner has permitted cmd.exe: nvcc
+                // reaches the shell through the CRT's system(), and that looks
+                // COMSPEC up by name. Permitting the shell without naming it
+                // leaves nvcc to guess.
+                "COMSPEC"
+                    | "INCLUDE"
                     | "LIB"
                     | "LIBPATH"
                     | "CARGO_NET_OFFLINE"
@@ -3461,13 +3507,19 @@ mod windows {
                 "pip3.13.exe",
                 "powershell.exe",
                 "pwsh.exe",
-                "cmd.exe",
                 "wsl.exe",
                 "bash.exe",
             ] {
                 assert!(forbidden_process(leaf, ProcessPolicy::HostOnly));
                 assert!(forbidden_process(leaf, ProcessPolicy::CudaProbe));
             }
+            // cmd.exe is the single, owner-approved exception, and only for the
+            // CUDA probe. nvcc cannot compile without a shell, so refusing it
+            // refuses the probe. Every other interpreter stays forbidden under
+            // both policies, which is what the loop above holds.
+            assert!(forbidden_process("cmd.exe", ProcessPolicy::HostOnly));
+            assert!(!forbidden_process("cmd.exe", ProcessPolicy::CudaProbe));
+            assert!(forbidden_process("cmd", ProcessPolicy::CudaProbe));
             assert!(forbidden_process("nvcc.exe", ProcessPolicy::HostOnly));
             assert!(!forbidden_process("nvcc.exe", ProcessPolicy::CudaProbe));
             assert!(!forbidden_process("ptxas.exe", ProcessPolicy::CudaProbe));
