@@ -587,7 +587,8 @@ and `28,800`-second completion SLA are never retuned after measurement; a failed
 projection blocks the run instead of moving a threshold.
 
 **Where this stands.** Every piece of code the run needs is built, measured and
-gated, and the corpus it needs is installed. What is left is one thing this
+gated, the corpus it needs is installed, and a bounded run has trained a model
+and generated from it. What is left on the frozen path is one thing this
 repository cannot do for itself:
 
 | | State | Blocked on |
@@ -597,6 +598,7 @@ repository cannot do for itself:
 | E4 diagnostics | Not run | Physical RTX 5090 session, or a `windows-cuda.yml` dispatch |
 | **E5** admission | **Measured: admission fails** by `11.4x`, end to end | An owner decision — amend the budget under P19, amend the numerical semantics, or record the refusal |
 | E6 execution | Unreachable | E5 admitting the run, which on measurement it does not |
+| **E7** diagnostic runs | A trained model exists: `8.566` against `10.534` untrained | Nothing — an eight-hour run is queued for the next session |
 
 One blocking fact to carry, and E5 has now measured rather than projected it.
 **The run does not meet the SLA**: measured end to end at `6,757` targets per
@@ -1422,9 +1424,106 @@ Dependencies: E5.
 
 E6 is unreachable until E5 admits the run, and on measurement E5 does not. The corpus is no longer part of that: E3 installed a token generation at
 exactly `2,000,000,001` training IDs, so what stands between here and E6 is a
-calibration that misses its SLA by `4.3x`, not a shortage of data.
+calibration that misses its SLA by `11.4x`, not a shortage of data.
 
 The launch mode itself is ready: `train --config <defaults> --launch <launch>` is
 the explicit execution mode, it demands `confirm_full_run`, and its SLA
 measurement uses a suspend-inclusive clock so an overnight run that suspends does
 not under-report against a wall-clock deadline.
+
+### E7 — Bounded Diagnostic Runs
+
+- [x] E7 bounded run, scoring, and generation
+- [ ] E7 eight-hour run (**next session**, owner requested 2026-08-19)
+
+Dependencies: E3. Independent of E4 and E5 — it deliberately claims nothing about
+admission.
+
+E6 needs E5 to admit a run E5 has measured as `11.4x` short, so nothing about the
+frozen target count is reachable. This track exists to get a trained model out of
+the pipeline anyway, and it changes no frozen constant: same `gqa-135m-v1`, same
+corpus, same `INIT-001`, same arithmetic, same checkpoint codec. Only the loop
+stops early, and every result it produces says so in two fields —
+`DIAGNOSTIC_BUDGET_REACHED` and `EXECUTED_PARTIAL`, never `TRAINING_COMPLETE`.
+
+**What exists.** `diagnostic_target_budget` on the launch schema, required rather
+than defaulted and mutually exclusive with `confirm_full_run`;
+`execute_bounded_diagnostic`, a sibling of `execute_to_completion` rather than a
+parameter on it, so the contract's own completion assertion stays absolute; a
+checkpoint published unconditionally at the stop boundary, because the interval
+policy publishes every `100,000,000` targets and a short run would otherwise end
+with nothing durable; an end-of-run evaluation reported in the result rather than
+recorded in the snapshot, because `validate_evaluations` requires the recorded set
+to sit on exact schedule boundaries; `score_published_checkpoint`, which reads a
+checkpoint a newer binary can no longer resume; and `generate`, which is the
+training forward stopped one step early.
+
+**What the first run produced**, `30,736,384` targets in `4,549` seconds:
+
+| | Loss | Perplexity |
+|---|---|---|
+| Random initialization | `10.534` | `~37,600` |
+| After `30,736,384` targets | `8.566` | `~5,260` |
+
+`ln(32000)` is `10.373`, so the untrained model was chance and the trained one
+predicts `7.15x` better. Prompted with `def add(a, b):` it writes byte-level
+texture with no syntax, which is what `0.23` targets per parameter buys.
+
+#### The eight-hour run
+
+Owner requested 2026-08-19, for the next session. At the measured `6,757` targets
+per second, eight hours is about `194,600,000` targets — `1.44` per parameter,
+`6.3x` this run and still roughly `14x` under compute-optimal.
+
+Three things make it worth more than a longer version of the same thing. It
+crosses the `100,000,000`-target evaluation and checkpoint interval, so it
+publishes an intermediate checkpoint and **reports a mid-run loss without any of
+the scaffolding this track needed** — the first point on a real loss curve rather
+than two endpoints. Eight hours is also exactly the `28,800`-second completion
+SLA, so it measures what the frozen budget actually buys on this host. And `1.44`
+targets per parameter is roughly where token statistics start becoming syntax,
+which is the first budget where generation output answers a question instead of
+confirming one.
+
+**It needs no amendment.** `P19_SCOPE_DECREASED` refuses a shorter budget and
+`FUTURE-001` reserves the phase for larger scopes, but a bounded diagnostic is not
+an amendment to the frozen run — it is explicitly not that run. Only a decision to
+make `194,600,000` *the* target count would need a ledger, and nothing here
+requires that.
+
+To start it, set `diagnostic_target_budget` to `194600000` in the launch
+configuration and run the explicit execution mode. The loop stops at the first
+optimizer-update boundary at or past the budget, which is update `2,970` at
+`194,641,920` targets.
+
+#### Known regression, first thing next session
+
+`cargo test --locked -p xtask` fails two tests, and one of them is mine.
+
+`p1a_process::windows::tests::syswow64_and_exact_file_classes_are_vswhere_only`
+expects `P1A_QUALIFIED_FILE_NOT_OBSERVED` from `require_qualified_files_observed`
+and gets `P1A_AUDITED_FILE_REVALIDATION_FAILED`, which is
+`bound.file.metadata()` failing on an open handle. **Confirmed mine**: checking
+`xtask/src/p1a_process.rs` out at `ebe49ee` and rerunning the single test passes,
+restoring `HEAD` fails it. The cause is one of five changes made to that file
+while getting `probe-cuda` to run — the `winsxs` path class, SysWOW64 under the
+CUDA probe policy, the `cmd.exe` allowance, `DETACHED_PROCESS` for probe
+commands, or the `COMSPEC`/`VSCMD_SKIP_SENDTELEMETRY` allowlist entries — and it
+has not been isolated further than that.
+
+The other failure, `verifier_ancestry_contains_current_process`, is the
+environmental one: a process in this session's ancestry exits between the
+ancestry walk and the kernel snapshot, and it reproduces identically on clean
+`HEAD`.
+
+The full gate also stops earlier with `QUALITY_PROCESS_JOB_NOT_EMPTY`, a
+descendant outliving a gate command. That one is *not* attributed: the `vctip`
+guard is in place, no `vctip` ran during a watched gate, Defender logged nothing
+today, and the baseline comparison was inconclusive because the baseline stops at
+the ancestry failure before reaching the drain check. It may or may not be the
+same cause.
+
+None of this touches the product. `cargo test --features cpu-reference` is green,
+`fmt` and `clippy` are clean, both feature lanes check, and the trained model and
+its checkpoint are unaffected. But the xtask suite is a gate, a gate that does not
+pass is not a gate, and this is the first thing to fix.
