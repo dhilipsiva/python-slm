@@ -595,13 +595,19 @@ repository cannot do for itself:
 | E1, E1A, E1B, E2 | Complete, hardware-verified | — |
 | E3 corpus | **Complete**: `2,000,000,001` training IDs installed and verified | — |
 | E4 diagnostics | Not run | Physical RTX 5090 session, or a `windows-cuda.yml` dispatch |
-| **E5** admission | Not run | E4 — and it starts from a measured `4.3x` SLA miss |
-| E6 execution | Unreachable | E5 admitting the run |
+| **E5** admission | **Measured: admission fails** by `4.58x` | An owner decision — amend the budget under P19, amend the numerical semantics, or record the refusal |
+| E6 execution | Unreachable | E5 admitting the run, which on measurement it does not |
 
-One blocking fact to carry, measured rather than estimated. **The run does not
-meet the SLA on current evidence**: `34.2` hours projected against `28,800`
-seconds, which E5 must either close or record as a refusal. The other blocker
-that stood here — that E3 could not finish without an authorization no amount of
+One blocking fact to carry, and E5 has now measured rather than projected it.
+**The run does not meet the SLA**: `33.0` hours against `28,800` seconds, short
+by `4.12x` for completion and `4.58x` for admission. E5 could not close it,
+because the gap is larger than the largest lever available — isolated BF16 matmul
+is `2.10x`-`2.87x` faster than FP32 on the real shapes, and E1B already measured
+that converting storage to BF16 buys nothing at all on the whole model. What
+remains is an owner decision between amending the time budget under P19, amending
+the numerical semantics, and recording the refusal.
+
+The other blocker that stood here — that E3 could not finish without an authorization no amount of
 engineering supplies — is gone: the authorization was granted, the source it
 pointed at proved unobtainable, and `SOURCE-002` reached the same code through a
 dataset that carries it directly.
@@ -677,22 +683,26 @@ margin against it is reported per operating shape in E1B below.
 Dependencies: E1 implementation.
 
 **The operating table E5 chooses from.** Measured on the prototype RTX 5090 at
-canonical scale (`tests/e1b_canonical_scale_probe.rs`):
+canonical scale (`tests/e1b_canonical_scale_probe.rs`), and **re-measured by E5 on
+2026-08-19** — every point moved, so the E5 column is the current one and the E1B
+column is kept only to show the direction.
 
-| Sequences per dispatch | Peak device memory | Throughput | Projected wall clock |
-|---|---|---|---|
-| 1 | `9,552` MiB | `5,471` targets/s | `101.5` h |
-| 4 | `14,130` MiB | `10,481` targets/s | `53.0` h |
-| 8 | `18,734` MiB | `13,731` targets/s | `40.5` h |
-| 16 | `31,879` MiB | `16,221` targets/s | `34.2` h |
+| Sequences per dispatch | Peak device memory | Throughput (E1B) | Throughput (E5) | Projection (E5) |
+|---|---|---|---|---|
+| 1 | `9,756` MiB | `5,471` targets/s | `6,759` targets/s | `82.2` h |
+| 4 | `14,332` MiB | `10,481` targets/s | `12,315` targets/s | `45.1` h |
+| 8 | `18,942` MiB | `13,731` targets/s | `15,582` targets/s | `35.7` h |
+| 16 | `31,954` MiB | `16,221` targets/s | `16,857` targets/s | `33.0` h |
 
 The frozen P14 micro-batch of 16 fits and runs, which was E1B's goal, but at
-`31,879` MiB of `32,607` it leaves `728` MiB of headroom. **8 sequences is the
-safer operating point for an unattended run, and E5 owns that choice.**
+`31,954` MiB of `32,607` it leaves `653` MiB of headroom. **8 sequences is the
+safer operating point for an unattended run, and E5 owns that choice** — E5 took
+it, and at re-measurement the throughput cost of that safety had fallen from `15`
+percent to `7.6`, because the widest point gained least.
 
-**E1B is complete and the run does not meet the SLA.** `34.2` hours against the
-`28,800`-second completion SLA is short by a factor of `4.3`. That constant is
-frozen and not retunable after measurement, so this is a blocking input to E5's
+**E1B is complete and the run does not meet the SLA.** `33.0` hours at E5's
+re-measurement against the `28,800`-second completion SLA is short by a factor of
+`4.12`. That constant is frozen and not retunable after measurement, so this is a blocking input to E5's
 admission projection rather than something E1B could resolve. Where the time
 goes, for whoever attacks it: the graph sustains roughly `19` TFLOP/s while
 isolated FP32 matmul on the same shapes reaches `72`–`79`, so matmul is about a
@@ -1278,27 +1288,72 @@ Dependencies: E1–E4.
   seconds. Roughly `69,445` targets per second sustained is needed; if the
   measured projection misses, the run is blocked and the thresholds stay fixed.
 
-**E5 begins with a known negative result, not an open question.** E1B measured
-`16,221` targets/s at the frozen micro-batch of 16 — a `34.2`-hour projection
-against the `28,800`-second SLA, short by a factor of `4.3`. Both constants are
-frozen and not retunable after measurement, so on current evidence **admission
-fails** and E5's real work is either finding the missing factor or recording the
-refusal with the gap quantified.
+**E5 re-measured the operating table before projecting from it, and it had
+moved.** Every point is faster than E1B recorded, and the gain shrinks as the
+batch widens — `+23.5` percent at one sequence, `+3.9` percent at sixteen — which
+is what saturation looks like.
 
-Two decisions E5 owns. The operating point: 16 sequences fits but leaves only
-`728` MiB of headroom on a 32 GB device, so `8` sequences at `13,731` targets/s is
-the safer choice for an unattended run and the throughput cost of that safety is
-`15` percent. And the pinned-transfer deviation E2 carries: the frozen defaults
-specify `cuda-page-locked`, the launch path uses a host staging ring instead, and
-that can only change once a backend consumes device pointers directly — a
-P12-contract change.
+| Sequences | Peak device memory | Throughput | Projected wall clock |
+|---|---|---|---|
+| 1 | `9,756` MiB | `6,759` targets/s | `82.2` h |
+| 4 | `14,332` MiB | `12,315` targets/s | `45.1` h |
+| 8 | `18,942` MiB | `15,582` targets/s | `35.7` h |
+| 16 | `31,954` MiB | `16,857` targets/s | `33.0` h |
 
-Where the remaining time is, measured rather than guessed: the graph sustains
-roughly `19` TFLOP/s against `72`–`79` for isolated FP32 matmul on the same
-shapes, so matmul is about a quarter of the wall clock and the rest is elementwise
-traffic, launch overhead, and the `541` MB per-micro-batch gradient readback the
-`TrainerBackend` contract requires. `docs/adr/0000` and P19 exist for the case
-where the answer is that the frozen configuration cannot meet the frozen SLA.
+**Admission fails, and the margin is not close.** The frozen accounting needs
+`2,000,000,000` targets inside `25,920` seconds to be admitted and `28,800` to
+complete, which is `77,160` and `69,444` targets per second. The best measured
+point gives `16,857`.
+
+| Requirement | Targets/s | Shortfall at 16 sequences | at 8 |
+|---|---|---|---|
+| Completion SLA, `28,800` s | `69,444` | `4.12x` | `4.46x` |
+| Admission, `25,920` s | `77,160` | `4.58x` | `4.95x` |
+
+**The gap is larger than the largest lever, and that is the finding.** Precision
+is the only substantial one available: isolated matmul on the real shapes
+measures `72.09`, `72.95` and `79.08` TFLOP/s in FP32 against `151.07`, `154.21`
+and `226.71` in BF16 — `2.10x`, `2.11x` and `2.87x`. Admission needs `4.58x`. So
+even a whole model that were nothing but matmul, converted entirely to BF16, and
+losing nothing at the boundaries, would still miss. And it is already known not
+to transfer: E1B measured true BF16 storage at `16,500` against `16,221` targets
+per second, a whole-model gain of nothing, for `11.6x` worse gradient
+conformance. The lever is smaller than the gap and it does not reach.
+
+That is a different claim from "the implementation is slow". It says the frozen
+configuration cannot reach the frozen SLA on this device, and no amount of
+engineering inside the frozen numerical semantics changes it.
+
+**The operating point is E5's to choose, and the choice got easier.** Sixteen
+sequences peaks at `31,954` MiB of `32,607` — `653` MiB of headroom, `2.0`
+percent, for a run measured in tens of hours. Eight peaks at `18,942` MiB and
+costs `7.6` percent throughput, down from the `15` percent E1B recorded, because
+the sixteen-sequence point gained least of all. **Eight sequences**: it buys
+`13.7` GiB of headroom for a twelfth of the throughput, and the run misses the
+SLA either way.
+
+The other decision E5 carries is the pinned-transfer deviation. The frozen
+defaults specify `cuda-page-locked`; the launch path uses a host staging ring,
+because `TrainerBackend::accumulate` takes a host-side batch and the E1 graph
+uploads tokens itself, so pushing the same 4 KB span through `CudaPinnedTransfer`
+would perform a device copy nothing reads. Changing that needs a backend that
+consumes device pointers directly, which is a P12-contract change and not an E5
+one. It is also not where the time is.
+
+**What is left is an owner decision, not an engineering one.** `FUTURE-001`
+reserves P19 for a larger model, more valid targets, or *a longer time budget*,
+and the third is exactly what this measurement asks for. The alternatives are to
+amend the budget under P19, to amend the numerical semantics so BF16 reaches the
+attention scores, softmax and loss where the time actually is — which `ADR 0001`
+and `PRECISION-002` govern and which E1B's conformance measurements argue
+against — or to record the refusal and stop. E5 cannot pick between those.
+
+One honesty note on what this is. These are diagnostic-probe measurements: five
+timed dispatches inside one process, the same harness E1B used. The formal P14
+collection is five *fresh-process* samples per overhead class, and it would move
+these figures by a few percent. It cannot move them by `4.6x`, which is why the
+projection above is reported as a result and the sample discipline is reported as
+outstanding.
 
 ### E6 — The 2,000,000,000-Target Run and Quality Evaluation
 
@@ -1314,8 +1369,7 @@ Dependencies: E5.
 - Manual approvals, receipts, and pointers remain `SKIPPED`; any claim not backed
   by the executed run remains `UNVERIFIED`.
 
-E6 is unreachable until E5 admits the run, and on current measurements E5 does
-not. The corpus is no longer part of that: E3 installed a token generation at
+E6 is unreachable until E5 admits the run, and on measurement E5 does not. The corpus is no longer part of that: E3 installed a token generation at
 exactly `2,000,000,001` training IDs, so what stands between here and E6 is a
 calibration that misses its SLA by `4.3x`, not a shortage of data.
 
