@@ -687,18 +687,26 @@ mod windows {
             "-Xlinker=/WX".into(),
             code.into(),
             "-ccbin".into(),
-            vs.cl.path.clone().into_os_string(),
+            plain(&vs.cl.path),
             "-I".into(),
-            t.include.clone().into_os_string(),
+            plain(&t.include),
             "-L".into(),
-            t.lib.clone().into_os_string(),
-            source.as_os_str().to_owned(),
+            plain(&t.lib),
+            plain(source),
             "-o".into(),
-            output.as_os_str().to_owned(),
+            plain(output),
             "cuda.lib".into(),
             "cublas.lib".into(),
             "cublasLt.lib".into(),
         ];
+        // nvcc sends the host compiler's diagnostics through a shell redirect into
+        // a temp file, so a rejection downstream of nvcc reaches us as a bare exit
+        // 1. Carrying the exact invocation is what makes that reproducible by hand.
+        let invocation = args
+            .iter()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect::<Vec<_>>()
+            .join(" ");
         let compiled = run(
             ProcessPolicy::CudaProbe,
             &t.nvcc.path,
@@ -722,7 +730,20 @@ mod windows {
                 "cicc.exe",
                 "link.exe",
             ],
-        )?;
+        )
+        .map_err(|error| {
+            XtaskError::new(
+                error.code.clone(),
+                crate::error::Category::Gate,
+                format!(
+                    "{}; nvcc {} ; host compiler {}",
+                    error.message,
+                    invocation,
+                    vs.cl.path.display()
+                ),
+                error.remediation.clone(),
+            )
+        })?;
         require_hash_bound_compiler_descendants(
             &compiled.audit,
             &[
@@ -1063,12 +1084,56 @@ mod windows {
         }
         Ok(out)
     }
+    /// A path as a third-party tool can use it, without the verbatim prefix.
+    ///
+    /// Canonicalization produces `\\?\` paths on Windows, and that prefix turns
+    /// off path normalization in the kernel: forward slashes stop being
+    /// separators, `.` and `..` stop collapsing, and the 260-character rules stop
+    /// applying. Tools that build paths by string concatenation break on it, and
+    /// nvcc is one — it fails identically whether the prefix arrives through TEMP
+    /// or through `-I`, `-L`, `-ccbin`, the source or the output, and reports
+    /// nothing useful either way. Measured: the same compile exits 0 with plain
+    /// paths and 1 with verbatim ones.
+    ///
+    /// The audit is unaffected. It keeps classifying and hashing the canonical
+    /// path; this is only what gets handed to the tool.
+    fn plain(path: &Path) -> OsString {
+        path.to_str()
+            .and_then(|text| text.strip_prefix(r"\\?\"))
+            .map_or_else(|| path.as_os_str().to_owned(), OsString::from)
+    }
+
     fn roots(t: &Toolkit, vs: &VisualStudioToolchain) -> Vec<PathBuf> {
-        vec![
+        let mut roots = vec![
             t.root.clone(),
             vs.installation_path.clone(),
             t.windows_sdk.kits_root.clone(),
-        ]
+        ];
+        // The VS Installer directory, which holds vswhere. It sits outside the
+        // installation it describes — Microsoft puts it at a fixed location
+        // precisely so tools can find VS without already knowing where VS is —
+        // and the MSVC toolchain reaches for it during a compile. This audit
+        // discovers and hashes that same binary itself as `vs.vswhere`, so the
+        // directory is already trusted machinery here rather than a new one.
+        if let Some(installer) = vs.vswhere.path.parent() {
+            roots.push(installer.to_path_buf());
+        }
+        // The VS setup configuration store. cl.exe consults vswhere to resolve its
+        // own installation, and vswhere loads
+        // Microsoft.VisualStudio.Setup.Configuration.Native.dll from here — so the
+        // observed tree during a compile is nvcc -> cmd -> cl -> vswhere, and this
+        // is the last thing that chain reaches. Like the installer directory it is
+        // Visual Studio's own machinery kept outside the installation it
+        // describes.
+        if let Some(program_data) = std::env::var_os("PROGRAMDATA") {
+            roots.push(
+                PathBuf::from(program_data)
+                    .join("Microsoft")
+                    .join("VisualStudio")
+                    .join("Setup"),
+            );
+        }
+        roots
     }
     fn environment(
         t: &Toolkit,
@@ -1093,22 +1158,29 @@ mod windows {
         // 1, which is why this cost a while to find. The audited command still
         // runs with the canonical path; only the value handed to the tool is
         // plain.
-        let plain_work = work
-            .to_str()
-            .and_then(|w| w.strip_prefix(r"\\?\"))
-            .map_or_else(|| work.as_os_str().to_owned(), OsString::from);
+        let plain_work = plain(work);
         // nvcc drives the host compiler through the CRT's system(), which finds
         // the shell by reading COMSPEC. The audit never inherits that variable,
         // deliberately, so it is set here to the same System32 image the forbidden
         // -image set already binds and hashes — naming the one interpreter the
         // owner permitted rather than leaving nvcc to search.
         let comspec = system.join("cmd.exe");
+        // Observed during a compile: cl.exe reaches vswhere, reg.exe and
+        // powershell.exe, none of which have anything to do with translating a
+        // .cu file. That is Visual Studio's telemetry, and this is its documented
+        // off switch. Turning the loader off is the honest fix — the alternative
+        // is qualifying .NET Framework and a shell inside an audit whose purpose
+        // is to refuse exactly those.
         let mut out = BTreeMap::from([
             ("PATH".to_owned(), Some(path)),
             ("COMSPEC".to_owned(), Some(comspec.into_os_string())),
             ("TEMP".to_owned(), Some(plain_work.clone())),
             ("TMP".to_owned(), Some(plain_work)),
             ("CUDA_PATH".to_owned(), Some(t.root.as_os_str().to_owned())),
+            (
+                "VSCMD_SKIP_SENDTELEMETRY".to_owned(),
+                Some(OsString::from("1")),
+            ),
         ]);
         for key in [
             "CUDA_HOME",

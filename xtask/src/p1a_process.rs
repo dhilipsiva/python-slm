@@ -2624,7 +2624,28 @@ mod windows {
                 )
             })?
             .to_ascii_lowercase();
-        let path_class = classify_path(&module.canonical_path, command, path_policy)?;
+        // Say which process pulled the module in. A rejected module is only half
+        // the fact; the other half is who loaded it, and that is what decides
+        // whether the answer is to qualify the path or to stop the loader.
+        let path_class =
+            classify_path(&module.canonical_path, command, path_policy).map_err(|error| {
+                XtaskError::new(
+                    error.code.clone(),
+                    error.category,
+                    format!(
+                        "{}; loaded by process {} among {}",
+                        error.message,
+                        identity.process_id,
+                        state
+                            .executable_names
+                            .iter()
+                            .cloned()
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ),
+                    error.remediation.clone(),
+                )
+            })?;
         if forbidden_module(&module_name, command.policy) {
             state.forbidden_modules.insert(module_name.clone());
         }
@@ -2797,7 +2818,16 @@ mod windows {
         if path_within(canonical, &path_policy.winsxs) {
             return Ok("windows_winsxs".to_owned());
         }
-        if is_vswhere_command(command) && path_within(canonical, &path_policy.syswow64) {
+        // SysWOW64 is an operating-system root exactly as System32 is; the only
+        // question is whether a 32-bit image is expected at all. It was expected
+        // when the audited command *was* vswhere, and vswhere is 32-bit. It also
+        // appears as a descendant: the MSVC toolchain runs vswhere during a
+        // compile, and every 32-bit process loads SysWOW64\ntdll.dll before it can
+        // do anything else. Accepting it under the CUDA probe recognizes the same
+        // root for the same reason, and leaves the host-only policy unchanged.
+        if (is_vswhere_command(command) || command.policy == ProcessPolicy::CudaProbe)
+            && path_within(canonical, &path_policy.syswow64)
+        {
             return Ok("windows_syswow64".to_owned());
         }
         let program_parent = command.program.parent().ok_or_else(|| {
@@ -3373,6 +3403,13 @@ mod windows {
                 // COMSPEC up by name. Permitting the shell without naming it
                 // leaves nvcc to guess.
                 "COMSPEC"
+                    // MSVC's compiler driver runs a telemetry chain of its own —
+                    // observed as cl.exe reaching vswhere, reg.exe and
+                    // powershell.exe during a plain compile. This is the
+                    // documented way to tell it not to, and suppressing the loader
+                    // is strictly better than qualifying everything it would load.
+                    | "VSCMD_SKIP_SENDTELEMETRY"
+                    | "VSCMD_DEBUG"
                     | "INCLUDE"
                     | "LIB"
                     | "LIBPATH"
