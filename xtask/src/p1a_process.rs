@@ -323,6 +323,12 @@ mod windows {
     struct ProcessPathPolicy {
         system32: PathBuf,
         syswow64: PathBuf,
+        /// The side-by-side assembly store, a sibling of System32 under the same
+        /// Windows root. Common Controls 6.0 lives only here, so any image whose
+        /// manifest requests it loads `comctl32.dll` from this tree rather than
+        /// System32 — nvcc's toolchain does. It is as much operating system as
+        /// System32 is; the classifier simply did not enumerate it.
+        winsxs: PathBuf,
         qualified_files: Vec<BoundFile>,
     }
 
@@ -982,9 +988,25 @@ mod windows {
                 "native System32 and SysWOW64 are not distinct canonical sibling directories",
             ));
         }
+        let winsxs = fs::canonicalize(
+            system32
+                .parent()
+                .ok_or_else(|| {
+                    XtaskError::integrity(
+                        "P1A_SYSTEM_RUNTIME_ROOTS_INVALID",
+                        "System32 has no Windows root to resolve WinSxS against",
+                    )
+                })?
+                .join("WinSxS"),
+        )
+        .io_context(
+            "P1A_WINSXS_INVALID",
+            "could not canonicalize WinSxS for process classification",
+        )?;
         Ok(ProcessPathPolicy {
             system32,
             syswow64,
+            winsxs,
             qualified_files: bind_qualified_persistent_files(command)?,
         })
     }
@@ -2762,6 +2784,9 @@ mod windows {
         if path_within(canonical, &path_policy.system32) {
             return Ok("windows_system32".to_owned());
         }
+        if path_within(canonical, &path_policy.winsxs) {
+            return Ok("windows_winsxs".to_owned());
+        }
         if is_vswhere_command(command) && path_within(canonical, &path_policy.syswow64) {
             return Ok("windows_syswow64".to_owned());
         }
@@ -2812,9 +2837,16 @@ mod windows {
         if path_within(canonical, &cwd) {
             return Ok("qualified_working_tree".to_owned());
         }
+        // Name the path. The qualified roots are a closed set chosen per command,
+        // so "something is outside them" is only actionable if you know what and
+        // where — the answer is routinely a module the operating system injected
+        // rather than anything the command asked for.
         Err(XtaskError::gate(
             "P1A_PROCESS_PATH_CLASS_REJECTED",
-            "an observed executable or loaded module is outside every closed qualified root",
+            format!(
+                "observed executable or loaded module {} is outside every closed qualified root",
+                canonical.display()
+            ),
             "Remove the unqualified process or module and retry without weakening path classification.",
         ))
     }
