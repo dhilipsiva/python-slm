@@ -578,6 +578,68 @@ pub fn read_validation_set<S: SpanSource + ?Sized>(
     ValidationSet::new(spans, dimensions)
 }
 
+/// Held-out loss for a published checkpoint, without resuming its run.
+///
+/// Resuming refuses a checkpoint whose `implementation_artifact_sha256` differs
+/// from the running binary, and rightly: that identity is what makes a resumed
+/// run bit-identical to an uninterrupted one. Reading weights and scoring them is
+/// not that. This passes the snapshot's own identity as the expected one, so the
+/// resume check is trivially satisfied, while every check that bears on whether
+/// the weights are what they claim still runs — the snapshot validates, the
+/// backend restore must reproduce the checkpoint bytes exactly, and evaluation is
+/// refused if it moves any state.
+///
+/// It publishes nothing and trains nothing.
+#[cfg(feature = "cuda")]
+pub fn score_published_checkpoint(
+    generation: &Path,
+    token_generation_root: &Path,
+    device_ordinal: u64,
+) -> Result<serde_json::Value> {
+    use crate::train::cuda_backend::CudaTrainerBackend;
+    use crate::train::full_state::GqaDimensions;
+
+    let corpus = crate::storage::VerifiedTokenCorpus::open(token_generation_root)?;
+    let dimensions = GqaDimensions::canonical();
+    let validation = read_validation_set(&corpus, &dimensions, LoaderCancellation::default())?;
+    let snapshot = super::checkpoint::load_checkpoint(generation)?;
+    let ordinal = usize::try_from(device_ordinal).map_err(|_| {
+        ProductError::usage(
+            "E2_DEVICE_ORDINAL_INVALID",
+            "the device ordinal does not fit this host's address width",
+        )
+    })?;
+    let backend = CudaTrainerBackend::canonical(ordinal, validation)?;
+    let identity = snapshot.identity.clone();
+    let consumed_targets = snapshot.consumed_targets;
+    let completed_updates = snapshot.completed_updates;
+    let recorded = snapshot
+        .evaluations
+        .first()
+        .map(|evaluation| evaluation.result.aggregate_loss);
+    let mut trainer = DeterministicTrainer::from_snapshot(snapshot, &identity, backend)?;
+    let result = trainer.evaluate_now()?;
+    Ok(serde_json::json!({
+        "schema": "python-slm-checkpoint-score-v1",
+        "status": "SCORED",
+        "qualification_status": "SKIPPED",
+        "profile": PROTOTYPE_PROFILE,
+        "model_identity": identity.model_identity,
+        "consumed_targets": consumed_targets,
+        "completed_updates": completed_updates,
+        "evaluated_targets": result.evaluated_targets,
+        "aggregate_loss_f64_le_hex": hex::encode(result.aggregate_loss.to_le_bytes()),
+        "aggregate_loss": result.aggregate_loss,
+        "first_recorded_loss": recorded,
+        "limitations": [
+            "not-hardware-qualification",
+            "not-performance-admission",
+            "not-final-model-quality",
+            "read-only-scoring-of-a-checkpoint-that-may-be-partial",
+        ],
+    }))
+}
+
 /// The explicit execution mode, wired to the prototype CUDA lane.
 #[cfg(feature = "cuda")]
 pub fn launch_final_run(config_path: &Path, launch_path: &Path) -> Result<serde_json::Value> {
