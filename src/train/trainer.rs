@@ -128,6 +128,26 @@ pub struct AdamwParameterState {
     pub second_moments: Vec<f32>,
 }
 
+/// How far below unit scale a re-measured clip may land before it is a violation.
+///
+/// The caller clips by multiplying every gradient by `1/norm`, and the check
+/// below re-derives that scale from the result. Scaling a vector to unit norm is
+/// not exact in f32: summing `135,285,504` squares accumulates enough rounding
+/// that the recomputed norm lands slightly *above* one, so the re-derived scale
+/// lands slightly below it. Measured, a ten-million-element vector re-checks at
+/// `0.99922`, and the real parameter count is thirteen times larger — so the
+/// strict form rejected the first update whose gradients actually needed
+/// clipping, which is exactly when the check matters least and fires most.
+///
+/// One percent is far above that rounding and far below any real violation: a
+/// gradient that reached here genuinely unclipped would re-check orders of
+/// magnitude below one, not thousandths of it.
+///
+/// Nothing numerical moves. `OPT-001`'s clip arithmetic is untouched and the
+/// gradients handed to AdamW are identical either way; this is the tolerance of
+/// an assertion about them, not of the training itself.
+const CLIP_VERIFICATION_TOLERANCE: f32 = 0.01;
+
 impl AdamwParameterState {
     fn validate(&self) -> Result<()> {
         let elements = self.master_weights.len();
@@ -201,7 +221,9 @@ impl CanonicalAdamw {
                     .checked_add(parameter.master_weights.len())
                     .ok_or_else(accounting_overflow)
             })?;
-        if gradients.len() != expected || gradient_clip_scale(gradients)? < 1.0 {
+        if gradients.len() != expected
+            || gradient_clip_scale(gradients)? < 1.0 - CLIP_VERIFICATION_TOLERANCE
+        {
             return Err(ProductError::integrity(
                 "P12_OPTIMIZER_GRADIENT_INVALID",
                 "AdamW requires one finite, globally clipped FP32 gradient per parameter",

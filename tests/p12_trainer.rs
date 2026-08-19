@@ -387,3 +387,43 @@ fn p12_adds_no_receipt_or_manual_qualification_surface() {
     assert_eq!(train::IMPLEMENTATION_PHASE, "P12");
     assert_eq!(CanonicalTrainingPlan::canonical().total_updates, 30_518);
 }
+
+/// Clipping is not idempotent in f32, and the check that verifies it must survive
+/// its own rounding.
+///
+/// The trainer clips by multiplying every gradient by `1/norm`; the state then
+/// re-derives that scale from the result and rejects anything below one. Summing
+/// `135,285,504` squares in f32 accumulates enough error that the re-derived
+/// scale lands just under it, so the strict form rejected the first update whose
+/// gradients actually needed clipping — which is what killed the first real
+/// training run after five minutes, and would have killed the full one the same
+/// way. Every prior test kept the norm under the bound, where the scale is
+/// exactly one and the gradients pass through untouched, which is why nothing
+/// caught it.
+///
+/// This pins the property that matters: a vector large enough to show the
+/// rounding still verifies after being clipped once.
+#[test]
+fn a_clipped_gradient_still_verifies_at_production_width() {
+    use rust_llm_pretrain::model::oracle::gradient_clip_scale;
+
+    for count in [1_000_usize, 1_000_000, 10_000_000] {
+        let mut gradients: Vec<f32> = (0..count)
+            .map(|index| ((index % 977) as f32 - 488.0) * 1e-3)
+            .collect();
+        let scale = gradient_clip_scale(&gradients).expect("finite gradients");
+        assert!(
+            scale < 1.0,
+            "the probe vector must exceed the clip bound, or it tests nothing"
+        );
+        for value in &mut gradients {
+            *value *= scale;
+        }
+        let verified = gradient_clip_scale(&gradients).expect("finite after clipping");
+        assert!(
+            verified >= 1.0 - 0.01,
+            "a clipped {count}-element gradient re-checked at {verified}, outside the tolerance \
+             the state accepts"
+        );
+    }
+}
