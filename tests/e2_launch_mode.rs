@@ -337,7 +337,10 @@ fn the_batch_source_fills_the_exact_requested_window_from_contiguous_spans() {
         CorpusBatchSource::new(&corpus, &configuration, LoaderCancellation::default()).unwrap();
 
     let micro_batch = configuration.batch.micro_batch_targets;
-    assert_eq!(micro_batch, SEQUENCE_TARGETS * 16);
+    assert_eq!(
+        micro_batch,
+        SEQUENCE_TARGETS * rust_llm_pretrain::train::profile::MICRO_BATCH_SEQUENCES
+    );
 
     for index in 0..3 {
         let first_target = index * micro_batch;
@@ -345,10 +348,12 @@ fn the_batch_source_fills_the_exact_requested_window_from_contiguous_spans() {
         assert_eq!(batch.first_target, first_target);
         assert_eq!(batch.valid_targets, micro_batch);
         assert_eq!(batch.input_ids.len() as u64, micro_batch);
-        // Sixteen whole spans, never one fused or padded sequence: the backend
-        // dispatches on these boundaries.
-        assert_eq!(batch.sequence_lengths, vec![SEQUENCE_TARGETS; 16]);
-        assert_eq!(batch.sequences().len(), 16);
+        // Whole spans, never one fused or padded sequence: the backend dispatches
+        // on these boundaries, and there are as many as the profile's dispatch
+        // width says rather than a number written here.
+        let width = rust_llm_pretrain::train::profile::MICRO_BATCH_SEQUENCES as usize;
+        assert_eq!(batch.sequence_lengths, vec![SEQUENCE_TARGETS; width]);
+        assert_eq!(batch.sequences().len(), width);
 
         // The tokens are the canonical stream at this cursor, not merely
         // self-consistent.
@@ -619,9 +624,16 @@ fn a_launched_run_completes_the_plan_and_reports_a_measured_sla() {
     assert_eq!(result.retained_checkpoint_targets, [TOTAL_TARGETS]);
     assert!(result.same_process_reload_exact);
     assert_eq!(result.final_checkpoint_generation, "00000000002000000000");
+    // The ragged final update of 37,888 targets divides by the dispatch width:
+    // two full 16,384 micro-batches and a 5,120 remainder, where the previous
+    // 32,768-wide dispatch took one and the same remainder.
     assert_eq!(
         source.requested,
-        [(1_999_962_112, 32_768), (1_999_994_880, 5_120)]
+        [
+            (1_999_962_112, 16_384),
+            (1_999_978_496, 16_384),
+            (1_999_994_880, 5_120)
+        ]
     );
 
     // The tail took milliseconds, so the measured elapsed time is inside the

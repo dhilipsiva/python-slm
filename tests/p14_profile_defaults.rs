@@ -61,14 +61,17 @@ fn selected_defaults_compose_every_frozen_phase_boundary() {
     assert_eq!(defaults.sla.claim_status, "DESIGN_TARGET_UNVERIFIED");
     assert_eq!(
         defaults.sha256().unwrap(),
-        "d0a9f6f9908b53e4d47af7edf0d04dbf53cb1558930c41cf334cde6434bd8ffa"
+        "41fe1c97639fbbb974094fe7d6ef250a15f0d80aab30eb2e87fca48eea0f447d"
     );
 }
 
 #[test]
 fn defaults_are_closed_and_contract_constants_cannot_be_retuned() {
     let mut value = serde_json::to_value(PrototypeTrainingDefaultsV1::canonical()).unwrap();
-    value["batch"]["gradient_accumulation_steps"] = json!(4);
+    // Three, because four is now the canonical value: the profile moved to eight
+    // sequences per dispatch and four accumulation steps, so a probe that still
+    // used four would assert nothing.
+    value["batch"]["gradient_accumulation_steps"] = json!(3);
     assert_eq!(
         parse_default_configuration(&serde_json::to_vec(&value).unwrap())
             .unwrap_err()

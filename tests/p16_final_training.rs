@@ -230,9 +230,14 @@ fn resumed_tail_stops_exactly_and_publishes_reloadable_final_checkpoint() {
     )
     .unwrap();
 
-    assert_eq!(source.requested.len(), 2);
-    assert_eq!(source.requested[0].1, 32_768);
-    assert_eq!(source.requested[1].1, 5_120);
+    // The ragged final update of 37,888 targets divides by the dispatch width:
+    // two full micro-batches of 16,384 and a 5,120 remainder. It was one 32,768
+    // dispatch and the same remainder before the profile moved to eight
+    // sequences.
+    assert_eq!(source.requested.len(), 3);
+    assert_eq!(source.requested[0].1, 16_384);
+    assert_eq!(source.requested[1].1, 16_384);
+    assert_eq!(source.requested[2].1, 5_120);
     assert_eq!(execution.final_snapshot.consumed_targets, TOTAL_TARGETS);
     assert_eq!(execution.final_snapshot.completed_updates, TOTAL_UPDATES);
     assert_eq!(execution.final_checkpoint.consumed_targets, TOTAL_TARGETS);

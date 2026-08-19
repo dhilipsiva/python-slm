@@ -24,8 +24,22 @@ pub const DIAGNOSTICS_SCHEMA: &str = "python-slm-prototype-profile-diagnostics-v
 pub const RESULT_SCHEMA: &str = "python-slm-prototype-profile-result-v1";
 pub const DEFAULT_CONFIG_BYTES: &[u8] = include_bytes!("prototype-windows-5090-v1.defaults.json");
 
-pub const MICRO_BATCH_SEQUENCES: u64 = 16;
-pub const GRADIENT_ACCUMULATION_STEPS: u64 = 2;
+/// Sequences per accelerator dispatch.
+///
+/// Sixteen fits and was chosen when fitting was the question. Measured over a
+/// long dispatch sequence rather than a warm burst, it is the wrong answer:
+/// sixteen sustains `9,482` targets per second and swings `72` percent between
+/// windows, because it peaks at `32,079` MiB of `32,607` and the allocator
+/// thrashes against the remaining `530`. Eight sustains `14,944` and varies by
+/// `1.6` percent, at `19,130` MiB. So the narrower dispatch is `1.58x` faster in
+/// the only regime a run ever occupies, and the earlier claim that it cost `7.6`
+/// percent came from measuring five dispatches immediately after warmup.
+///
+/// The optimizer update is unchanged at `65,536` targets — halving the dispatch
+/// doubles the accumulation steps and nothing downstream of the update boundary
+/// moves. Owner-approved 2026-08-19.
+pub const MICRO_BATCH_SEQUENCES: u64 = 8;
+pub const GRADIENT_ACCUMULATION_STEPS: u64 = 4;
 pub const LOADER_BUFFER_SPANS: u64 = 32;
 pub const TRANSFER_IN_FLIGHT: u64 = 8;
 pub const RETAIN_LATEST_CHECKPOINTS: u64 = 2;

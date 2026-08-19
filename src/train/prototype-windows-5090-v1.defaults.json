@@ -6,9 +6,9 @@
   "model_identity": "gqa-135m-v1",
   "batch": {
     "sequence_targets": 2048,
-    "micro_batch_sequences": 16,
-    "micro_batch_targets": 32768,
-    "gradient_accumulation_steps": 2,
+    "micro_batch_sequences": 8,
+    "micro_batch_targets": 16384,
+    "gradient_accumulation_steps": 4,
     "optimizer_update_targets": 65536
   },
   "loader": {

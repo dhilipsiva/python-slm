@@ -1,7 +1,7 @@
 {
   "schema": "python-slm-stability-ladder-plan-v1",
   "profile": "prototype-windows-5090-v1",
-  "configuration_sha256": "d0a9f6f9908b53e4d47af7edf0d04dbf53cb1558930c41cf334cde6434bd8ffa",
+  "configuration_sha256": "41fe1c97639fbbb974094fe7d6ef250a15f0d80aab30eb2e87fca48eea0f447d",
   "execution_surface": "provider-neutral-synthetic",
   "smoke_updates": 1,
   "short_run_updates": 4,
