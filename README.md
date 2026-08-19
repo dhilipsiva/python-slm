@@ -122,8 +122,8 @@ boundaries, portable-path attacks, deterministic repeat publication, restricted-
 non-disclosure, and concurrent write/delete/rename denial. The suite remains a
 deterministic conservative regression boundary, not proof that every possible sensitive
 value has been recognized. Exact/near deduplication, decontamination, and downstream
-corpus acceptance remain later phases. Live Stack-v2 or Software Heritage acquisition
-also remains outside this command.
+corpus acceptance remain later phases. Live source acquisition also remains
+outside this command — it belongs to `fetch` and `materialize-stack-content`.
 
 ## Tokenizer engine
 

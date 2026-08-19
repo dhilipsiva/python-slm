@@ -586,22 +586,25 @@ or unmeasured fact remains `UNVERIFIED`. The fixed `25,920`-second admission cei
 and `28,800`-second completion SLA are never retuned after measurement; a failed
 projection blocks the run instead of moving a threshold.
 
-**Where this stands.** Every piece of code the run needs is now built, measured, and
-gated. What is left is two things this repository cannot do for itself, and they are
-independent of each other:
+**Where this stands.** Every piece of code the run needs is built, measured and
+gated, and the corpus it needs is installed. What is left is one thing this
+repository cannot do for itself:
 
 | | State | Blocked on |
 |---|---|---|
 | E1, E1A, E1B, E2 | Complete, hardware-verified | — |
-| **E3** corpus | Corpus acquired and published: `3,500,856` representatives | `train-tokenizer`, `tokenize`, `plan-spans` — about an hour against artifacts on disk |
+| E3 corpus | **Complete**: `2,000,000,001` training IDs installed and verified | — |
 | E4 diagnostics | Not run | Physical RTX 5090 session, or a `windows-cuda.yml` dispatch |
-| **E5** admission | Not run | E3 and E4 — and it starts from a measured `4.3x` SLA miss |
+| **E5** admission | Not run | E4 — and it starts from a measured `4.3x` SLA miss |
 | E6 execution | Unreachable | E5 admitting the run |
 
-Two blocking facts to carry, both measured rather than estimated. **The run does not
-meet the SLA on current evidence**: `34.2` hours projected against `28,800` seconds,
-which E5 must either close or record as a refusal. And **E3 cannot finish without an
-authorization** no amount of further engineering supplies.
+One blocking fact to carry, measured rather than estimated. **The run does not
+meet the SLA on current evidence**: `34.2` hours projected against `28,800`
+seconds, which E5 must either close or record as a refusal. The other blocker
+that stood here — that E3 could not finish without an authorization no amount of
+engineering supplies — is gone: the authorization was granted, the source it
+pointed at proved unobtainable, and `SOURCE-002` reached the same code through a
+dataset that carries it directly.
 
 ### E1 — Full-Model Accelerator Training Backend
 
@@ -795,7 +798,7 @@ already requires.
 
 ### E3 — Governed Production Corpus
 
-- [ ] E3 data materialization
+- [x] E3 data materialization
 
 Dependencies: P4–P9A implementation. Independent of E1/E2.
 
@@ -810,8 +813,10 @@ E3 turned out to be much larger than "run the pipeline": exploration found three
 pieces missing outright and three more that would not survive production scale,
 and executing the chain found three further defects that reading it had not — the
 last of them only after `4.8` million documents of real code had gone through it.
-All nine are closed, every stage is measured, and the corpus is published. What
-follows is only what remains.
+All nine are closed, and the chain has run to completion: an installed token
+generation reports `training_target_satisfied: true` at exactly `2,000,000,001`
+training IDs. What follows is the record of how, kept because most of it was
+expensive to learn and none of it is visible from the code alone.
 
 #### The pipeline is built and measured
 
@@ -1179,66 +1184,75 @@ duplicates, because the source is already deduplicated by content hash.
 Exclusion is almost entirely decontamination — `1,033,387` of `1,033,536` —
 against `2,843` protected `evalplus-v0.3.1` records.
 
-#### What is left, and what it needs
+#### The token corpus, and E3 closing
 
-Three commands against artifacts already on disk, roughly an hour in total. Each
-is independently resumable; an interruption costs the stage in flight and nothing
-before it.
+Three commands against the published corpus, and the frozen target is met
+exactly.
 
-1. `train-tokenizer` over `corpus-full/tokenizer-sample-manifest.json`, which
-   selects up to the `2,000,000,000`-byte cap under a `10` MB per-repository cap.
-   Projected `~42.3` GiB and `~20` minutes.
-2. `tokenize` over `corpus-full/governed-corpus-manifest.json` with
-   `maximum_total_stored_ids` generous and `shard_maximum_ids` at `4,194,304`.
-3. `plan-spans` against the installed generation, which is also the check that
-   re-verifies it on read.
+| Stage | Result | Wall clock | Peak |
+|---|---|---|---|
+| `train-tokenizer` | `1,999,999,960`-byte sample from `584,303` documents, `32,000` vocabulary, `qualified_range_satisfied` | `25.1` min | `42.0` GiB |
+| `tokenize` | `2,049,649,763` stored IDs, `490` shards, `3.82` GB | `51.7` min | `9.3` GiB |
+| `plan-spans` | `976,562` complete spans, `1,024` partial span targets | `37.5` s | `3.4` GiB |
 
+```
+training_prefix_ids       2,000,000,001    exactly the frozen target
+training_valid_targets    2,000,000,000    exactly the frozen target
+training_target_satisfied true
+training_unused_tail_ids  18
+```
 
-Everything those commands need is under the ignored root `C:\python-slm-e3` on
-this host, which is where it has to stay — an in-repo corpus aborts the quality
-gate at its `2` MiB capture limit. `corpus-full\` is the published generation,
-`curated-*\` the `330` source generations it was built from, `content-*\` the
-materialized documents behind those, and `assets\` the fetched Parquet shards.
-The chain is driven by `finish-chain.ps1`, which derives every digest from the
-artifact actually produced rather than from a config written earlier, skips any
-stage whose output already exists, and exits non-zero rather than continuing if
-`training_target_satisfied` comes back false.
+Token generation
+`8dbd12d5f440e8db83241fbebb3848e27ceb7e83f5c31c055d71e212c5baa9c6`, over
+tokenizer
+`99ef8e60046c09f4278b131b584eaf6ae2821c178add3a32319524905ad29d4e`, over corpus
+generation
+`01a406801970c883e3709e3da81825f765c7a50c5b5b0cd00cfe2f50965c02f8`. Splits are
+`2,000,000,019` stored train IDs across `2,936,749` documents, `24,047,158`
+validation, `25,602,586` test.
 
-One piece of housekeeping is outstanding: `24` orphaned `.curated-*.p4-partial-*`
-directories, about `1.2` GB, left by the stack-overflow aborts. A partial tree is
-normally removed by `PartialTree::drop` (`src/acquire.rs:604`), and an abort is
-precisely the case where that never runs — which is a fair description of why
-aborting instead of failing is worse than it sounds.
+**The overshoot did exactly what it was bought to do.** `479,222` train documents
+and `1.62` GB of canonical text went unmaterialized, because the train stream
+closes on the first document that reaches the target and everything after it is
+skipped (`src/storage.rs:378`). That `13.7` percent of waste is the margin
+working, not the margin being wasted: at `58` shards the projection was `2.01`
+billion IDs, and had the tokenizer compressed one percent differently the chain
+would have run for five hours and landed short. The last document overshot by
+`18` IDs, and the prefix rule trimmed those.
 
-Sizing, now measured end to end rather than projected. `3,500,856`
-representatives at the pilot's measured `656.0` training IDs per representative
-gives about `2.30` billion against the `2,000,000,001` target — a `15` percent
-overshoot, which is the safe direction because `tokenize` closes the train stream
-at exactly the target and ignores the rest. That margin was bought deliberately:
-`58` shards projected `2.01` billion, and a `0.5` percent margin is a coin flip
-that only resolves after a five-hour chain, so `8` more shards were acquired
-before committing to the run.
+Two model checks worth recording, because both were predictions made before the
+run rather than after it. `train-tokenizer` peaked at `42.0` GiB against a
+predicted `42.3` and took `25.1` minutes against `20`. And `3,500,856`
+representatives were predicted from `4,546,453` accepted documents against
+`3,486,672` projected — `0.4` percent out over a chain of three measured ratios.
 
-Three traps that still apply to whoever runs it. `training_target_satisfied:
-false` is **not an error** and exits `0` (`src/storage.rs:401-409`), so assert the
-field out of the `tokenize` result rather than inferring it from an exit code.
+Everything is under the ignored root `C:\python-slm-e3` on this host, which is
+where it has to stay: an in-repo corpus aborts the quality gate at its `2` MiB
+capture limit. `tokens-full\` is the installed generation, `corpus-full\` the
+representative corpus behind it, `curated-*\` the `330` source generations,
+`content-*\` the materialized documents, and `assets\` the fetched Parquet
+shards.
+
+Three traps that still apply to whoever runs this again.
+`training_target_satisfied: false` is **not an error** and exits `0`
+(`src/storage.rs:401-409`), so assert the field out of the `tokenize` result
+rather than inferring it from an exit code — this run asserted it.
 `shard_maximum_ids` is irreversible once published, and `read_range` re-reads and
 re-hashes the *entire* backing shard on every sequence read
 (`src/storage.rs:1110-1111`), so a 67M-ID shard means hashing `128` MiB per
-training read — pick it small. And keep the corpus out of the repository: `git
-status -uall` over tens of thousands of untracked files exceeds the `2` MiB
-`CAPTURE_LIMIT_BYTES` (`xtask/src/quality_gate.rs:14`) and aborts the quality gate
-with the misleading `QUALITY_CAPTURE_LIMIT_EXCEEDED`.
+training read; this run used `4,194,304`, giving `490` shards of about `8` MiB.
+And keep the corpus out of the repository: `git status -uall` over tens of
+thousands of untracked files exceeds the `2` MiB `CAPTURE_LIMIT_BYTES`
+(`xtask/src/quality_gate.rs:14`) and aborts the quality gate with the misleading
+`QUALITY_CAPTURE_LIMIT_EXCEEDED`.
 
-**The honest position on the checkbox.** The corpus exists. `prepare-corpus`
-published generation
-`01a406801970c883e3709e3da81825f765c7a50c5b5b0cd00cfe2f50965c02f8` with
-`3,500,856` representatives, and every input it rests on is hash-bound and on
-disk. What blocked E3 for most of its life — authorization, then memory, then a
-parser that aborted on real code — is closed. But E3 stays unchecked until an
-installed P8 generation actually reports `training_target_satisfied: true` at
-exactly `2,000,000,001` stored IDs, and that is now a question of running the
-three commands above rather than of obtaining anything.
+**The checkbox is checked, and this is what it means.** An installed P8
+generation reports `training_target_satisfied: true` at exactly `2,000,000,001`
+stored training IDs and `2,000,000,000` valid targets, and `plan-spans` opened
+that generation afterwards — which is the same verification on read that any
+consumer performs. It does not mean the run is admitted: E5 still starts from a
+measured `4.3x` SLA miss, and that is a separate question about hardware and
+performance, not about data.
 
 ### E4 — Hardware Diagnostics on the Qualified Tuple
 
@@ -1300,11 +1314,10 @@ Dependencies: E5.
 - Manual approvals, receipts, and pointers remain `SKIPPED`; any claim not backed
   by the executed run remains `UNVERIFIED`.
 
-E6 is unreachable until E3 turns its governed corpus into a token generation and
-E5 admits the run, and on current measurements E5 does not. The corpus half of
-that is done — `3,500,856` representatives published — so what stands between
-here and E6 is `train-tokenizer`, `tokenize`, and a calibration that currently
-misses.
+E6 is unreachable until E5 admits the run, and on current measurements E5 does
+not. The corpus is no longer part of that: E3 installed a token generation at
+exactly `2,000,000,001` training IDs, so what stands between here and E6 is a
+calibration that misses its SLA by `4.3x`, not a shortage of data.
 
 The launch mode itself is ready: `train --config <defaults> --launch <launch>` is
 the explicit execution mode, it demands `confirm_full_run`, and its SLA
