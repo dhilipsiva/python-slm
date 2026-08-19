@@ -1180,9 +1180,16 @@ mod windows {
     fn require_path_ancestors_not_reparse(path: &Path) -> Result<()> {
         let mut current = path.parent();
         while let Some(ancestor) = current {
+            // Name the ancestor. Without it this reports that *some* directory on
+            // the way to *some* audited file could not be inspected, which on a
+            // machine with a dozen audited paths is not a starting point.
             let metadata = fs::symlink_metadata(ancestor).io_context(
                 "P1A_AUDITED_PATH_ANCESTOR_FAILED",
-                "could not inspect an audited path ancestor",
+                format!(
+                    "could not inspect audited path ancestor {} of {}",
+                    ancestor.display(),
+                    path.display()
+                ),
             )?;
             if metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
                 return Err(XtaskError::integrity(
@@ -2069,14 +2076,20 @@ mod windows {
         startup.StartupInfo.hStdError = stderr;
         startup.lpAttributeList = attributes.raw();
         let mut information: PROCESS_INFORMATION = unsafe { zeroed() };
-        // A detached 32-bit vswhere avoids an otherwise Job-contained conhost.exe
-        // which Windows does not report through this debugger's creation stream.
-        // Preserve the established no-window mode for every other audited command.
-        let console_creation_mode = if is_vswhere_command(command) {
-            DETACHED_PROCESS
-        } else {
-            CREATE_NO_WINDOW
-        };
+        // A detached process avoids an otherwise Job-contained conhost.exe, which
+        // Windows does not report through this debugger's creation stream. That
+        // was found with 32-bit vswhere and it is not special to vswhere: every
+        // CUDA probe command hit the same thing, appearing as an unexpected
+        // conhost.exe descendant of nvcc. Detaching removes the helper rather than
+        // tolerating it, and costs nothing here because all three standard streams
+        // are redirected to private files anyway. Preserve the established
+        // no-window mode for every other audited command.
+        let console_creation_mode =
+            if is_vswhere_command(command) || command.policy == ProcessPolicy::CudaProbe {
+                DETACHED_PROCESS
+            } else {
+                CREATE_NO_WINDOW
+            };
         // SAFETY: every pointer refers to a live, correctly terminated buffer; inherited
         // handles are constrained by PROC_THREAD_ATTRIBUTE_HANDLE_LIST to the three
         // private duplicated standard streams above.

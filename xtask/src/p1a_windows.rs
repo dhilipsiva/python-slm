@@ -589,6 +589,17 @@ pub(crate) fn native_file_identity(path: &std::path::Path) -> Result<ToolFileIde
     imp::tool_identity(path)
 }
 
+/// Identity for a file that carries no Windows version resource.
+///
+/// Only PE images have one. Headers and COFF import libraries do not, so
+/// [`native_file_identity`] fails on them with `ERROR_RESOURCE_DATA_NOT_FOUND`
+/// rather than telling you the file was the wrong kind. Content and length still
+/// pin it exactly, which is all a non-executable input needs.
+#[cfg(all(windows, target_arch = "x86_64"))]
+pub(crate) fn native_file_content_identity(path: &std::path::Path) -> Result<FileIdentity> {
+    imp::file_identity(path)
+}
+
 #[cfg(all(windows, target_arch = "x86_64"))]
 pub(crate) fn loader_resolved_system_runtime() -> Result<WindowsRuntimeIdentities> {
     imp::loader_resolved_system_runtime()
@@ -3231,7 +3242,7 @@ mod imp {
         ))
     }
 
-    fn file_identity(path: &Path) -> Result<FileIdentity> {
+    pub(super) fn file_identity(path: &Path) -> Result<FileIdentity> {
         let (path, sha256, bytes, _) = locked_identity(path, false)?;
         Ok(FileIdentity {
             path,

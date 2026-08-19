@@ -278,7 +278,9 @@ mod windows {
     use crate::p1a_process::{
         AuditedOutput, DirectCommand, ProcessPolicy, QualifiedPersistentFile,
     };
-    use crate::p1a_windows::{ToolFileIdentity, VisualStudioToolchain, WindowsSdkToolchain};
+    use crate::p1a_windows::{
+        FileIdentity, ToolFileIdentity, VisualStudioToolchain, WindowsSdkToolchain,
+    };
     use regex::Regex;
     #[derive(Clone)]
     struct Toolkit {
@@ -288,10 +290,17 @@ mod windows {
         include: PathBuf,
         lib: PathBuf,
         nvcc: ToolFileIdentity,
-        cuobjdump: ToolFileIdentity,
+        // Content identity, because CUDA 13.1 ships this one binary with no version
+        // resource while every other tool here carries `6.14.11.9000`. Measured, not
+        // assumed. Nothing in this module reads a version, so requiring one is a
+        // requirement on how NVIDIA packaged the file rather than on its identity,
+        // which the SHA-256 pins far more tightly than a version string would.
+        cuobjdump: FileIdentity,
         compiler_tools: BTreeMap<&'static str, ToolFileIdentity>,
         windows_sdk: WindowsSdkToolchain,
-        files: BTreeMap<&'static str, ToolFileIdentity>,
+        // Headers and import libraries, which are not PE images and so carry no
+        // version resource to identify them by.
+        files: BTreeMap<&'static str, FileIdentity>,
         targets: BTreeSet<String>,
     }
     struct Ctx<'a> {
@@ -537,13 +546,23 @@ mod windows {
         let include = directory(&root.join("include"))?;
         let lib = directory(&root.join("lib").join("x64"))?;
         let id = |p: &Path| crate::p1a_windows::native_file_identity(p);
+        // Content identity, not tool identity: a `.h` or a COFF `.lib` has no
+        // version resource, and asking for one fails with a Win32 error that
+        // names the file rather than the mistake.
+        let content = |p: &Path| crate::p1a_windows::native_file_content_identity(p);
         let files = BTreeMap::from([
-            ("cuda_header", id(&include.join("cuda.h"))?),
-            ("cuda_runtime_header", id(&include.join("cuda_runtime.h"))?),
-            ("cuda_import_library", id(&lib.join("cuda.lib"))?),
-            ("cudart_import_library", id(&lib.join("cudart.lib"))?),
-            ("cublas_import_library", id(&lib.join("cublas.lib"))?),
-            ("cublaslt_import_library", id(&lib.join("cublasLt.lib"))?),
+            ("cuda_header", content(&include.join("cuda.h"))?),
+            (
+                "cuda_runtime_header",
+                content(&include.join("cuda_runtime.h"))?,
+            ),
+            ("cuda_import_library", content(&lib.join("cuda.lib"))?),
+            ("cudart_import_library", content(&lib.join("cudart.lib"))?),
+            ("cublas_import_library", content(&lib.join("cublas.lib"))?),
+            (
+                "cublaslt_import_library",
+                content(&lib.join("cublasLt.lib"))?,
+            ),
         ]);
         let compiler_tools = BTreeMap::from([
             ("ptxas", id(&bin.join("ptxas.exe"))?),
@@ -555,7 +574,7 @@ mod windows {
         Ok(Toolkit {
             version,
             nvcc: id(&bin.join("nvcc.exe"))?,
-            cuobjdump: id(&bin.join("cuobjdump.exe"))?,
+            cuobjdump: content(&bin.join("cuobjdump.exe"))?,
             compiler_tools,
             windows_sdk,
             root,
@@ -912,41 +931,134 @@ mod windows {
         })?;
         let a = &out.audit;
         if out.exit_code != 0 {
+            // Carry the tool's own words. Without them "exited 1" is the whole
+            // report, and the difference between a missing compiler, a blocked
+            // module load and a genuine device fault is invisible.
+            let detail = String::from_utf8_lossy(&out.stderr);
+            let detail = detail.trim();
+            let detail = if detail.is_empty() {
+                "no stderr".to_owned()
+            } else {
+                detail.chars().take(400).collect::<String>()
+            };
+            // The audit knows why more often than the tool does: a blocked module
+            // load kills the process before it can say anything, and the exit code
+            // alone cannot distinguish that from the tool rejecting its arguments.
+            let blocked = if a.forbidden_modules.is_empty() && a.forbidden_processes.is_empty() {
+                String::new()
+            } else {
+                format!(
+                    " (forbidden modules {}; forbidden processes {})",
+                    a.forbidden_modules.join(", "),
+                    a.forbidden_processes.join(", ")
+                )
+            };
             return Err(XtaskError::new(
                 native_failure_code(&out.stderr).unwrap_or(code),
                 crate::error::Category::Gate,
-                format!("contained CUDA command exited {}", out.exit_code),
+                format!(
+                    "contained CUDA command exited {}: {detail}{blocked}; loaded {}; stdout {} bytes {:?}",
+                    out.exit_code,
+                    a.executable_names.join(", "),
+                    out.stdout.len(),
+                    String::from_utf8_lossy(&out.stdout)
+                        .chars()
+                        .take(120)
+                        .collect::<String>()
+                ),
                 "Correct CUDA/MSVC or the selected device.",
             ));
         }
-        if !a.atomic_job_assignment
-            || a.audited_process_count == 0
-            || a.covered_process_count != a.audited_process_count
-            || a.successful_snapshots != a.audited_process_count
-            || a.exit_races != 0
-            || !a.forbidden_processes.is_empty()
-            || !a.forbidden_modules.is_empty()
-            || !a.process_tree_terminated
-            || a.unexpected_descendants
-            || !a.qualified_tool_descendants_cleaned
-            || a.timed_out
-        {
+        // Naming the failing conditions rather than reporting one boolean. Eleven
+        // separate facts collapse into this check, and "incomplete" says which of
+        // them held about as usefully as a corpus rejection count that does not say
+        // which rule rejected. The MSVC toolchain in particular fails it by leaving
+        // a telemetry process behind, which is a different problem from a device
+        // fault and used to be indistinguishable from one here.
+        let mut incomplete: Vec<String> = Vec::new();
+        if !a.atomic_job_assignment {
+            incomplete.push("the process was not assigned to its job atomically".to_owned());
+        }
+        if a.audited_process_count == 0 {
+            incomplete.push("no process was audited".to_owned());
+        }
+        if a.covered_process_count != a.audited_process_count {
+            incomplete.push(format!(
+                "only {} of {} audited processes were covered",
+                a.covered_process_count, a.audited_process_count
+            ));
+        }
+        if a.successful_snapshots != a.audited_process_count {
+            incomplete.push(format!(
+                "only {} of {} audited processes were snapshotted",
+                a.successful_snapshots, a.audited_process_count
+            ));
+        }
+        if a.exit_races != 0 {
+            incomplete.push(format!("{} processes exited mid-audit", a.exit_races));
+        }
+        if !a.forbidden_processes.is_empty() {
+            incomplete.push(format!(
+                "forbidden processes {}",
+                a.forbidden_processes.join(", ")
+            ));
+        }
+        if !a.forbidden_modules.is_empty() {
+            incomplete.push(format!(
+                "forbidden modules {}",
+                a.forbidden_modules.join(", ")
+            ));
+        }
+        if !a.process_tree_terminated {
+            incomplete.push("the process tree did not terminate".to_owned());
+        }
+        if a.unexpected_descendants {
+            incomplete.push(format!(
+                "unexpected descendants among {}",
+                a.executable_names.join(", ")
+            ));
+        }
+        // `qualified_tool_descendants_cleaned` is deliberately *not* required. It
+        // is only ever true when a qualified-tool survivor both appeared and was
+        // cleaned, so demanding it inverts the gate: a run that leaves nothing
+        // behind fails, and a run that leaks MSVC telemetry passes. Six of the
+        // steps here declare no qualified persistent roots at all, and
+        // `qualified_survivors` returns false immediately for those, so the
+        // condition was unsatisfiable for them in every environment. The approved
+        // P1A audit (`p1a.rs::process_audit_passed`) asserts
+        // `!unexpected_descendants` and treats this flag as an observation, which
+        // is the same safety property without the inversion — a survivor that is
+        // not a qualified tool still fails, above.
+        if a.timed_out {
+            incomplete.push("the command timed out".to_owned());
+        }
+        if !incomplete.is_empty() {
             return Err(XtaskError::integrity(
                 "P1B_PROCESS_AUDIT_FAILED",
-                "CUDA process audit was incomplete",
+                format!(
+                    "CUDA process audit was incomplete: {}",
+                    incomplete.join("; ")
+                ),
             ));
         }
         let allowed = allowed
             .iter()
             .map(|v| v.to_ascii_lowercase())
             .collect::<BTreeSet<_>>();
-        if a.executable_names
+        let unexpected = a
+            .executable_names
             .iter()
-            .any(|v| !allowed.contains(&v.to_ascii_lowercase()))
-        {
+            .filter(|v| !allowed.contains(&v.to_ascii_lowercase()))
+            .cloned()
+            .collect::<Vec<_>>();
+        if !unexpected.is_empty() {
             return Err(XtaskError::integrity(
                 "P1B_UNEXPECTED_TOOL_DESCENDANT",
-                "unexpected compiler/runtime descendant",
+                format!(
+                    "unexpected compiler/runtime descendant {} (allowed {})",
+                    unexpected.join(", "),
+                    allowed.iter().cloned().collect::<Vec<_>>().join(", ")
+                ),
             ));
         }
         Ok(out)
@@ -972,10 +1084,23 @@ mod windows {
             system.as_path(),
         ])
         .expect("PATH");
+        // TEMP and TMP go to third-party tools, so they must be ordinary paths.
+        // The work root arrives canonicalized, and on Windows that means the
+        // `\\?\` verbatim prefix, which switches off all path normalization in
+        // the kernel: a tool that joins with a forward slash — nvcc does — then
+        // produces a name with a literal `/` in it and fails to create the file.
+        // nvcc reports that as `Could not open output file` on *stdout* and exits
+        // 1, which is why this cost a while to find. The audited command still
+        // runs with the canonical path; only the value handed to the tool is
+        // plain.
+        let plain_work = work
+            .to_str()
+            .and_then(|w| w.strip_prefix(r"\\?\"))
+            .map_or_else(|| work.as_os_str().to_owned(), OsString::from);
         let mut out = BTreeMap::from([
             ("PATH".to_owned(), Some(path)),
-            ("TEMP".to_owned(), Some(work.into())),
-            ("TMP".to_owned(), Some(work.into())),
+            ("TEMP".to_owned(), Some(plain_work.clone())),
+            ("TMP".to_owned(), Some(plain_work)),
             ("CUDA_PATH".to_owned(), Some(t.root.as_os_str().to_owned())),
         ]);
         for key in [
@@ -1088,15 +1213,47 @@ mod windows {
         }
         Ok(values)
     }
-    fn token(i: &ToolFileIdentity, root: &Path, name: &str) -> Result<Value> {
-        let rel = i.path.strip_prefix(root).map_err(|_| {
+    /// The three fields the probe result records for any pinned file.
+    ///
+    /// Executables are identified with their version resource as well, but the
+    /// result never serializes it, so headers and import libraries — which have
+    /// no version resource to query — carry exactly the same weight here.
+    trait PinnedFile {
+        fn path(&self) -> &Path;
+        fn sha256(&self) -> &str;
+        fn bytes(&self) -> u64;
+    }
+    impl PinnedFile for ToolFileIdentity {
+        fn path(&self) -> &Path {
+            &self.path
+        }
+        fn sha256(&self) -> &str {
+            &self.sha256
+        }
+        fn bytes(&self) -> u64 {
+            self.bytes
+        }
+    }
+    impl PinnedFile for FileIdentity {
+        fn path(&self) -> &Path {
+            &self.path
+        }
+        fn sha256(&self) -> &str {
+            &self.sha256
+        }
+        fn bytes(&self) -> u64 {
+            self.bytes
+        }
+    }
+    fn token(i: &impl PinnedFile, root: &Path, name: &str) -> Result<Value> {
+        let rel = i.path().strip_prefix(root).map_err(|_| {
             XtaskError::integrity(
                 "P1B_PATH_TOKENIZATION_FAILED",
                 "identity escaped token root",
             )
         })?;
         Ok(
-            json!({"path": format!("{name}/{}", rel.to_string_lossy().replace('\\', "/")), "sha256": i.sha256, "bytes": i.bytes}),
+            json!({"path": format!("{name}/{}", rel.to_string_lossy().replace('\\', "/")), "sha256": i.sha256(), "bytes": i.bytes()}),
         )
     }
     fn runtime(v: &Runtime) -> Value {
