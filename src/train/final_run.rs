@@ -242,6 +242,128 @@ pub fn execute_to_completion<B: TrainerBackend, S: FinalBatchSource>(
     })
 }
 
+/// Train the canonical model to a bounded target budget and stop.
+///
+/// This is **not** the frozen run and never claims to be. `execute_to_completion`
+/// asserts `consumed_targets == TOTAL_TARGETS` and that assertion is the whole
+/// point of it, so bounding it there would have turned the contract's own
+/// completion check into something conditional. This is a sibling with its own,
+/// weaker post-conditions instead: it stops on an optimizer-update boundary at or
+/// past the budget, publishes a checkpoint there because the interval policy
+/// would otherwise publish none inside a short run, and reports the targets it
+/// actually consumed.
+///
+/// The model, corpus, initialization, arithmetic, and checkpoint codec are
+/// untouched — this changes only how long the loop runs, which is why it needs no
+/// amendment to any frozen constant. What it produces is a partial checkpoint of
+/// `gqa-135m-v1`, and every result that carries it says so.
+pub fn execute_bounded_diagnostic<B: TrainerBackend, S: FinalBatchSource>(
+    trainer: &mut DeterministicTrainer<B>,
+    source: &mut S,
+    checkpoint_root: &Path,
+    configuration: &PrototypeTrainingDefaultsV1,
+    target_budget: u64,
+) -> Result<FinalRunExecution> {
+    configuration.validate()?;
+    if target_budget == 0 || target_budget >= TOTAL_TARGETS {
+        return Err(ProductError::usage(
+            "E7_DIAGNOSTIC_BUDGET_INVALID",
+            "a diagnostic target budget must be positive and below the frozen target count; \
+             use the full launch path to run the frozen count",
+        ));
+    }
+    if trainer.consumed_targets() >= target_budget {
+        return Err(ProductError::gate(
+            "E7_DIAGNOSTIC_BUDGET_ALREADY_MET",
+            "the supplied trainer has already consumed the diagnostic budget",
+        ));
+    }
+    let mut published_checkpoints = 0_u64;
+    let mut final_checkpoint: Option<PublishedCheckpoint> = None;
+    while trainer.consumed_targets() < target_budget {
+        let update = trainer
+            .completed_updates()
+            .checked_add(1)
+            .ok_or_else(accounting_overflow)?;
+        let required = canonical_update_target_count(update)?;
+        let mut submitted = 0_u64;
+        while submitted < required {
+            let valid_targets = configuration
+                .batch
+                .micro_batch_targets
+                .min(required - submitted);
+            let first_target = trainer.consumed_targets();
+            let batch = source.next_batch(first_target, valid_targets)?;
+            if batch.first_target != first_target
+                || batch.valid_targets != valid_targets
+                || batch.input_ids.len() as u64 != valid_targets
+                || batch.target_ids.len() as u64 != valid_targets
+            {
+                return Err(ProductError::integrity(
+                    "P16_BATCH_SOURCE_MISMATCH",
+                    "the final-run source returned a batch outside the exact requested cursor or shape",
+                ));
+            }
+            let event = trainer.process_batch(&batch)?;
+            submitted = submitted
+                .checked_add(valid_targets)
+                .ok_or_else(accounting_overflow)?;
+            if (submitted == required) != event.is_some() {
+                return Err(ProductError::integrity(
+                    "P16_UPDATE_BOUNDARY_MISMATCH",
+                    "the final-run coordinator and trainer disagree on an optimizer-update boundary",
+                ));
+            }
+            if let Some(event) = event
+                && event.checkpoint_due
+            {
+                let snapshot = trainer.snapshot()?;
+                let published = publish_checkpoint(checkpoint_root, &snapshot)?;
+                published_checkpoints = published_checkpoints
+                    .checked_add(1)
+                    .ok_or_else(accounting_overflow)?;
+                let _ = prune_checkpoints(checkpoint_root)?;
+                final_checkpoint = Some(published);
+            }
+        }
+    }
+    // The interval policy publishes every hundred million targets, so a budget
+    // shorter than that would otherwise end with nothing durable. Publishing here
+    // is unconditional rather than interval-driven, and lands on the update
+    // boundary the loop just finished, which is what the checkpoint policy's
+    // `completed_update_boundary_only` requires.
+    let final_snapshot = trainer.snapshot()?;
+    let final_checkpoint = match final_checkpoint {
+        Some(published) if published.consumed_targets == final_snapshot.consumed_targets => {
+            published
+        }
+        _ => {
+            let published = publish_checkpoint(checkpoint_root, &final_snapshot)?;
+            published_checkpoints = published_checkpoints
+                .checked_add(1)
+                .ok_or_else(accounting_overflow)?;
+            published
+        }
+    };
+    let reloaded = load_checkpoint(&final_checkpoint.generation_path)?;
+    let same_process_reload_exact = reloaded == final_snapshot
+        && state_bundle_sha256(&reloaded)? == state_bundle_sha256(&final_snapshot)?;
+    if !same_process_reload_exact {
+        return Err(ProductError::integrity(
+            "P16_FINAL_CHECKPOINT_RELOAD_MISMATCH",
+            "the durable checkpoint differs from the in-memory trainer state",
+        ));
+    }
+    let retained_checkpoint_targets = prune_checkpoints(checkpoint_root)?;
+    Ok(FinalRunExecution {
+        final_checkpoint,
+        final_snapshot,
+        published_checkpoints,
+        retained_checkpoint_targets,
+        same_process_reload_exact,
+    })
+}
+
 pub fn verify_final_checkpoint(
     generation: &Path,
     fresh_process_boundary: bool,

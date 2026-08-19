@@ -14,7 +14,9 @@
 //! admission to E5. A run that overruns is reported as overrunning, not stopped
 //! partway and not quietly relabelled.
 
-use super::final_run::{FinalBatchSource, FinalRunClaimStatusV1, execute_to_completion};
+use super::final_run::{
+    FinalBatchSource, FinalRunClaimStatusV1, execute_bounded_diagnostic, execute_to_completion,
+};
 use super::profile::PrototypeTrainingDefaultsV1;
 use super::trainer::{
     DeterministicTrainer, TOTAL_TARGETS, TrainerBackend, TrainerIdentity, TrainingBatch,
@@ -61,6 +63,17 @@ pub struct FinalRunLaunchV1 {
     /// run. Requiring it is what keeps the execution mode from being reachable by
     /// a stray flag: the measured projection for this run is tens of hours.
     pub confirm_full_run: bool,
+    /// Stop after this many valid targets instead of running the frozen count.
+    ///
+    /// `null` is the frozen run. A value is a bounded diagnostic: same model, same
+    /// corpus, same arithmetic, stopped early, and never described as complete.
+    /// It is required rather than defaulted because a launch that silently ran a
+    /// fiftieth of the contract would be the worst possible thing to get by
+    /// omission, and because this schema has no hidden defaults anywhere else.
+    ///
+    /// Exactly one of this and `confirm_full_run` may be set: the acknowledgement
+    /// is about starting a run of tens of hours, and a bounded run is not that.
+    pub diagnostic_target_budget: Option<u64>,
 }
 
 impl FinalRunLaunchV1 {
@@ -71,11 +84,22 @@ impl FinalRunLaunchV1 {
                 "the launch configuration is not the closed prototype launch schema",
             ));
         }
-        if !self.confirm_full_run {
-            return Err(ProductError::usage(
-                "E2_LAUNCH_NOT_CONFIRMED",
-                "the launch configuration must set confirm_full_run to start the canonical run",
-            ));
+        match (self.confirm_full_run, self.diagnostic_target_budget) {
+            (true, None) | (false, Some(_)) => {}
+            (false, None) => {
+                return Err(ProductError::usage(
+                    "E2_LAUNCH_NOT_CONFIRMED",
+                    "the launch configuration must set confirm_full_run to start the canonical \
+                     run, or a diagnostic_target_budget to run a bounded diagnostic",
+                ));
+            }
+            (true, Some(_)) => {
+                return Err(ProductError::usage(
+                    "E2_LAUNCH_SCOPE_AMBIGUOUS",
+                    "confirm_full_run acknowledges the frozen two-billion-target run and a \
+                     diagnostic_target_budget declines it; setting both states no scope at all",
+                ));
+            }
         }
         for path in [&self.token_generation_root, &self.checkpoint_root] {
             require_absolute(path)?;
@@ -397,7 +421,12 @@ pub fn execute_launched_run<B: TrainerBackend, S: FinalBatchSource>(
     let resumed_from_consumed_targets = trainer.consumed_targets();
 
     let clock = SlaClock::start()?;
-    let execution = execute_to_completion(trainer, source, checkpoint_root, configuration)?;
+    let execution = match launch.diagnostic_target_budget {
+        Some(budget) => {
+            execute_bounded_diagnostic(trainer, source, checkpoint_root, configuration, budget)?
+        }
+        None => execute_to_completion(trainer, source, checkpoint_root, configuration)?,
+    };
     let sla = SlaObservationV1::measured(clock.elapsed_ns()?, configuration);
 
     let generation = execution
@@ -415,10 +444,21 @@ pub fn execute_launched_run<B: TrainerBackend, S: FinalBatchSource>(
 
     Ok(FinalRunLaunchResultV1 {
         schema: LAUNCH_RESULT_SCHEMA.to_owned(),
-        status: "TRAINING_COMPLETE".to_owned(),
+        // A bounded run says so in both fields. Reporting TRAINING_COMPLETE for a
+        // fiftieth of the frozen target count would be the single most misleading
+        // thing this result could contain.
+        status: if launch.diagnostic_target_budget.is_some() {
+            "DIAGNOSTIC_BUDGET_REACHED".to_owned()
+        } else {
+            "TRAINING_COMPLETE".to_owned()
+        },
         qualification_status: "SKIPPED".to_owned(),
         profile: PROTOTYPE_PROFILE.to_owned(),
-        execution_status: "EXECUTED".to_owned(),
+        execution_status: if launch.diagnostic_target_budget.is_some() {
+            "EXECUTED_PARTIAL".to_owned()
+        } else {
+            "EXECUTED".to_owned()
+        },
         execution_surface: EXECUTION_SURFACE.to_owned(),
         configuration_sha256: configuration.sha256()?,
         launch_sha256: launch.sha256()?,

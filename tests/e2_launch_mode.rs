@@ -252,6 +252,7 @@ fn launch_configuration() -> FinalRunLaunchV1 {
         resume_from_generation: None,
         device_ordinal: 0,
         confirm_full_run: true,
+        diagnostic_target_budget: None,
     }
 }
 
@@ -709,4 +710,39 @@ fn an_unconfirmed_launch_never_reaches_execution() {
         "E2_LAUNCH_NOT_CONFIRMED"
     );
     assert!(source.requested.is_empty());
+}
+
+/// The launch scope must be stated, never inferred.
+///
+/// A bounded run trains a fiftieth of the frozen target count, so the two ways of
+/// getting one by accident — omitting both fields, or setting both — are the two
+/// this checks. Neither is a default; both are typed rejections.
+#[test]
+fn launch_scope_must_be_stated_exactly_once() {
+    let full = launch_configuration();
+    assert!(full.validate().is_ok(), "the frozen run stays valid");
+
+    let mut neither = launch_configuration();
+    neither.confirm_full_run = false;
+    assert_eq!(
+        neither.validate().unwrap_err().code,
+        "E2_LAUNCH_NOT_CONFIRMED",
+        "a configuration that states no scope is refused"
+    );
+
+    let mut both = launch_configuration();
+    both.diagnostic_target_budget = Some(56_000_000);
+    assert_eq!(
+        both.validate().unwrap_err().code,
+        "E2_LAUNCH_SCOPE_AMBIGUOUS",
+        "acknowledging the frozen run while declining it is refused"
+    );
+
+    let mut bounded = launch_configuration();
+    bounded.confirm_full_run = false;
+    bounded.diagnostic_target_budget = Some(56_000_000);
+    assert!(
+        bounded.validate().is_ok(),
+        "a bounded run that declines the frozen acknowledgement is valid"
+    );
 }
