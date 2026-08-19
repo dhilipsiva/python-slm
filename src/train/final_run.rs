@@ -5,8 +5,8 @@ use super::checkpoint::{
 };
 use super::profile::PrototypeTrainingDefaultsV1;
 use super::trainer::{
-    CanonicalTrainingPlan, DeterministicTrainer, TOTAL_TARGETS, TrainerBackend, TrainerSnapshot,
-    TrainingBatch, canonical_update_target_count, state_bundle_sha256,
+    CanonicalTrainingPlan, DeterministicTrainer, EvaluationResult, TOTAL_TARGETS, TrainerBackend,
+    TrainerSnapshot, TrainingBatch, canonical_update_target_count, state_bundle_sha256,
 };
 use crate::backend::PROTOTYPE_PROFILE;
 use crate::error::{ProductError, Result};
@@ -88,6 +88,10 @@ pub struct FinalRunExecution {
     pub published_checkpoints: u64,
     pub retained_checkpoint_targets: Vec<u64>,
     pub same_process_reload_exact: bool,
+    /// Held-out loss for the state this run produced, when it stopped somewhere
+    /// the frozen evaluation schedule does not cover. `None` for the full run,
+    /// whose schedule already evaluates at every boundary it defines.
+    pub final_evaluation: Option<EvaluationResult>,
 }
 
 pub trait FinalBatchSource {
@@ -239,6 +243,7 @@ pub fn execute_to_completion<B: TrainerBackend, S: FinalBatchSource>(
         published_checkpoints,
         retained_checkpoint_targets,
         same_process_reload_exact,
+        final_evaluation: None,
     })
 }
 
@@ -327,6 +332,13 @@ pub fn execute_bounded_diagnostic<B: TrainerBackend, S: FinalBatchSource>(
             }
         }
     }
+    // Score what the run produced. A bounded diagnostic that reports no loss says
+    // nothing about the state it just spent an hour making, and the frozen
+    // schedule will not have fired if the budget is shorter than its interval.
+    // This is deliberately not recorded in the snapshot: `validate_evaluations`
+    // requires the recorded set to sit on exact schedule boundaries.
+    let final_evaluation = Some(trainer.evaluate_now()?);
+
     // The interval policy publishes every hundred million targets, so a budget
     // shorter than that would otherwise end with nothing durable. Publishing here
     // is unconditional rather than interval-driven, and lands on the update
@@ -361,6 +373,7 @@ pub fn execute_bounded_diagnostic<B: TrainerBackend, S: FinalBatchSource>(
         published_checkpoints,
         retained_checkpoint_targets,
         same_process_reload_exact,
+        final_evaluation,
     })
 }
 

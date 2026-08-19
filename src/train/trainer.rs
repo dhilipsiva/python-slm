@@ -926,6 +926,34 @@ impl<B: TrainerBackend> DeterministicTrainer<B> {
         }))
     }
 
+    /// Evaluate the current state against held-out data without recording it.
+    ///
+    /// The frozen evaluation schedule fires every `EVENT_INTERVAL_TARGETS`, and
+    /// `validate_evaluations` requires the recorded set to sit on exactly those
+    /// boundaries — so a bounded diagnostic that stops short of the first one has
+    /// no loss for the state it just produced, and writing one into the snapshot
+    /// would corrupt an accounting the contract checks. This runs the same
+    /// evaluation and hands the number back to the caller instead, leaving the
+    /// snapshot's evaluation set exactly as the schedule dictates.
+    ///
+    /// The state-mutation guard is the same one the scheduled path uses:
+    /// evaluation that moved optimizer, RNG, or model state would make every
+    /// determinism claim after it false.
+    pub fn evaluate_now(&mut self) -> Result<EvaluationResult> {
+        let before = canonical_backend_state(self.backend.snapshot()?)?;
+        let result = self
+            .backend
+            .evaluate(&self.identity.validation_span_manifest_sha256)?;
+        result.validate()?;
+        if before != canonical_backend_state(self.backend.snapshot()?)? {
+            return Err(ProductError::gate(
+                "P12_EVALUATION_MUTATED_STATE",
+                "evaluation changed optimizer, RNG, or model state",
+            ));
+        }
+        Ok(result)
+    }
+
     pub fn snapshot(&self) -> Result<TrainerSnapshot> {
         if self.accumulated_targets != 0 {
             return Err(ProductError::gate(

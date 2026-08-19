@@ -217,6 +217,13 @@ pub struct FinalRunLaunchResultV1 {
     pub same_process_reload_exact: bool,
     pub sla: SlaObservationV1,
     pub claims: FinalRunClaimStatusV1,
+    /// Held-out loss for the state a bounded run produced, as little-endian f64
+    /// hex. Absent for the full run, whose evaluation schedule already covers
+    /// every boundary it defines. Hex rather than a float because this schema is
+    /// compared for equality, which `f64` does not support, and because it is how
+    /// every other loss in these results is already carried.
+    pub final_evaluation_loss_f64_le_hex: Option<String>,
+    pub final_evaluation_targets: Option<u64>,
     pub limitations: Vec<String>,
 }
 
@@ -475,6 +482,14 @@ pub fn execute_launched_run<B: TrainerBackend, S: FinalBatchSource>(
         // Execution establishes target accounting, checkpoint durability, and
         // elapsed time. It does not establish hardware qualification, admission,
         // or model quality, and the SLA verdict is reported rather than claimed.
+        final_evaluation_loss_f64_le_hex: execution
+            .final_evaluation
+            .as_ref()
+            .map(|e| hex::encode(e.aggregate_loss.to_le_bytes())),
+        final_evaluation_targets: execution
+            .final_evaluation
+            .as_ref()
+            .map(|e| e.evaluated_targets),
         claims: FinalRunClaimStatusV1 {
             full_run_completion: "OBSERVED_UNVERIFIED".to_owned(),
             elapsed_time: "OBSERVED_UNVERIFIED".to_owned(),
