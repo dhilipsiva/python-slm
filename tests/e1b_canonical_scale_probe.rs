@@ -235,9 +235,27 @@ fn probe_canonical_scale_memory_and_throughput() {
         warmup_started.elapsed().as_secs_f64()
     );
 
-    let measured_dispatches = 5_u64;
+    // Five dispatches measure a graph that has just warmed up. A real run does
+    // thousands against a device with six hundred megabytes free, where this
+    // repository has already recorded throughput collapsing as the allocator
+    // thrashes. RUST_LLM_E1B_DISPATCHES raises the count so the difference between
+    // a warm burst and a sustained rate is visible rather than assumed.
+    let measured_dispatches: u64 = std::env::var("RUST_LLM_E1B_DISPATCHES")
+        .ok()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(5);
+    let mut window_started = Instant::now();
+    let window = (measured_dispatches / 5).max(1);
     let steady_started = Instant::now();
     for index in 0..measured_dispatches {
+        if index > 0 && index % window == 0 {
+            let elapsed = window_started.elapsed().as_secs_f64();
+            println!(
+                "  dispatch {index:>4}: {:.0} targets/s over the last {window}",
+                (sequence_targets * sequences_per_dispatch * window) as f64 / elapsed
+            );
+            window_started = Instant::now();
+        }
         let first_target = (index + 1) * sequence_targets * sequences_per_dispatch;
         backend
             .accumulate(&sequence_batch(

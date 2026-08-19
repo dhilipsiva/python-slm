@@ -595,7 +595,7 @@ repository cannot do for itself:
 | E1, E1A, E1B, E2 | Complete, hardware-verified | — |
 | E3 corpus | **Complete**: `2,000,000,001` training IDs installed and verified | — |
 | E4 diagnostics | Not run | Physical RTX 5090 session, or a `windows-cuda.yml` dispatch |
-| **E5** admission | **Measured: admission fails** by `4.58x` | An owner decision — amend the budget under P19, amend the numerical semantics, or record the refusal |
+| **E5** admission | **Measured: admission fails**, by at least `4.58x` and probably far more | An owner decision — the shortfall is understated, see the sustained-throughput correction |
 | E6 execution | Unreachable | E5 admitting the run, which on measurement it does not |
 
 One blocking fact to carry, and E5 has now measured rather than projected it.
@@ -699,6 +699,33 @@ The frozen P14 micro-batch of 16 fits and runs, which was E1B's goal, but at
 safer operating point for an unattended run, and E5 owns that choice** — E5 took
 it, and at re-measurement the throughput cost of that safety had fallen from `15`
 percent to `7.6`, because the widest point gained least.
+
+**Every throughput figure above is a five-dispatch burst, and a burst is not a
+rate.** The probe measured five dispatches immediately after warmup. Re-measured
+over a long sequence, which is what a run actually does, the two candidate
+operating points diverge completely:
+
+| Sequences | Windows of sustained throughput | Overall | vs its own burst | Peak memory |
+|---|---|---|---|---|
+| 16 | `9,261` / `12,161` / `7,078` / `7,865` | `9,482` targets/s | `-44` percent | `32,079` MiB |
+| 8 | `14,906` / `15,020` / `14,776` / `14,947` | `14,944` targets/s | `-4` percent | `19,130` MiB |
+
+**Eight sequences is `1.58x` faster than sixteen, not `7.6` percent slower.** The
+wider point wins only in a burst; past it, `530` MiB of headroom is not enough and
+the allocator thrashes, exactly as the pre-checkpointing graph did at four
+sequences. The `72` percent spread between sixteen's windows against `1.6` percent
+between eight's is the same fact stated as variance. Peak memory also *grows*
+with dispatches at sixteen, `31,954` to `32,079`, which is fragmentation rather
+than a steady state.
+
+This supersedes the operating-point claim above and the projection below, both of
+which took the burst as the rate. It is also why a bounded run budgeted at
+`55,000,000` targets for one hour was still at `19` percent after two, and it
+means `E5`'s `4.12x` and `4.58x` shortfalls are optimistic by roughly the same
+factor the burst overstates. The corrected figure needs an end-to-end run to
+state honestly: the only measured end-to-end datum is `47` seconds per optimizer
+update at the frozen sixteen, against a component sum of about `10` seconds, so
+even the sustained probe does not capture everything the real loop pays.
 
 **E1B is complete and the run does not meet the SLA.** `33.0` hours at E5's
 re-measurement against the `28,800`-second completion SLA is short by a factor of
