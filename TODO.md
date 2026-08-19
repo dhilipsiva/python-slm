@@ -595,12 +595,13 @@ repository cannot do for itself:
 | E1, E1A, E1B, E2 | Complete, hardware-verified | — |
 | E3 corpus | **Complete**: `2,000,000,001` training IDs installed and verified | — |
 | E4 diagnostics | Not run | Physical RTX 5090 session, or a `windows-cuda.yml` dispatch |
-| **E5** admission | **Measured: admission fails**, by at least `4.58x` and probably far more | An owner decision — the shortfall is understated, see the sustained-throughput correction |
+| **E5** admission | **Measured: admission fails** by `11.4x`, end to end | An owner decision — amend the budget under P19, amend the numerical semantics, or record the refusal |
 | E6 execution | Unreachable | E5 admitting the run, which on measurement it does not |
 
 One blocking fact to carry, and E5 has now measured rather than projected it.
-**The run does not meet the SLA**: `33.0` hours against `28,800` seconds, short
-by `4.12x` for completion and `4.58x` for admission. E5 could not close it,
+**The run does not meet the SLA**: measured end to end at `6,757` targets per
+second, the full run is about `82` hours against `28,800` seconds, short by
+`10.3x` for completion and `11.4x` for admission. E5 could not close it,
 because the gap is larger than the largest lever available — isolated BF16 matmul
 is `2.10x`-`2.87x` faster than FP32 on the real shapes, and E1B already measured
 that converting storage to BF16 buys nothing at all on the whole model. What
@@ -1337,6 +1338,29 @@ point gives `16,857`.
 | Completion SLA, `28,800` s | `69,444` | `4.12x` | `4.46x` |
 | Admission, `25,920` s | `77,160` | `4.58x` | `4.95x` |
 
+
+**Superseded by an end-to-end measurement.** The table above divides a frozen
+target count by a *probe* rate, and a probe measures forward and backward with
+nothing else in the loop. A real bounded run has since measured the whole thing:
+`30,736,384` targets in `4,549` seconds, which is `6,757` targets per second
+including the gradient readback, the host AdamW over `135,285,504` parameters,
+the loader, and the checkpoint write.
+
+| Requirement | Targets/s | Shortfall on the probe rate | **on the measured rate** |
+|---|---|---|---|
+| Completion SLA, `28,800` s | `69,444` | `4.12x` | **`10.3x`** |
+| Admission, `25,920` s | `77,160` | `4.58x` | **`11.4x`** |
+
+The full run projects to about `82` hours rather than `33`. The conclusion does
+not change and the argument for it gets stronger: the gap was already larger than
+the largest lever when it was measured at `4.58x`, and BF16's `2.10x`–`2.87x` on
+isolated matmul is further from `11.4x` still, having already measured as zero on
+the whole model.
+
+This is the third time a number here has moved because a burst was read as a rate,
+and the pattern is worth stating plainly rather than being corrected a fourth
+time: **five dispatches after warmup is not a throughput measurement**, and
+nothing in this repository should quote one as if it were.
 **The gap is larger than the largest lever, and that is the finding.** Precision
 is the only substantial one available: isolated matmul on the real shapes
 measures `72.09`, `72.95` and `79.08` TFLOP/s in FP32 against `151.07`, `154.21`
