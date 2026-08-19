@@ -676,6 +676,49 @@ impl<B: AutodiffBackend> FullModelGraph<B> {
     /// on an [`untracked`](Self::untracked) graph — evaluation must never build a
     /// tape, which would grow without bound across the held-out set and could not
     /// affect training state anyway.
+
+    /// Logits for the position after `input_ids`, forward-only.
+    ///
+    /// Generation needs the next-token distribution, which is the same body and
+    /// the same `lm_head` the loss uses, stopped one step earlier. It runs the
+    /// whole prefix each call rather than caching keys and values: a cache is a
+    /// second inference path that has to agree with this one exactly, and at a
+    /// 2,048-position context the recompute is affordable where a divergence
+    /// between two paths would not be.
+    ///
+    /// The returned row is FP32, not the BF16 storage bits the loss captures,
+    /// because sampling compares logits against each other and the frozen storage
+    /// points are about what training rounds, not about what a diagnostic reads.
+    pub fn next_token_logits(
+        &self,
+        input_ids: &[u16],
+        constants: &GraphConstants<B>,
+        device: &B::Device,
+    ) -> Result<Vec<f32>> {
+        ensure!(!input_ids.is_empty(), "E1_GRAPH_SEQUENCE_INVALID");
+        ensure!(
+            input_ids.len() <= self.dimensions.max_context,
+            "E1_GRAPH_SEQUENCE_INVALID"
+        );
+        // `flatten_sequences` wants aligned targets; generation has none, so the
+        // inputs stand in and nothing downstream of the body reads them.
+        let tokens = flatten_sequences(&[(input_ids, input_ids)], self.dimensions.max_context)?;
+        let hidden = self.forward_body(&tokens, constants, device)?;
+        let width = self.dimensions.width;
+        let rows = tokens.batch * tokens.positions;
+        let last = self
+            .linear_rows(
+                hidden
+                    .reshape([rows, width])
+                    .slice([rows - 1..rows, 0..width]),
+                "lm_head.weight",
+            )?
+            .reshape([self.dimensions.vocabulary]);
+        last.try_into_data()
+            .context("E1_GRAPH_LOGITS_READ_FAILED")?
+            .to_vec::<f32>()
+            .context("E1_GRAPH_LOGITS_DTYPE_INVALID")
+    }
     pub fn validation_loss_sums(
         &self,
         spans: &[(Vec<u16>, Vec<u16>)],

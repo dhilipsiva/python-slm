@@ -926,6 +926,17 @@ impl<B: TrainerBackend> DeterministicTrainer<B> {
         }))
     }
 
+    /// The backend, for read-only diagnostics that are not training.
+    ///
+    /// Generation needs the restored model and nothing else the trainer holds.
+    /// Reaching it through the trainer rather than constructing a backend
+    /// separately is what makes the weights the ones a checkpoint actually
+    /// restored, verified byte for byte, rather than a second load path that
+    /// could differ.
+    pub fn backend_mut(&mut self) -> &mut B {
+        &mut self.backend
+    }
+
     /// Evaluate the current state against held-out data without recording it.
     ///
     /// The frozen evaluation schedule fires every `EVENT_INTERVAL_TARGETS`, and

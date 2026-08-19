@@ -100,6 +100,68 @@ impl CudaTrainerBackend {
 
     /// The backend's RNG witness chain states, so a launching coordinator can seed
     /// the trainer from the backend rather than from invented values.
+
+    /// Sample continuation tokens from the trained model.
+    ///
+    /// Deterministic given the same prompt, settings and seed: the RNG is the
+    /// pinned ChaCha12 the rest of the product uses, seeded explicitly, so a
+    /// generation can be repeated exactly. Temperature zero is greedy and takes no
+    /// RNG draw at all.
+    ///
+    /// This is a diagnostic. It reads the model and produces text; it does not
+    /// touch optimizer state, and nothing it returns is qualified evidence about
+    /// model quality.
+    pub fn generate(
+        &mut self,
+        prompt_ids: &[u16],
+        maximum_new_tokens: usize,
+        temperature: f32,
+        top_k: usize,
+        seed: u64,
+    ) -> Result<Vec<u16>> {
+        use rand_chacha::ChaCha12Rng;
+        use rand_core::SeedableRng;
+
+        if prompt_ids.is_empty() {
+            return Err(ProductError::usage(
+                "E7_GENERATION_PROMPT_EMPTY",
+                "generation needs at least one prompt token",
+            ));
+        }
+        if !(temperature.is_finite() && temperature >= 0.0) || top_k == 0 {
+            return Err(ProductError::usage(
+                "E7_GENERATION_SETTINGS_INVALID",
+                "temperature must be finite and non-negative and top_k must be positive",
+            ));
+        }
+        let context = self.graph.dimensions().max_context;
+        let mut seed_bytes = [0_u8; 32];
+        seed_bytes[..8].copy_from_slice(&seed.to_le_bytes());
+        let mut rng = ChaCha12Rng::from_seed(seed_bytes);
+        let mut window = prompt_ids.to_vec();
+        let mut produced = Vec::new();
+
+        for _ in 0..maximum_new_tokens {
+            // The model has no memory beyond its context, so once the prompt plus
+            // what it has written exceeds that, the oldest tokens fall off rather
+            // than the request failing.
+            if window.len() > context {
+                window.drain(..window.len() - context);
+            }
+            let logits = self
+                .graph
+                .untracked()
+                .next_token_logits(&window, &self.constants, &self.device)
+                .map_err(graph_failure)?;
+            let next = sample_token(&logits, temperature, top_k, &mut rng)?;
+            produced.push(next);
+            window.push(next);
+            if u32::from(next) == crate::tokenizer::EOS_ID {
+                break;
+            }
+        }
+        Ok(produced)
+    }
     pub fn rng_states(&self) -> (Vec<u8>, Vec<u8>) {
         self.state.rng_states()
     }
@@ -244,4 +306,77 @@ impl TrainerBackend for CudaTrainerBackend {
             FullModelState::restore_artifacts(*self.state.dimensions(), &identity, artifacts)?;
         self.reload_graph()
     }
+}
+
+/// Pick one token from a logit row under temperature and top-k.
+///
+/// Temperature zero is greedy and never draws, which keeps a deterministic
+/// generation deterministic without depending on the RNG at all. Above zero the
+/// row is softmaxed in f64 after subtracting its maximum — the subtraction is
+/// what stops `exp` overflowing on a confident model, and f64 because summing
+/// 32,000 exponentials in f32 loses more than the sampling can afford.
+///
+/// Ties break toward the lower token id, so a model that has learned nothing and
+/// emits a flat row still produces something reproducible rather than something
+/// that depends on iteration order.
+fn sample_token(
+    logits: &[f32],
+    temperature: f32,
+    top_k: usize,
+    rng: &mut rand_chacha::ChaCha12Rng,
+) -> Result<u16> {
+    use rand_core::Rng;
+
+    if logits.is_empty() || logits.iter().any(|value| !value.is_finite()) {
+        return Err(ProductError::gate(
+            "E7_GENERATION_LOGITS_INVALID",
+            "the model produced an empty or non-finite logit row",
+        ));
+    }
+    let mut ranked: Vec<(usize, f32)> = logits.iter().copied().enumerate().collect();
+    ranked.sort_by(|left, right| {
+        right
+            .1
+            .partial_cmp(&left.1)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(left.0.cmp(&right.0))
+    });
+    ranked.truncate(top_k.min(ranked.len()));
+
+    let chosen = if temperature == 0.0 {
+        ranked[0].0
+    } else {
+        let maximum = ranked[0].1;
+        let weights: Vec<f64> = ranked
+            .iter()
+            .map(|(_, logit)| f64::from((logit - maximum) / temperature).exp())
+            .collect();
+        let total: f64 = weights.iter().sum();
+        if !total.is_finite() || total <= 0.0 {
+            return Err(ProductError::gate(
+                "E7_GENERATION_DISTRIBUTION_INVALID",
+                "the sampling distribution summed to zero or a non-finite value",
+            ));
+        }
+        // next_u64 rather than a distribution helper: it is the primitive every
+        // rand version exposes identically, so a generation stays reproducible
+        // across dependency updates that reshape the distribution API.
+        let unit = rng.next_u64() as f64 / (u64::MAX as f64 + 1.0);
+        let mut draw = unit * total;
+        let mut selected = ranked[ranked.len() - 1].0;
+        for ((index, _), weight) in ranked.iter().zip(&weights) {
+            draw -= weight;
+            if draw <= 0.0 {
+                selected = *index;
+                break;
+            }
+        }
+        selected
+    };
+    u16::try_from(chosen).map_err(|_| {
+        ProductError::internal(
+            "E7_GENERATION_TOKEN_INVALID",
+            "the sampled token id does not fit the immutable u16 shard format",
+        )
+    })
 }

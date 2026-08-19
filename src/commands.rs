@@ -102,6 +102,31 @@ enum Command {
         #[arg(long, conflicts_with = "verify_final_checkpoint")]
         launch: Option<PathBuf>,
     },
+    /// Generate a continuation from a published checkpoint.
+    ///
+    /// A diagnostic: it reads a checkpoint and prints what the model writes next.
+    /// It is not the P16A quality evaluation, which scores a frozen prompt pack.
+    Generate {
+        #[arg(long)]
+        checkpoint: PathBuf,
+        #[arg(long)]
+        tokens: PathBuf,
+        #[arg(long)]
+        tokenizer: PathBuf,
+        #[arg(long)]
+        prompt: String,
+        #[arg(long, default_value_t = 128)]
+        maximum_new_tokens: u64,
+        /// Zero is greedy and draws no randomness at all.
+        #[arg(long, default_value_t = 0.8)]
+        temperature: f32,
+        #[arg(long, default_value_t = 40)]
+        top_k: u64,
+        #[arg(long, default_value_t = 0)]
+        seed: u64,
+        #[arg(long, default_value_t = 0)]
+        device_ordinal: u64,
+    },
     /// Inspect the automated P16A quality-evaluation implementation boundary.
     EvaluateQuality {
         #[arg(long)]
@@ -192,6 +217,27 @@ pub fn run(args: impl IntoIterator<Item = OsString>) -> Result<Value> {
                 crate::train::final_run::final_training(&config, verify_final_checkpoint.as_deref())
             }
         },
+        Command::Generate {
+            checkpoint,
+            tokens,
+            tokenizer,
+            prompt,
+            maximum_new_tokens,
+            temperature,
+            top_k,
+            seed,
+            device_ordinal,
+        } => generate_dispatch(
+            &checkpoint,
+            &tokens,
+            &tokenizer,
+            &prompt,
+            maximum_new_tokens,
+            temperature,
+            top_k,
+            seed,
+            device_ordinal,
+        ),
         Command::EvaluateQuality { config } => crate::train::quality::quality_evaluation(&config),
         Command::PlanScaleUp { config } => crate::scale_up::plan_scale_up(&config),
     }
@@ -202,6 +248,57 @@ fn deferred(phase: &str, command: &str, _config: PathBuf) -> Result<Value> {
         "PHASE_NOT_IMPLEMENTED",
         format!("{command} is installed but remains unavailable until {phase}"),
     ))
+}
+
+/// Route `generate` to the accelerator lane, or refuse it clearly.
+///
+/// The CPU build has no model to run, and saying so by name is better than a
+/// subcommand that exists in `--help` and then fails with something about a
+/// missing backend.
+#[allow(clippy::too_many_arguments)]
+fn generate_dispatch(
+    checkpoint: &std::path::Path,
+    tokens: &std::path::Path,
+    tokenizer: &std::path::Path,
+    prompt: &str,
+    maximum_new_tokens: u64,
+    temperature: f32,
+    top_k: u64,
+    seed: u64,
+    device_ordinal: u64,
+) -> Result<Value> {
+    #[cfg(feature = "cuda")]
+    {
+        crate::train::launch::generate_from_checkpoint(
+            checkpoint,
+            tokens,
+            tokenizer,
+            prompt,
+            maximum_new_tokens,
+            temperature,
+            top_k,
+            seed,
+            device_ordinal,
+        )
+    }
+    #[cfg(not(feature = "cuda"))]
+    {
+        let _ = (
+            checkpoint,
+            tokens,
+            tokenizer,
+            prompt,
+            maximum_new_tokens,
+            temperature,
+            top_k,
+            seed,
+            device_ordinal,
+        );
+        Err(ProductError::gate(
+            "E7_GENERATION_BACKEND_ABSENT",
+            "generation needs an accelerator build; rebuild with --features cuda",
+        ))
+    }
 }
 
 #[cfg(test)]

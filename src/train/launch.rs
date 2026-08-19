@@ -640,6 +640,95 @@ pub fn score_published_checkpoint(
     }))
 }
 
+/// Generate a continuation from a published checkpoint.
+///
+/// A diagnostic that reads a checkpoint, a tokenizer and a prompt, and prints
+/// what the model writes next. It publishes nothing, trains nothing, and is not
+/// evidence of model quality — `P16A` owns that, against a frozen prompt pack
+/// this deliberately is not.
+#[cfg(feature = "cuda")]
+pub fn generate_from_checkpoint(
+    generation: &Path,
+    token_generation_root: &Path,
+    tokenizer_artifact: &Path,
+    prompt: &str,
+    maximum_new_tokens: u64,
+    temperature: f32,
+    top_k: u64,
+    seed: u64,
+    device_ordinal: u64,
+) -> Result<serde_json::Value> {
+    use crate::tokenizer::ByteBpeTokenizer;
+    use crate::train::cuda_backend::CudaTrainerBackend;
+    use crate::train::full_state::GqaDimensions;
+
+    let tokenizer_bytes = super::profile::read_control_file(
+        tokenizer_artifact,
+        "E7_GENERATION_TOKENIZER_READ_FAILED",
+    )?;
+    let tokenizer = ByteBpeTokenizer::from_artifact_bytes(&tokenizer_bytes)?;
+    let prompt_ids = tokenizer.encode(prompt.as_bytes());
+    let prompt_u16 = prompt_ids
+        .iter()
+        .map(|id| {
+            u16::try_from(*id).map_err(|_| {
+                ProductError::integrity(
+                    "E7_GENERATION_TOKEN_INVALID",
+                    "a prompt token does not fit the immutable u16 shard format",
+                )
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    let corpus = crate::storage::VerifiedTokenCorpus::open(token_generation_root)?;
+    let dimensions = GqaDimensions::canonical();
+    let validation = read_validation_set(&corpus, &dimensions, LoaderCancellation::default())?;
+    let snapshot = super::checkpoint::load_checkpoint(generation)?;
+    let identity = snapshot.identity.clone();
+    let consumed_targets = snapshot.consumed_targets;
+    let ordinal = usize::try_from(device_ordinal).map_err(|_| {
+        ProductError::usage(
+            "E2_DEVICE_ORDINAL_INVALID",
+            "the device ordinal does not fit this host's address width",
+        )
+    })?;
+    let backend = CudaTrainerBackend::canonical(ordinal, validation)?;
+    let mut trainer = DeterministicTrainer::from_snapshot(snapshot, &identity, backend)?;
+    let produced = trainer.backend_mut().generate(
+        &prompt_u16,
+        usize::try_from(maximum_new_tokens).unwrap_or(usize::MAX),
+        temperature,
+        usize::try_from(top_k).unwrap_or(usize::MAX),
+        seed,
+    )?;
+
+    let produced_ids = produced.iter().map(|id| u32::from(*id)).collect::<Vec<_>>();
+    let continuation = tokenizer.decode_source(&produced_ids)?;
+    let mut whole = prompt_ids.clone();
+    whole.extend(produced_ids.iter().copied());
+    let whole_text = tokenizer.decode_source(&whole)?;
+    Ok(serde_json::json!({
+        "schema": "python-slm-generation-v1",
+        "status": "GENERATED",
+        "qualification_status": "SKIPPED",
+        "profile": PROTOTYPE_PROFILE,
+        "model_identity": identity.model_identity,
+        "consumed_targets": consumed_targets,
+        "prompt": prompt,
+        "prompt_tokens": prompt_ids.len(),
+        "generated_tokens": produced.len(),
+        "temperature": temperature,
+        "top_k": top_k,
+        "seed": seed,
+        "continuation": String::from_utf8_lossy(&continuation),
+        "prompt_and_continuation": String::from_utf8_lossy(&whole_text),
+        "limitations": [
+            "not-hardware-qualification",
+            "not-final-model-quality",
+            "diagnostic-generation-not-the-frozen-prompt-pack",
+        ],
+    }))
+}
 /// The explicit execution mode, wired to the prototype CUDA lane.
 #[cfg(feature = "cuda")]
 pub fn launch_final_run(config_path: &Path, launch_path: &Path) -> Result<serde_json::Value> {
