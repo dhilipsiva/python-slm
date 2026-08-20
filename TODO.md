@@ -1566,25 +1566,48 @@ one were never the same sequence of weights. The cubecl autotune cache under
 2026-08-19, two minutes into the first run — that run measured kernel candidates
 while training, and this one started from the selections it left behind.
 
-#### Known regression, first thing next session
+#### The regression that was not one
 
-`cargo test --locked -p xtask` fails two tests, and one of them is mine.
+**Retracted 2026-08-20. `cargo test --locked -p xtask` passes: `153` passed, `0`
+failed, twice, and neither suspect test failed once in `30` isolated runs each.**
+The attribution below was wrong, and how it went wrong is the part worth keeping.
 
 `p1a_process::windows::tests::syswow64_and_exact_file_classes_are_vswhere_only`
-expects `P1A_QUALIFIED_FILE_NOT_OBSERVED` from `require_qualified_files_observed`
-and gets `P1A_AUDITED_FILE_REVALIDATION_FAILED`, which is
-`bound.file.metadata()` failing on an open handle. **Confirmed mine**: checking
-`xtask/src/p1a_process.rs` out at `ebe49ee` and rerunning the single test passes,
-restoring `HEAD` fails it. The cause is one of five changes made to that file
-while getting `probe-cuda` to run — the `winsxs` path class, SysWOW64 under the
-CUDA probe policy, the `cmd.exe` allowance, `DETACHED_PROCESS` for probe
-commands, or the `COMSPEC`/`VSCMD_SKIP_SENDTELEMETRY` allowlist entries — and it
-has not been isolated further than that.
+expected `P1A_QUALIFIED_FILE_NOT_OBSERVED` from `require_qualified_files_observed`
+and got `P1A_AUDITED_FILE_REVALIDATION_FAILED`, which is `bound.file.metadata()`
+failing on an open handle. It was recorded as **confirmed mine** on the strength
+of checking `xtask/src/p1a_process.rs` out at `ebe49ee`, seeing the test pass, and
+seeing it fail again at `HEAD`. **One trial per side cannot attribute an
+intermittent failure**, and that is the whole of what that evidence was.
 
-The other failure, `verifier_ancestry_contains_current_process`, is the
-environmental one: a process in this session's ancestry exits between the
-ancestry walk and the kernel snapshot, and it reproduces identically on clean
-`HEAD`.
+The five suspected changes are also not on the failing path. `git diff
+ebe49ee..HEAD` over that file touches `bind_process_path_policy` — where a failed
+WinSxS canonicalization would raise `P1A_WINSXS_INVALID`, and where the failing
+run got past it — and an error message in `require_path_ancestors_not_reparse`.
+Neither `bind_file`, nor `complete_file_identity`, nor the handle revalidation
+that raised the error is modified at all.
+
+What the error actually reports is `GetFileInformationByHandle` failing on an
+open handle. The test writes a `15` MB copy of its own executable into `%TEMP%`
+under the names `vswhere.exe` and
+`Microsoft.VisualStudio.Setup.Configuration.Native.dll`, then opens it, hashes the
+whole thing through the handle, and re-queries metadata. That is a freshly written
+PE in an unexcluded directory with real-time protection enabled, which on this
+host is a known actor: Defender deleting corpus files after they were written cost
+E3 a day, and the fix there was a path exclusion. A transient filter-driver
+failure on that handle explains the symptom, the intermittency, and why a quiet
+host does not reproduce it.
+
+Two things follow for whoever hits it again. It is a gate failing on an IO error
+rather than on a mismatch, so a bounded retry of the revalidation would change no
+integrity semantics — but it is a verifier, so that is an owner decision and it
+has not been made. And an exclusion for the test's temp path would remove the
+actor entirely, at the cost of excluding a directory.
+
+The other failure, `verifier_ancestry_contains_current_process`, was already
+recorded as environmental: a process in the session's ancestry exits between the
+ancestry walk and the kernel snapshot. It also passed `30` of `30` here, which is
+consistent with that reading rather than evidence against it.
 
 The full gate also stops earlier with `QUALITY_PROCESS_JOB_NOT_EMPTY`, a
 descendant outliving a gate command. That one is *not* attributed: the `vctip`
@@ -1595,5 +1618,7 @@ same cause.
 
 None of this touches the product. `cargo test --features cpu-reference` is green,
 `fmt` and `clippy` are clean, both feature lanes check, and the trained model and
-its checkpoint are unaffected. But the xtask suite is a gate, a gate that does not
-pass is not a gate, and this is the first thing to fix.
+its checkpoint are unaffected. The xtask suite is a gate and it passes; what is
+left is the `QUALITY_PROCESS_JOB_NOT_EMPTY` question above, which the baseline can
+now be taken for, because the ancestry failure that used to stop the baseline
+early does not reproduce either.
