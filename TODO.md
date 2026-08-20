@@ -587,8 +587,8 @@ and `28,800`-second completion SLA are never retuned after measurement; a failed
 projection blocks the run instead of moving a threshold.
 
 **Where this stands.** Every piece of code the run needs is built, measured and
-gated, the corpus it needs is installed, and a bounded run has trained a model
-and generated from it. What is left on the frozen path is one thing this
+gated, the corpus it needs is installed, and two bounded runs have trained models
+and generated from them. What is left on the frozen path is one thing this
 repository cannot do for itself:
 
 | | State | Blocked on |
@@ -596,9 +596,9 @@ repository cannot do for itself:
 | E1, E1A, E1B, E2 | Complete, hardware-verified | — |
 | E3 corpus | **Complete**: `2,000,000,001` training IDs installed and verified | — |
 | E4 diagnostics | Not run | Physical RTX 5090 session, or a `windows-cuda.yml` dispatch |
-| **E5** admission | **Measured: admission fails** by `11.4x`, end to end | An owner decision — amend the budget under P19, amend the numerical semantics, or record the refusal |
+| **E5** admission | **Measured: admission fails** by `11.4x`, end to end — E7's `8.71`-hour run sharpens it to `12.4x` | An owner decision — amend the budget under P19, amend the numerical semantics, or record the refusal |
 | E6 execution | Unreachable | E5 admitting the run, which on measurement it does not |
-| **E7** diagnostic runs | A trained model exists: `8.566` against `10.534` untrained | Nothing — an eight-hour run is queued for the next session |
+| **E7** diagnostic runs | **Both runs complete.** The eight-hour run peaked at `7.717` mid-run and regressed to `8.719` by its budget | Nothing — the curve turning over is a result, not a blocker |
 
 One blocking fact to carry, and E5 has now measured rather than projected it.
 **The run does not meet the SLA**: measured end to end at `6,757` targets per
@@ -1434,7 +1434,7 @@ not under-report against a wall-clock deadline.
 ### E7 — Bounded Diagnostic Runs
 
 - [x] E7 bounded run, scoring, and generation
-- [ ] E7 eight-hour run (**next session**, owner requested 2026-08-19)
+- [x] E7 eight-hour run (owner requested 2026-08-19, run 2026-08-20)
 
 Dependencies: E3. Independent of E4 and E5 — it deliberately claims nothing about
 admission.
@@ -1471,19 +1471,9 @@ texture with no syntax, which is what `0.23` targets per parameter buys.
 
 #### The eight-hour run
 
-Owner requested 2026-08-19, for the next session. At the measured `6,757` targets
-per second, eight hours is about `194,600,000` targets — `1.44` per parameter,
-`6.3x` this run and still roughly `14x` under compute-optimal.
-
-Three things make it worth more than a longer version of the same thing. It
-crosses the `100,000,000`-target evaluation and checkpoint interval, so it
-publishes an intermediate checkpoint and **reports a mid-run loss without any of
-the scaffolding this track needed** — the first point on a real loss curve rather
-than two endpoints. Eight hours is also exactly the `28,800`-second completion
-SLA, so it measures what the frozen budget actually buys on this host. And `1.44`
-targets per parameter is roughly where token statistics start becoming syntax,
-which is the first budget where generation output answers a question instead of
-confirming one.
+Owner requested 2026-08-19, run 2026-08-20 at a `diagnostic_target_budget` of
+`194600000`. It stopped where it was predicted to, at update `2,970` and
+`194,641,920` targets — `1.44` per parameter, `6.3x` the first run.
 
 **It needs no amendment.** `P19_SCOPE_DECREASED` refuses a shorter budget and
 `FUTURE-001` reserves the phase for larger scopes, but a bounded diagnostic is not
@@ -1491,10 +1481,90 @@ an amendment to the frozen run — it is explicitly not that run. Only a decisio
 make `194,600,000` *the* target count would need a ledger, and nothing here
 requires that.
 
-To start it, set `diagnostic_target_budget` to `194600000` in the launch
-configuration and run the explicit execution mode. The loop stops at the first
-optimizer-update boundary at or past the budget, which is update `2,970` at
-`194,641,920` targets.
+**What it measured:**
+
+| | Value |
+|---|---|
+| Elapsed, suspend-inclusive | `31,367` s (`8.71` h) |
+| Completion SLA | **`EXCEEDED`** by `2,567` s against the frozen `28,800` |
+| Throughput | `6,205` targets/s overall; `6,533` to the first checkpoint, `5,893` after it |
+| Checkpoints | `2`, at `100,007,936` and `194,641,920` |
+| Peak host residency | `16,575` MiB, at checkpoint publication |
+
+**This is now the longest end-to-end throughput datum in the repository**, and E5
+asked for exactly that: `6,205` targets/s sustained over `8.71` hours puts the
+frozen `2,000,000,000`-target run at `89.5` hours — `11.19x` the completion SLA
+and `12.43x` the admission ceiling, against the `10.3x` and `11.4x` E5 projected
+from the one-hour run. It does not change E5's conclusion, it sharpens it, and it
+confirms the direction E1B warned about: a burst overstates the rate, and so does
+an hour. The decay inside this run is visible on its own — `6,533` targets/s to
+the first checkpoint against `5,893` after it.
+
+**The loss curve turns over, which is the result:**
+
+| Targets | Loss | Perplexity | |
+|---|---|---|---|
+| `0` | `10.533993` | `~37,600` | recorded, scheduled |
+| `100,007,936` | `7.716904` | `~2,248` | **recorded, scheduled** |
+| `194,641,920` | `8.718966` | `~6,118` | reported, end of run |
+
+The mid-run point is what this run was for and it delivered: an evaluation on an
+exact schedule boundary, recorded in the snapshot rather than reported beside it,
+with none of the scaffolding the first run needed. What it recorded is that the
+model **peaked mid-run and got worse**.
+
+The two numbers are comparable, which was checked before believing them:
+`evaluate` scores a fixed `validation.spans()` set against a fixed divisor, and
+the state hash feeds only `result_sha256`, the witness, never the span selection.
+Generation agrees with the arithmetic. Same prompt, greedy, both checkpoints: at
+`100,007,936` it writes `for j in range(...)`, `arr.append(arr)` and real
+indentation — degenerate, but Python-shaped, which is the jump from the byte
+texture the first run produced. At `194,641,920` it collapses to `t[1])` repeated
+to the token limit, on a visibly narrower vocabulary.
+
+**Why, and it is not a defect.** The learning rate at update `2,970` is
+`0.002475`, `99.0` percent of peak: `SCHED-001` decays over `30,518` updates, so a
+run that stops at `9.7` percent of the schedule never leaves the warmup plateau.
+This model spent its whole life at peak LR and destabilized there. Nothing frozen
+moved. But it inverts this section's premise — `1.44` targets per parameter is
+where *this truncated recipe* peaks and turns over, not where syntax consolidates,
+and the useful artifact of the run is the `100,007,936` checkpoint rather than the
+final one. A bounded diagnostic that wants a better model than its mid-point needs
+a schedule that completes inside its own budget, and that is a `SCHED-001`
+question, not a budget question.
+
+#### The clip verification the run overran
+
+The first two attempts died `270` seconds in, at update `18`, on
+`P12_OPTIMIZER_GRADIENT_INVALID`. The error named neither of the two invariants it
+guards, so the first change was to make it say which one failed and by how much:
+update `18` re-measured a clip scale of `0.98996186` against a one-percent
+tolerance, missing by `3.8e-5`.
+
+Two f32 accumulations over `135,285,504` squares disagreed by `2.0` percent in the
+sum. That is the regime where sequential f32 summation error grows with term count
+rather than with its square root, so no bound tight enough to verify a one-percent
+property is available to a check measuring the same way the clipper does. The
+tolerance is now `0.05`, set from that measurement rather than extrapolated.
+
+**Nothing numerical moved.** The trainer still clips once, in f32, exactly as
+`OPT-001` specifies; this is the tolerance of an assertion about the gradients,
+not of the gradients. Making the *measurement* exact — an f64 accumulation in
+`gradient_clip_scale` — would move the clip scale itself by about a percent, which
+is `OPT-001` arithmetic and a ledger decision. It has not been made.
+
+`tests/p12_trainer.rs` now probes at `CANONICAL_PARAMETER_COUNT` and reads the
+tolerance from the constant, so the two cannot drift apart again. One honest
+limit: that probe re-checks at exactly `1` at canonical width, *better* than its
+ten-million case, because its elements all share one magnitude and their rounding
+cancels. Width alone does not reproduce the failure; the decades of dynamic range
+in a real gradient do.
+
+Worth recording for whoever reads determinism claims here: the first run and this
+one were never the same sequence of weights. The cubecl autotune cache under
+`AppData\Local\cubecl\autotune\0.10.0\device-0-0-cuda` was last written `19:21` on
+2026-08-19, two minutes into the first run — that run measured kernel candidates
+while training, and this one started from the selections it left behind.
 
 #### Known regression, first thing next session
 
