@@ -139,14 +139,26 @@ pub struct AdamwParameterState {
 /// strict form rejected the first update whose gradients actually needed
 /// clipping, which is exactly when the check matters least and fires most.
 ///
-/// One percent is far above that rounding and far below any real violation: a
-/// gradient that reached here genuinely unclipped would re-check orders of
-/// magnitude below one, not thousandths of it.
+/// One percent was extrapolated from that ten-million-element measurement, and
+/// the full vector overran it: the E7 eight-hour run re-checked `0.98996186` at
+/// update `18`, missing the one-percent form by `3.8e-5` and stopping the run
+/// four and a half minutes in. Two separate f32 accumulations over
+/// `135,285,504` squares disagreed by `2.0` percent in the sum. That is the
+/// regime where sequential f32 summation error grows with term count rather than
+/// with its square root, so no bound tight enough to verify a one-percent
+/// property is available to a check that measures the same way the clipper does.
+///
+/// Five percent is what that measurement supports, and it is still far below any
+/// real violation: a gradient that reached here genuinely unclipped would
+/// re-check orders of magnitude below one, not hundredths of it.
 ///
 /// Nothing numerical moves. `OPT-001`'s clip arithmetic is untouched and the
 /// gradients handed to AdamW are identical either way; this is the tolerance of
-/// an assertion about them, not of the training itself.
-const CLIP_VERIFICATION_TOLERANCE: f32 = 0.01;
+/// an assertion about them, not of the training itself. Making the *measurement*
+/// exact — an f64 accumulation in `gradient_clip_scale` — would move the clip
+/// scale itself by about a percent, which is `OPT-001` arithmetic and a ledger
+/// decision, not a widened assertion.
+pub const CLIP_VERIFICATION_TOLERANCE: f32 = 0.05;
 
 impl AdamwParameterState {
     fn validate(&self) -> Result<()> {
@@ -221,12 +233,29 @@ impl CanonicalAdamw {
                     .checked_add(parameter.master_weights.len())
                     .ok_or_else(accounting_overflow)
             })?;
-        if gradients.len() != expected
-            || gradient_clip_scale(gradients)? < 1.0 - CLIP_VERIFICATION_TOLERANCE
-        {
+        // Both halves of the invariant carry what they observed. The check is the
+        // last thing between a diverging run and an optimizer step, so when it
+        // fires the two questions are always which half failed and by how much,
+        // and a message that names neither costs a five-minute rerun to answer.
+        if gradients.len() != expected {
             return Err(ProductError::integrity(
                 "P12_OPTIMIZER_GRADIENT_INVALID",
-                "AdamW requires one finite, globally clipped FP32 gradient per parameter",
+                format!(
+                    "AdamW requires one FP32 gradient per parameter: update {one_based_update} \
+                     supplied {} for {expected} parameters",
+                    gradients.len()
+                ),
+            ));
+        }
+        let observed_clip_scale = gradient_clip_scale(gradients)?;
+        if observed_clip_scale < 1.0 - CLIP_VERIFICATION_TOLERANCE {
+            return Err(ProductError::integrity(
+                "P12_OPTIMIZER_GRADIENT_INVALID",
+                format!(
+                    "AdamW requires globally clipped FP32 gradients: update {one_based_update} \
+                     re-measured a clip scale of {observed_clip_scale:e}, outside the \
+                     {CLIP_VERIFICATION_TOLERANCE} verification tolerance of 1.0"
+                ),
             ));
         }
         let optimizer_update = u32::try_from(one_based_update).map_err(|_| {

@@ -405,9 +405,26 @@ fn p12_adds_no_receipt_or_manual_qualification_surface() {
 /// rounding still verifies after being clipped once.
 #[test]
 fn a_clipped_gradient_still_verifies_at_production_width() {
+    use rust_llm_pretrain::model::CANONICAL_PARAMETER_COUNT;
     use rust_llm_pretrain::model::oracle::gradient_clip_scale;
+    use rust_llm_pretrain::train::trainer::CLIP_VERIFICATION_TOLERANCE;
 
-    for count in [1_000_usize, 1_000_000, 10_000_000] {
+    // Ten million was the widest probe here, and extrapolating from it is what
+    // set the tolerance a run later overran: the E7 eight-hour run re-checked
+    // `0.98996186` at update `18`, over the canonical parameter count.
+    //
+    // The canonical width is included because the run happens there, but it does
+    // not reproduce that number — this probe re-checks at exactly `1` there,
+    // better than the ten-million case does. These gradients all share one
+    // magnitude, so their rounding cancels; a real gradient spans decades across
+    // embedding, norm, and matrix tensors, and that is where the error comes
+    // from. The tolerance is set from the measured run, not from this probe.
+    for count in [
+        1_000_usize,
+        1_000_000,
+        10_000_000,
+        CANONICAL_PARAMETER_COUNT as usize,
+    ] {
         let mut gradients: Vec<f32> = (0..count)
             .map(|index| ((index % 977) as f32 - 488.0) * 1e-3)
             .collect();
@@ -421,7 +438,7 @@ fn a_clipped_gradient_still_verifies_at_production_width() {
         }
         let verified = gradient_clip_scale(&gradients).expect("finite after clipping");
         assert!(
-            verified >= 1.0 - 0.01,
+            verified >= 1.0 - CLIP_VERIFICATION_TOLERANCE,
             "a clipped {count}-element gradient re-checked at {verified}, outside the tolerance \
              the state accepts"
         );
